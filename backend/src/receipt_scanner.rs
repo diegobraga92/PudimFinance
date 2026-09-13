@@ -164,12 +164,10 @@ fn parse_items(rest: &[&str]) -> Vec<NfceItem> {
     };
 
     let mut items = Vec::new();
-    let groups = if let Some(n) = count_hint {
-        rest[start..start + n * 4]
-            .chunks_exact(4)
-            .collect::<Vec<_>>()
+    let groups: &[[&str; 4]] = if let Some(n) = count_hint {
+        rest[start..start + n * 4].as_chunks::<4>().0
     } else if rest.len().is_multiple_of(4) {
-        rest.chunks_exact(4).collect::<Vec<_>>()
+        rest.as_chunks::<4>().0
     } else {
         return Vec::new();
     };
