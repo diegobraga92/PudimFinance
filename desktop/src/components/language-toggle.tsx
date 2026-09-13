@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-/** Compact locale switcher (header + login page). */
+/** Compact locale switcher for the header and login page. */
 export function LanguageToggle() {
   const { t, locale, setLocale } = useI18n();
 

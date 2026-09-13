@@ -22,7 +22,7 @@ internal object NotificationCaptureQueue {
     fun enqueue(context: Context, payload: Map<String, Any?>) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val items = read(prefs).toMutableList()
-        // Dedup: drop any existing entry for the same posting so a re-delivered
+        // Drop any existing entry for the same posting so a re-delivered
         // notification isn't processed twice.
         val dedupKey = dedupKeyOf(payload)
         items.removeAll { it.optString(KEY_DEDUP) == dedupKey }

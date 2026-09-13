@@ -47,7 +47,7 @@ export function OfflineBanner() {
     setState(online ? 'online' : 'offline');
   };
 
-  // Nothing to surface: online and no pending changes.
+  // Nothing to surface. Online with no pending changes.
   if (state === 'online' && pendingCount === 0 && !syncing) {
     return null;
   }

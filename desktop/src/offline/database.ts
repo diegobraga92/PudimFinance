@@ -3,7 +3,7 @@
  *
  * IndexedDB is available both in the Tauri webview and in a plain browser dev
  * tab, so the whole offline layer stays in TypeScript (no native compile risk).
- * The schema mirrors the React Native app's SQLite mirror:
+ * The schema mirrors the React Native app's SQLite mirror.
  *
  *   local_transactions / local_categories / local_accounts   (the mirror)
  *   pending_operations                                       (mutation queue)
@@ -14,7 +14,7 @@ const DB_NAME = 'pudimfinance.db';
 const DB_VERSION = 1;
 
 export interface LocalTransaction {
-  /** Local row id — a client-generated UUID. */
+  /** Local row id, a client-generated UUID. */
   id: string;
   /** Server UUID once the row has been pushed (NULL until then). */
   server_id: string | null;
@@ -107,6 +107,10 @@ function openDb(): Promise<IDBDatabase> {
 function tx<T>(
   storeName: string,
   mode: IDBTransactionMode,
+  // lib.dom's IDBRequest<T> is invariant, so the callers' concrete request
+  // types (IDBRequest<IDBValidKey>, IDBRequest<T[]>, …) can't unify under one
+  // generic parameter here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: (store: IDBObjectStore) => IDBRequest<any> | void,
 ): Promise<T | undefined> {
   return openDb().then(
@@ -175,9 +179,7 @@ export function isOfflineSupported(): boolean {
   return typeof indexedDB !== 'undefined';
 }
 
-// ---------------------------------------------------------------------------
 // Transactions
-// ---------------------------------------------------------------------------
 
 export async function getLocalTransactions(): Promise<LocalTransaction[]> {
   const rows = await getAll<LocalTransaction>('local_transactions');
@@ -220,9 +222,7 @@ export async function markTransactionSynced(localId: string, serverId: string): 
   await upsertLocalTransaction({ ...existing, server_id: serverId, synced: 1 });
 }
 
-// ---------------------------------------------------------------------------
 // Categories
-// ---------------------------------------------------------------------------
 
 export async function getLocalCategories(): Promise<LocalCategory[]> {
   const rows = await getAll<LocalCategory>('local_categories');
@@ -251,9 +251,7 @@ export async function markCategorySynced(localId: string, serverId: string): Pro
   await upsertLocalCategory({ ...existing, server_id: serverId, synced: 1 });
 }
 
-// ---------------------------------------------------------------------------
 // Accounts
-// ---------------------------------------------------------------------------
 
 export async function getLocalAccounts(): Promise<LocalAccount[]> {
   const rows = await getAll<LocalAccount>('local_accounts');
@@ -271,9 +269,7 @@ export async function deleteLocalAccount(id: string): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Pending operations
-// ---------------------------------------------------------------------------
 
 export async function addPendingOperation(op: Omit<PendingOperation, 'id' | 'created_at'>): Promise<void> {
   await tx('pending_operations', 'readwrite', (store) =>
@@ -298,9 +294,7 @@ export async function countPendingOperations(): Promise<number> {
   return (await getAll<PendingOperation>('pending_operations')).length;
 }
 
-// ---------------------------------------------------------------------------
 // Sync metadata
-// ---------------------------------------------------------------------------
 
 export async function getLastSync(): Promise<string | null> {
   const rows = await getAll<{ key: string; value: string }>('sync_metadata');

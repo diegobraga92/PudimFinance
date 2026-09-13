@@ -117,8 +117,8 @@ export function BudgetsPage() {
     setFormError(null);
     try {
       if (editing) {
-        // Recreating the budget for the same month/category keeps the UX simple:
-        // the backend upserts budgets by (category, month, year) on create.
+        // Recreating the budget for the same month/category is safe because the
+        // backend upserts budgets by (category, month, year) on create.
         await createBudget({
           category_id: formCategory,
           amount_limit: formLimit.replace(',', '.'),

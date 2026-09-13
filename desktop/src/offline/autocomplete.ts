@@ -17,7 +17,7 @@ export interface PreviousTransaction {
 /** Minimum input length before prefix/substring matching kicks in. */
 const MIN_FUZZY_LENGTH = 3;
 
-/** Normalizes a description for matching: lowercase, accents stripped, trimmed. */
+/** Normalizes a description for matching by lowercasing, stripping accents, and trimming. */
 export function normalizeDescription(description: string): string {
   return description
     .normalize('NFD')
@@ -29,7 +29,7 @@ export function normalizeDescription(description: string): string {
 
 /**
  * Finds the most recent previous transaction that matches the given
- * description. Exact normalized matches always win; then a prefix match; then
+ * description. Exact normalized matches always win, then a prefix match, then
  * a substring match (for inputs of at least 3 characters).
  */
 export async function findPreviousTransaction(

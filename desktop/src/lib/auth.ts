@@ -2,7 +2,7 @@
  * Auth session persistence for the desktop app.
  *
  * Secrets live in the OS keyring (via the `auth_store_*` Tauri commands) when
- * available, with two safety nets:
+ * available, with two safety nets.
  *
  *  1. An in-memory cache so the request hot path never awaits the OS keyring
  *     more than once per session.
@@ -48,9 +48,7 @@ function notify(): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Storage primitives: keyring first, localStorage as fallback/migration.
-// ---------------------------------------------------------------------------
+// Storage primitives. Keyring first, localStorage as fallback and migration.
 
 async function storeGet(key: string): Promise<string | null> {
   if (isTauri()) {
@@ -58,7 +56,7 @@ async function storeGet(key: string): Promise<string | null> {
       const value = await invoke<string | null>('auth_store_get', { key });
       if (value != null) return value;
     } catch {
-      // Keyring unavailable — fall through to localStorage.
+      // Keyring unavailable, so fall through to localStorage.
     }
   }
   try {
@@ -68,14 +66,14 @@ async function storeGet(key: string): Promise<string | null> {
   }
 }
 
-/** Writes to the keyring when possible; only falls back to localStorage. */
+/** Writes to the keyring when possible, and only falls back to localStorage. */
 async function storeSet(key: string, value: string): Promise<void> {
   if (isTauri()) {
     try {
       await invoke('auth_store_set', { key, value });
       return;
     } catch {
-      // Keyring unavailable — fall through to localStorage.
+      // Keyring unavailable, so fall through to localStorage.
     }
   }
   try {
@@ -91,7 +89,7 @@ async function storeDelete(key: string): Promise<void> {
     try {
       await invoke('auth_store_delete', { key });
     } catch {
-      // Keyring unavailable — nothing to remove there.
+      // Keyring unavailable, so there is nothing to remove there.
     }
   }
   try {
@@ -101,9 +99,7 @@ async function storeDelete(key: string): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
 
 /** Loads the session into the in-memory cache (idempotent). */
 export async function loadSession(): Promise<void> {

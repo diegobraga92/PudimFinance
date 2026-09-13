@@ -31,9 +31,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(true);
   const [restoredSession, setRestoredSession] = React.useState(false);
 
-  // Hydrate the session (keyring/localStorage → memory cache) and validate it
+  // Hydrate the session (keyring/localStorage into the memory cache) and validate it
   // on startup. If the access token is stale the request layer refreshes it
-  // automatically; a hard failure signs the user out.
+  // automatically. A hard failure signs the user out.
   React.useEffect(() => {
     let mounted = true;
     (async () => {
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const me = await fetchMe(accessToken);
         if (mounted) setUser(me);
       } catch (err) {
-        // Only a genuine auth failure logs out; a network error keeps the
+        // Only a genuine auth failure logs out. A network error keeps the
         // cached session (offline-first).
         if (mounted && !isNetworkError(err)) setUser(null);
       } finally {

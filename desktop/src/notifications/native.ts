@@ -1,10 +1,10 @@
 /**
  * Bridge between the webview and the native notification-capture backend.
  *
- * - Android: the Tauri plugin (`pudim-android-native`) emits the
- *   `notificationCaptured` event with `{ app_name, title, text, post_time }`,
- *   reachable through the `plugin:pudim-native|…` command prefix.
- * - Desktop: capture is unsupported — everything here degrades to no-ops.
+ * Android uses the Tauri plugin (`pudim-android-native`), which emits the
+ * `notificationCaptured` event with `{ app_name, title, text, post_time }`,
+ * reachable through the `plugin:pudim-native|…` command prefix. On desktop
+ * capture is unsupported, so everything here degrades to no-ops.
  */
 
 import { addPluginListener, invoke } from '@tauri-apps/api/core';
@@ -69,7 +69,7 @@ export async function notificationAccessGranted(): Promise<boolean> {
   }
 }
 
-/** Whether biometrics are available + enrolled (Android only). */
+/** Whether biometrics are available and enrolled (Android only). */
 export async function biometricAvailable(): Promise<boolean> {
   if (!isTauri()) return false;
   try {
@@ -79,7 +79,7 @@ export async function biometricAvailable(): Promise<boolean> {
   }
 }
 
-/** Shows the system biometric prompt; resolves true only on success. */
+/** Shows the system biometric prompt. Resolves true only on success. */
 export async function authenticateBiometric(): Promise<boolean> {
   if (!isTauri()) return false;
   try {

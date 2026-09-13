@@ -11,7 +11,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Minimal token store backed by the Android Keystore: an AES-256/GCM key is
+ * Minimal token store backed by the Android Keystore. An AES-256/GCM key is
  * generated once (non-exportable, kept in hardware-backed storage when
  * available) and used to encrypt values that are persisted in regular
  * SharedPreferences. This replaces the OS keyring (`keyring` crate) which has
@@ -66,7 +66,7 @@ internal object SecureStorage {
             cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
             String(cipher.doFinal(data), Charsets.UTF_8)
         } catch (_: Exception) {
-            // Corrupted/tampered ciphertext (or key rotation) — treat as missing.
+            // Corrupted/tampered ciphertext (or key rotation), so treat as missing.
             null
         }
     }

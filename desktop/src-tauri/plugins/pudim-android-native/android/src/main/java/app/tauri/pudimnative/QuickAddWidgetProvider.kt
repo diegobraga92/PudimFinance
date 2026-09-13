@@ -9,10 +9,10 @@ import android.content.Intent
 import android.widget.RemoteViews
 
 /**
- * PudimFinance home-screen widget: shows "Spent today" and two buttons that
+ * PudimFinance home-screen widget that shows "Spent today" and two buttons that
  * deep-link into the app's Add Transaction form (type pre-selected).
  *
- * The widget reads the "spent today" value from SharedPreferences; the JS side
+ * The widget reads the "spent today" value from SharedPreferences, and the JS side
  * pushes fresh values via the `setWidgetSpentToday` command. The deep link is
  * carried as an Intent extra on the launch intent (no custom URI scheme needed).
  */

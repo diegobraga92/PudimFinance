@@ -7,7 +7,7 @@ import app.tauri.plugin.JSObject
 
 /**
  * Android system service that observes notifications posted by ANY app once the
- * user grants "Notification access" (Settings → Special app access →
+ * user grants "Notification access" (Settings, then Special app access, then
  * Notification access).
  *
  * While the app process is alive, each notification is forwarded to the webview
@@ -24,7 +24,7 @@ class NotificationListenerService : NotificationListenerService() {
             plugin.notifyPosted(payload)
         } else {
             // The webview/process isn't alive (app killed / cold-starting).
-            // Persist the notification so the next launch can drain + process.
+            // Persist the notification so the next launch can drain and process.
             NotificationCaptureQueue.enqueue(applicationContext, payload)
         }
     }

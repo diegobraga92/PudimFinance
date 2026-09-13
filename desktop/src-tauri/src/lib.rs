@@ -1,11 +1,8 @@
-//! PudimFinance — Rust core (shared by the desktop binary and the Android app).
+//! PudimFinance Rust core, shared by the desktop binary and the Android app.
 //!
-//! The webview (React/Vite) is the entire UI; this crate grows the native
-//! commands/plugins phase by phase:
-//!
-//!   Phase 3 — keyring-backed token storage (auth_store commands)
-//!   Phase 8 — SQLite offline mirror + sync helpers
-//!   Phase 9 — Android notification capture (pudim-android-native plugin)
+//! The webview (React/Vite) is the entire UI. This crate provides native
+//! capabilities, namely keyring-backed token storage and the Android
+//! notification capture plugin.
 
 mod auth_store;
 

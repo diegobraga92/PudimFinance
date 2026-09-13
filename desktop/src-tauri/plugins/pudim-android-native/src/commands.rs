@@ -1,7 +1,7 @@
 //! Commands exposed to the webview as `plugin:pudim-native|…`.
 //!
 //! On Android they forward to the Kotlin `PudimNativePlugin` via the stored
-//! [`PluginHandle`]; everywhere else they return desktop-safe defaults so the
+//! [`PluginHandle`]. Everywhere else they return desktop-safe defaults so the
 //! shared UI can render the "Android only" messaging.
 
 use serde::{Deserialize, Serialize};
@@ -121,12 +121,9 @@ pub fn drain_pending<R: Runtime>(app: AppHandle<R>) -> Result<Vec<CapturedNotifi
     }
 }
 
-// ---------------------------------------------------------------------------
 // Keystore-backed token storage (Android). The `keyring` crate has no reliable
-// Android backend, so on mobile these forward to the Kotlin `SecureStorage`
-// (Android Keystore + AES/GCM). On desktop the app's auth_store commands use
-// keyring directly and never reach these.
-// ---------------------------------------------------------------------------
+// Android backend, so these forward to the Kotlin `SecureStorage` (Android
+// Keystore and AES/GCM). On desktop the app's auth_store commands use keyring.
 
 #[tauri::command]
 pub fn secure_get<R: Runtime>(app: AppHandle<R>, key: String) -> Result<Option<String>, String> {
@@ -191,10 +188,8 @@ pub fn secure_delete<R: Runtime>(app: AppHandle<R>, key: String) -> Result<(), S
     }
 }
 
-// ---------------------------------------------------------------------------
-// Biometric lock + home-screen Quick Add widget (Android). On desktop these
+// Biometric lock and home-screen Quick Add widget (Android). On desktop these
 // commands degrade to defaults so the shared UI never hard-fails.
-// ---------------------------------------------------------------------------
 #[tauri::command]
 pub fn biometric_available<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
     let state = app.state::<CaptureHandle<R>>();
@@ -271,7 +266,6 @@ pub fn take_deep_link<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, S
         Ok(None)
     }
 }
-/// Convenience used by the app crate's `auth_store_*` commands on mobile.
 #[cfg(mobile)]
 pub fn mobile_secure_get<R: Runtime>(
     app: &AppHandle<R>,
@@ -280,7 +274,6 @@ pub fn mobile_secure_get<R: Runtime>(
     secure_get(app.clone(), key)
 }
 
-/// Convenience used by the app crate's `auth_store_*` commands on mobile.
 #[cfg(mobile)]
 pub fn mobile_secure_set<R: Runtime>(
     app: &AppHandle<R>,
@@ -290,7 +283,6 @@ pub fn mobile_secure_set<R: Runtime>(
     secure_set(app.clone(), key, value)
 }
 
-/// Convenience used by the app crate's `auth_store_*` commands on mobile.
 #[cfg(mobile)]
 pub fn mobile_secure_delete<R: Runtime>(app: &AppHandle<R>, key: String) -> Result<(), String> {
     secure_delete(app.clone(), key)

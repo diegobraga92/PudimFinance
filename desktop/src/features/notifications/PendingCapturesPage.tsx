@@ -23,7 +23,7 @@ import { useNotificationCapture } from '@/notifications/NotificationCaptureProvi
 import { appLabelFor, type PendingCapture } from '@/notifications/capture';
 
 /**
- * Tools → Pending review: captured-but-unconfirmed transactions (ask mode).
+ * The Pending review screen under Tools. Captured but unconfirmed transactions (ask mode).
  * Each entry can be imported as-is, edited, or skipped. The inbox is durable
  * (localStorage) and grouped by the source bank app.
  */

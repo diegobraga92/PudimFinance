@@ -15,7 +15,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
-/** Minimal account shape — works for both `AccountWithBalance` and `CardOverview`. */
+/** Minimal account shape that works for both `AccountWithBalance` and `CardOverview`. */
 export interface AccountLike {
   id: string;
   name: string;
@@ -31,7 +31,7 @@ interface Props {
 }
 
 
-/** Modal with the last 12 months of activity + recent transactions for an account. */
+/** Modal with the last 12 months of activity and recent transactions for an account. */
 export function AccountDetail({ account, categories, open, onClose }: Props) {
   const { t, formatMoney, formatDate, monthNames } = useI18n();
   const categoryById = React.useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);

@@ -50,7 +50,6 @@ export function CreditCardsPage() {
   const [bills, setBills] = React.useState<CardBill[]>([]);
   const [billsLoading, setBillsLoading] = React.useState(false);
 
-  // Purchase dialog
   const [purchaseOpen, setPurchaseOpen] = React.useState(false);
   const [purchaseDesc, setPurchaseDesc] = React.useState('');
   const [purchaseAmount, setPurchaseAmount] = React.useState('');
@@ -59,14 +58,12 @@ export function CreditCardsPage() {
   const [purchaseSaving, setPurchaseSaving] = React.useState(false);
   const [purchaseError, setPurchaseError] = React.useState<string | null>(null);
 
-  // Pay dialog
   const [payOpen, setPayOpen] = React.useState(false);
   const [payBillId, setPayBillId] = React.useState('');
   const [payAmount, setPayAmount] = React.useState('');
   const [paySaving, setPaySaving] = React.useState(false);
   const [payError, setPayError] = React.useState<string | null>(null);
 
-  // Anticipate dialog
   const [anticipateOpen, setAnticipateOpen] = React.useState(false);
   const [anticipatable, setAnticipatable] = React.useState<AnticipatableItem[]>([]);
   const [checkedInstallments, setCheckedInstallments] = React.useState<string[]>([]);
@@ -93,7 +90,6 @@ export function CreditCardsPage() {
     }
   }, []);
 
-  // Default to the first card.
   React.useEffect(() => {
     if (cards.length > 0 && !selectedId) {
       setSelectedId(cards[0].id);
@@ -109,7 +105,6 @@ export function CreditCardsPage() {
     if (selectedId) await loadBills(selectedId);
   };
 
-  // --- Purchase ---
   const openPurchase = () => {
     setPurchaseDesc('');
     setPurchaseAmount('');
@@ -150,7 +145,6 @@ export function CreditCardsPage() {
     }
   };
 
-  // --- Pay bill ---
   const openPay = () => {
     setPayBillId(currentBill?.id ?? '');
     setPayAmount('');
@@ -189,7 +183,6 @@ export function CreditCardsPage() {
     }
   };
 
-  // --- Anticipate ---
   const openAnticipate = async () => {
     if (!selected) return;
     setAnticipateError(null);
@@ -200,7 +193,7 @@ export function CreditCardsPage() {
     try {
       const plans = (await fetchInstallmentPlans()).filter((p) => p.account_id === selected.id);
       // Only installments belonging to a *future* billing cycle can be
-      // anticipated — anything due within the current open bill is not.
+      // anticipated. Anything due within the current open bill is not.
       const cutoff = currentBill?.due_date ?? new Date().toISOString().slice(0, 10);
       const items: AnticipatableItem[] = [];
       for (const plan of plans) {

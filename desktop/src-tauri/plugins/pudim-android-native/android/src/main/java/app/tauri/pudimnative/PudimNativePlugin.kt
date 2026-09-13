@@ -29,13 +29,14 @@ internal object PendingDeepLink {
 }
 
 /**
- * Tauri Android plugin bridging the native side and the webview:
+ * Tauri Android plugin bridging the native side and the webview.
  *
- *   - `notificationCaptured` event — live bank notifications (while the app runs).
- *   - `accessGranted` / `openSettings` / `drainPending` — notification capture helpers.
- *   - `secureGet` / `secureSet` / `secureDelete` — Keystore-backed token storage.
- *   - `biometricAvailable` / `biometricAuthenticate` — biometric lock.
- *   - `setWidgetSpentToday` + `deepLink` — home-screen Quick Add widget.
+ * Command groups are notification capture (`accessGranted`, `openSettings`,
+ * `drainPending`), Keystore-backed token storage (`secureGet`, `secureSet`,
+ * `secureDelete`), the biometric lock (`biometricAvailable`,
+ * `biometricAuthenticate`), and the home-screen Quick Add widget
+ * (`setWidgetSpentToday` plus the `deepLink` event). The plugin also emits the
+ * `notificationCaptured` event for live bank notifications.
  *
  * Registered from Rust via `register_android_plugin("app.tauri.pudimnative",
  * "PudimNativePlugin")` in `pudim-android-native`.
@@ -62,7 +63,7 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Widget tapped while the app is already running — forward immediately.
+        // Widget tapped while the app is already running, so forward immediately.
         val link = intent.getStringExtra(DEEP_LINK_EXTRA) ?: return
         PendingDeepLink.value = link
         emitDeepLink(link)
@@ -82,13 +83,13 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(value)
     }
 
-    /** Whether a biometric authenticator (fingerprint/face) is available + enrolled. */
+    /** Whether a biometric authenticator (fingerprint/face) is available and enrolled. */
     @Command
     fun biometricAvailable(invoke: Invoke) {
         invoke.resolve(isBiometricAvailable())
     }
 
-    /** Shows the system biometric prompt; resolves true only on success. */
+    /** Shows the system biometric prompt. Resolves true only on success. */
     @Command
     fun biometricAuthenticate(invoke: Invoke) {
         if (!isBiometricAvailable()) {
@@ -110,7 +111,7 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    // Includes user cancel — resolve false; a failed attempt stays open.
+                    // Includes user cancel, so resolve false. A failed attempt stays open.
                     invoke.resolve(false)
                 }
             },

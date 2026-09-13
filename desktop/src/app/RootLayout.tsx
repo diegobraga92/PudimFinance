@@ -70,7 +70,7 @@ function routeFromDeepLink(link: string): string | null {
   return null;
 }
 
-/** Application shell: fixed sidebar + top header + routed content. */
+/** Application shell with a fixed sidebar, top header, and routed content. */
 export function RootLayout() {
   const { t, locale, setLocale } = useI18n();
   const { theme, toggle } = useTheme();
@@ -95,7 +95,7 @@ export function RootLayout() {
 
   const goQuickAdd = () => navigate('/transactions?add=1');
 
-  // Offline-first: seed the local mirror on startup and whenever connectivity
+  // Offline-first. Seed the local mirror on startup and whenever connectivity
   // returns. Failures are non-fatal (the app falls back to the mirror).
   React.useEffect(() => {
     let active = true;
@@ -123,7 +123,7 @@ export function RootLayout() {
     };
   }, []);
 
-  // Home-screen widget deep links (Android): route to the add-transaction form.
+  // Home-screen widget deep links (Android) route to the add-transaction form.
   React.useEffect(() => {
     let unlisten: (() => void) | null = null;
     const go = (link: string) => {

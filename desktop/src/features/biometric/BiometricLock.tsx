@@ -7,7 +7,7 @@ import { authenticateBiometric, biometricAvailable } from '@/notifications/nativ
 
 interface BiometricLockProps {
   children: React.ReactNode;
-  /** Start locked on mount — true for a restored session, false after a fresh login. */
+  /** Start locked on mount. True for a restored session, false after a fresh login. */
   lockOnMount: boolean;
 }
 
@@ -19,11 +19,11 @@ const UNLOCK_SUPPRESS_MS = 1_500;
 /**
  * Locks the app behind the Android biometric prompt.
  *
- * - Locks on a restored session (any launch after the first login) and
- *   auto-prompts; a fresh password login stays unlocked for that session.
- * - Re-locks and re-prompts whenever the app returns from the background.
- * - On desktop the native commands report "unavailable", so children render
- *   directly (no lock).
+ * It locks on a restored session (any launch after the first login) and
+ * auto-prompts, while a fresh password login stays unlocked for that session.
+ * It re-locks and re-prompts whenever the app returns from the background. On
+ * desktop the native commands report "unavailable", so children render directly
+ * with no lock.
  */
 export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
   const { t } = useI18n();
@@ -89,7 +89,7 @@ export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
       const prev = prevVisible.current;
       prevVisible.current = next;
       if (next === 'hidden') {
-        // Any in-flight OS dialog is gone now; clear the guard so a
+        // Any in-flight OS dialog is gone now. Clear the guard so a
         // never-settling prompt can't wedge the Unlock button.
         prompting.current = false;
         if (supported && !suppressRelock()) setLocked(true);

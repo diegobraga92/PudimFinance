@@ -1,14 +1,14 @@
 /**
- * Notification → transaction capture for PudimFinance.
+ * Notification to transaction capture for PudimFinance.
  *
  * The parsing/settings/review logic is target-agnostic and shared by both
- * Tauri targets. The *listening* is platform-specific:
+ * Tauri targets. The *listening* is platform-specific.
  *
- *   - Android: a native `NotificationListenerService` (Tauri Android plugin,
- *     `src-tauri/plugins/pudim-android-native`) observes other apps' bank
- *     notifications while the app is backgrounded/killed and forwards them to
- *     the webview via the `notification-captured` event.
- *   - Desktop: not supported (no OS API to read other apps' notifications).
+ *   On Android a native `NotificationListenerService` (Tauri Android plugin,
+ *   `src-tauri/plugins/pudim-android-native`) observes other apps' bank
+ *   notifications while the app is backgrounded or killed and forwards them to
+ *   the webview via the `notification-captured` event. Desktop is not supported
+ *   (no OS API to read other apps' notifications).
  *
  * Settings and the pending-review inbox are persisted in localStorage.
  */
@@ -16,11 +16,11 @@
 export type CaptureMode = 'auto' | 'ask';
 
 export interface NotificationSettings {
-  /** Master switch — false means notifications are ignored. */
+  /** Master switch. False means notifications are ignored. */
   enabled: boolean;
   /** App names we watch for (empty = all apps). */
   monitoredApps: string[];
-  /** `auto` creates transactions silently; `ask` prompts first. */
+  /** `auto` creates transactions silently, while `ask` prompts first. */
   mode: CaptureMode;
   /** Default category id used when the parser can't guess one. */
   defaultCategoryId: string | null;
@@ -70,9 +70,7 @@ export async function saveNotificationSettings(settings: NotificationSettings): 
   }
 }
 
-// ---------------------------------------------------------------------------
 // Notification parsing
-// ---------------------------------------------------------------------------
 
 export interface ParsedTransaction {
   /** `income` or `expense`. */
@@ -87,7 +85,7 @@ export interface ParsedTransaction {
   categoryId: string | null;
 }
 
-/** Normalizes a Brazilian amount like "R$ 1.234,56" → "1234.56". */
+/** Normalizes a Brazilian amount like "R$ 1.234,56" into "1234.56". */
 function normalizeAmount(raw: string): string {
   let cleaned = raw.replace(/[^0-9.,]/g, '');
   // If both separators exist, the last one is the decimal separator.
@@ -177,7 +175,7 @@ export function parseNotification(
 
   if (!type) return null;
 
-  // Extract a description: take the text after "em"/"de"/"no" and strip noise.
+  // Extract a description by taking the text after "em"/"de"/"no" and stripping noise.
   let description = text;
   const merchantMatch = text.match(
     /\b(?:em|no|na|de|do|da)\s+([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ0-9][A-Za-zÁÉÍÓÚÀÂÊÔÃÕÇ0-9 ]{2,40})/,
@@ -185,7 +183,7 @@ export function parseNotification(
   if (merchantMatch) {
     description = merchantMatch[1].trim();
   } else {
-    // Fallback: strip the leading alert verb and amount.
+    // Otherwise strip the leading alert verb and amount.
     description = text
       .replace(/R\$\s*[0-9][0-9.,]*/i, '')
       .replace(/^[a-záéíóúàâêôãõçü]+ de\s*/i, '')
@@ -223,9 +221,7 @@ export function parseNotification(
   };
 }
 
-// ---------------------------------------------------------------------------
 // Pending review inbox (ask mode)
-// ---------------------------------------------------------------------------
 
 export interface PendingCapture {
   id: string;

@@ -1,7 +1,7 @@
 /**
  * Brazilian Portuguese translation dictionary.
  *
- * Every key mirrors `en.ts` exactly — TypeScript enforces this via
+ * Every key mirrors `en.ts` exactly, which TypeScript enforces via
  * `Record<TranslationKey, string>` (see index.ts), so a missing/extra key
  * fails the build on both platforms.
  */

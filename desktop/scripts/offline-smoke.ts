@@ -2,15 +2,15 @@
  * Offline-layer smoke test (run with `npx tsx --tsconfig=tsconfig.app.json scripts/offline-smoke.ts`).
  *
  * Requires a PudimFinance backend on http://localhost:3000 with a reachable
- * Postgres (e.g. `docker compose up postgres` + the backend binary).
+ * Postgres (for example `docker compose up postgres` and the backend binary).
  *
  * Exercises the real IndexedDB wrapper (via fake-indexeddb) and the sync
- * engine through the app's offline-first API layer: go "offline" (circuit
- * breaker), create a transaction (queued + mirrored), reconnect, sync, verify.
+ * engine through the app's offline-first API layer. Go "offline" (circuit
+ * breaker), create a transaction (queued and mirrored), reconnect, sync, verify.
  */
 import 'fake-indexeddb/auto';
 
-// Minimal localStorage shim (auth + server config read it).
+// Minimal localStorage shim (auth and server config read it).
 const lsStore = new Map<string, string>();
 (globalThis as unknown as { localStorage: Storage }).localStorage = {
   getItem: (k: string) => lsStore.get(k) ?? null,
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   await setAuthSession(reg.access_token, reg.refresh_token, reg.user);
   console.log('PASS: register + session');
 
-  // 1. Initial pull — the mirror reflects everything on the server.
+  // 1. Initial pull. The mirror reflects everything on the server.
   const initial = await syncSilently();
   assert(initial.ok, 'initial syncSilently ok');
   const serverCount = (await fetchTransactions({ page: 0, page_size: 200 })).items.length;
@@ -67,9 +67,8 @@ async function main(): Promise<void> {
 
   const tag = String(Date.now());
   const descCreate = `Offline Created ${tag}`;
-  const descDelete = `Offline Delete ${tag}`;
 
-  // 2. Simulate offline: circuit breaker open → create queues + mirrors.
+  // 2. Simulate offline. The circuit breaker opens, so creates queue and mirror.
   markServerUnavailable();
   const created = await createTransaction({
     description: descCreate,
@@ -84,7 +83,7 @@ async function main(): Promise<void> {
   );
   assert(created.description === descCreate, 'offline create returns optimistic tx');
 
-  // 3. Reconnect and sync → the queued create reaches the server.
+  // 3. Reconnect and sync. The queued create reaches the server.
   clearServerProbeCache();
   const pushed = await syncAll();
   assert(pushed.ok && pushed.pushed === 1, 'syncAll pushed the queued create');
@@ -98,7 +97,7 @@ async function main(): Promise<void> {
     'mirror keeps the synced row',
   );
 
-  // 4. Offline delete → queued; reconnect → server reflects the delete.
+  // 4. Offline delete is queued, then reconnect and the server reflects the delete.
   markServerUnavailable();
   await deleteTransaction(onlineId!);
   assert((await countPendingOperations()) === 1, 'offline delete queued one op');
@@ -112,10 +111,10 @@ async function main(): Promise<void> {
     'server reflects the offline delete',
   );
 
-  // 5. Offline update → queued; reconnect → server reflects the edit.
+  // 5. Offline update is queued, then reconnect and the server reflects the edit.
   const descUpdate = `Offline Update ${tag}`;
   markServerUnavailable();
-  const created2 = await createTransaction({
+  await createTransaction({
     description: descUpdate,
     amount: '5.00',
     type: 'expense',

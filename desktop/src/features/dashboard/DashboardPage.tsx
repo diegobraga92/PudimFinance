@@ -90,7 +90,7 @@ function CategoryBreakdown({ items, total }: { items: CategorySummary[]; total: 
   );
 }
 
-/** From-scratch dashboard — month net, category breakdown, recent activity. */
+/** Dashboard with month net, category breakdown, and recent activity. */
 export function DashboardPage() {
   const { t, formatMoney, formatDate, monthNames } = useI18n();
 

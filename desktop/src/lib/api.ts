@@ -20,9 +20,7 @@ import {
 
 export { ApiError, isNetworkError };
 
-// ---------------------------------------------------------------------------
-// Typed aliases (single source of truth: the generated OpenAPI spec)
-// ---------------------------------------------------------------------------
+// Typed aliases, sourced from the generated OpenAPI spec
 
 export type Category = components['schemas']['Category'];
 export type CreateCategoryRequest = components['schemas']['CreateCategoryRequest'];
@@ -77,8 +75,6 @@ export type MergeProductsRequest = components['schemas']['MergeProductsRequest']
 export type SyncPullRequest = components['schemas']['SyncPullRequest'];
 export type SyncPullResponse = components['schemas']['SyncPullResponse'];
 
-// ---------------------------------------------------------------------------
-
 function qs(params: Record<string, unknown> | undefined): string {
   if (!params) return '';
   const search = new URLSearchParams();
@@ -90,9 +86,7 @@ function qs(params: Record<string, unknown> | undefined): string {
   return s ? `?${s}` : '';
 }
 
-// ---------------------------------------------------------------------------
 // Offline-first helpers (local mirror <-> server shapes)
-// ---------------------------------------------------------------------------
 
 function localTxToTransaction(t: LocalTransaction): Transaction {
   return {
@@ -143,9 +137,7 @@ function localAccountToAccount(a: LocalAccount): AccountWithBalance {
 export type SyncPushRequest = components['schemas']['SyncPushRequest'];
 export type SyncPushResponse = components['schemas']['SyncPushResponse'];
 
-// ---------------------------------------------------------------------------
 // Auth
-// ---------------------------------------------------------------------------
 
 export interface AuthResponse {
   access_token: string;
@@ -187,9 +179,7 @@ export async function fetchMe(token: string): Promise<{ id: string; email: strin
   });
 }
 
-// ---------------------------------------------------------------------------
 // Categories
-// ---------------------------------------------------------------------------
 
 export async function fetchCategories(): Promise<Category[]> {
   if (!(await isOnline())) {
@@ -329,9 +319,7 @@ export async function deleteCategory(id: string): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Transactions
-// ---------------------------------------------------------------------------
 
 export interface TransactionFilters {
   page?: number;
@@ -346,7 +334,7 @@ export interface TransactionFilters {
 export async function fetchTransactions(
   params?: TransactionFilters,
 ): Promise<TransactionListResponse> {
-  // Offline: serve the local mirror (sorted newest-first by the store).
+  // Offline, serve the local mirror (sorted newest-first by the store).
   if (!(await isOnline())) {
     const items = await getLocalTransactions();
     const mapped = items.map(localTxToTransaction);
@@ -511,18 +499,14 @@ async function getLocalTransactionByAnyId(id: string): Promise<LocalTransaction>
   return found;
 }
 
-// ---------------------------------------------------------------------------
 // Summary
-// ---------------------------------------------------------------------------
 
 export async function fetchSummary(params?: { month?: number; year?: number }): Promise<SummaryResponse> {
   return request<SummaryResponse>(`/api/summary${qs(params as Record<string, unknown>)}`);
 }
 
 
-// ---------------------------------------------------------------------------
 // Budgets
-// ---------------------------------------------------------------------------
 
 export async function fetchBudgets(): Promise<BudgetWithCategory[]> {
   return request<BudgetWithCategory[]>('/api/budgets');
@@ -564,9 +548,7 @@ export async function fetchBudgetSummary(year: number, month: number): Promise<B
   );
 }
 
-// ---------------------------------------------------------------------------
 // Reports
-// ---------------------------------------------------------------------------
 
 export async function fetchMonthlyReport(
   startYear: number,
@@ -598,9 +580,7 @@ export async function fetchTrends(months = 6): Promise<TrendsResponse> {
   return request<TrendsResponse>(`/api/reports/trends${qs({ months })}`);
 }
 
-// ---------------------------------------------------------------------------
 // Accounts
-// ---------------------------------------------------------------------------
 
 export async function fetchAccountsWithBalance(): Promise<AccountWithBalance[]> {
   if (!(await isOnline())) {
@@ -760,9 +740,7 @@ export async function deleteAccount(id: string): Promise<void> {
 }
 
 
-// ---------------------------------------------------------------------------
 // Credit cards
-// ---------------------------------------------------------------------------
 
 export async function fetchCreditCards(): Promise<CardOverview[]> {
   return request<CardOverview[]>('/api/credit-cards');
@@ -807,9 +785,7 @@ export async function anticipateInstallments(
   });
 }
 
-// ---------------------------------------------------------------------------
 // Installments
-// ---------------------------------------------------------------------------
 
 export async function fetchInstallmentPlans(): Promise<InstallmentPlan[]> {
   return request<InstallmentPlan[]>('/api/installments');
@@ -844,9 +820,7 @@ export async function payInstallment(id: string, number: number): Promise<PayIns
   });
 }
 
-// ---------------------------------------------------------------------------
 // Ledger
-// ---------------------------------------------------------------------------
 
 export async function fetchLedgerTransactions(): Promise<LedgerTransaction[]> {
   return request<LedgerTransaction[]>('/api/ledger/transactions');
@@ -868,9 +842,7 @@ export async function migrateSingleToDouble(): Promise<MigrationResponse> {
 }
 
 
-// ---------------------------------------------------------------------------
 // Reconciliation
-// ---------------------------------------------------------------------------
 
 export interface ReconciliationHistoryItem {
   id: string;
@@ -917,9 +889,7 @@ export async function fetchReconciliationHistory(): Promise<{ items: Reconciliat
   return request<{ items: ReconciliationHistoryItem[] }>('/api/reconciliation/history');
 }
 
-// ---------------------------------------------------------------------------
 // Receipts
-// ---------------------------------------------------------------------------
 
 export async function scanReceipt(qrData: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('/api/receipts/scan', {
@@ -973,9 +943,7 @@ export async function mergeProducts(
   );
 }
 
-// ---------------------------------------------------------------------------
 // Audit (admin)
-// ---------------------------------------------------------------------------
 
 export interface AuditEvent {
   id: number;

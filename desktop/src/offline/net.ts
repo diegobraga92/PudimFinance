@@ -1,7 +1,7 @@
 /**
  * Connectivity helper for the desktop app.
  *
- * "Online" means the API server is actually reachable — not just that the OS
+ * "Online" means the API server is actually reachable, not just that the OS
  * has a network link. When the server is unreachable (server down, wrong
  * address, LAN host not reachable) we treat the app as offline so mutations
  * queue and reads fall back to the local mirror instead of hanging.
@@ -72,13 +72,13 @@ function probeServer(): Promise<boolean> {
 
 /** Returns whether the app can currently talk to the API server. */
 export async function isOnline(): Promise<boolean> {
-  // Circuit breaker: the server is known-unreachable, don't probe again yet.
+  // Circuit breaker. The server is known to be unreachable, so don't probe again yet.
   if (Date.now() < serverUnavailableUntil) return false;
 
   // Reuse a recent successful probe.
   if (lastOnlineProbeAt > 0 && Date.now() - lastOnlineProbeAt < ONLINE_CACHE_MS) return true;
 
-  // No device-level link: offline immediately (the probe decides otherwise).
+  // No device-level link, so report offline immediately (the probe decides otherwise).
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
 
   return probeServer();

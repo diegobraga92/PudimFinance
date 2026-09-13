@@ -2,7 +2,7 @@
  * Shared PudimFinance i18n module.
  *
  * Both the Vite web app and the Expo mobile app import from this single
- * source of truth. The `en` dictionary defines the canonical key set; `pt-BR`
+ * source of truth. The `en` dictionary defines the canonical key set, and `pt-BR`
  * is type-checked to have exactly the same keys.
  */
 
@@ -14,11 +14,11 @@ export type Locale = 'en' | 'pt-BR';
 /** Every translation value is a plain string (flat dotted keys). */
 export type Translation = Record<string, string>;
 
-/** Union of every valid key — derived from the English dictionary. */
+/** Union of every valid key, derived from the English dictionary. */
 export type TranslationKey = keyof typeof en;
 
 /**
- * Compile-time guards: `pt-BR` must define exactly the same keys as `en`.
+ * Compile-time guards ensure `pt-BR` defines exactly the same keys as `en`.
  * If a key is missing (or extra) in pt-BR, this module fails to compile.
  */
 type _MissingKeys = Exclude<TranslationKey, keyof typeof ptBR>;

@@ -1,9 +1,9 @@
 /**
- * English translation dictionary — source of truth for every user-facing string
+ * English translation dictionary. It is the source of truth for every user-facing string
  * in the web and mobile apps. Flat dotted keys so both Vite and Metro can import
  * this module with zero bundler configuration.
  *
- * Interpolation: use `{placeholder}` tokens, substituted by the `t()` helper
+ * Interpolation uses `{placeholder}` tokens, substituted by the `t()` helper
  * (e.g. `t('common.appliesTo', { month, year })`). Pluralization is handled by
  * picking the right key in the caller (`..._one` / `..._other`).
  */

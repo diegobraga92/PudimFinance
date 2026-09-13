@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-/** Settings → Server: configure the PudimFinance backend address at runtime. */
+/** The Server screen under Settings. Configures the PudimFinance backend address at runtime. */
 export function ServerPage() {
   const { t } = useI18n();
   const { toast } = useToast();

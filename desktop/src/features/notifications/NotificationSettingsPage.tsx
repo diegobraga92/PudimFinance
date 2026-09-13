@@ -23,7 +23,7 @@ import {
 } from '@/notifications/native';
 
 /**
- * Settings → Notifications: control Android push-notification capture
+ * The Notifications section of Settings. Controls Android push-notification capture
  * (master switch, watched apps, capture mode, fallback category).
  *
  * On desktop the screen renders the same UI but with an "Android only" notice,

@@ -19,17 +19,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Android notification capture (bank transaction alerts). Registers the native
-# NotificationListenerService + Keystore-backed secure storage on Android;
-# degrades to no-ops on desktop so the shared UI renders the "Android only"
-# messaging.
+# Android notification capture (bank transaction alerts): native
+# NotificationListenerService + Keystore-backed storage; no-ops on desktop.
 pudim-android-native = { path = "./plugins/pudim-android-native" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 keyring = "3"
-
-# Phase 1 keeps the surface minimal. Later phases add:
-#   - tauri-plugin-sql  (offline SQLite mirror)
-#   - zbus (D-Bus notification monitor for bank capture)
-#   - tauri-plugin-dialog (file pickers for reconciliation/receipts)
-#   - tauri-plugin-global-shortcut + tray (quick add)

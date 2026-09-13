@@ -114,7 +114,7 @@ export function TransactionForm({
     setFilledHint(null);
   }, [open, editing, initialType]);
 
-  // Description-based autocomplete: prefill amount/type/category from the
+  // Description-based autocomplete. Prefill amount, type, and category from the
   // last matching transaction in the local mirror (offline-friendly).
   const handleDescriptionChange = (value: string) => {
     setDescription(value);

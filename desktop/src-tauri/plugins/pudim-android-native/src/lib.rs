@@ -1,4 +1,4 @@
-//! PudimFinance — Android notification capture plugin.
+//! PudimFinance Android notification capture plugin.
 //!
 //! Bridges the webview and the native Android `NotificationListenerService`
 //! (which observes other apps' bank notifications once the user grants

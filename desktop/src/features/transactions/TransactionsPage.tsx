@@ -40,7 +40,7 @@ export function TransactionsPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Quick Add navigates to /transactions?add=1 — open the form once, then clear.
+  // Quick Add navigates to /transactions?add=1. Open the form once, then clear.
   const [formOpen, setFormOpen] = React.useState(false);
   const [formType, setFormType] = React.useState<'income' | 'expense'>('expense');
   const [editing, setEditing] = React.useState<Transaction | null>(null);
@@ -58,7 +58,6 @@ export function TransactionsPage() {
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Supporting data (categories/accounts) via react-query with the page.
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
@@ -108,7 +107,7 @@ export function TransactionsPage() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Client-side search (the backend has no `q` filter — matches legacy behavior).
+  // Client-side search, since the backend has no `q` filter. Matches legacy behavior.
   const visible = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;

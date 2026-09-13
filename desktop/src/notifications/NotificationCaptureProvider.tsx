@@ -79,7 +79,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       if (!settings) return;
 
       if (settings.mode === 'auto') {
-        // Dedup: don't import the same transaction twice within a short window.
+        // Avoid importing the same transaction twice within a short window.
         const key = `${parsed.type}|${parsed.amount}|${parsed.description}|${parsed.date}`;
         const last = recentImportsRef.current.get(key);
         if (last !== undefined && Date.now() - last < DEDUP_WINDOW_MS) return;
@@ -99,7 +99,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           })
           .catch(() => {});
       } else {
-        // Ask mode: queue for review.
+        // In ask mode, queue for review.
         void addPendingCapture(toPendingCapture(parsed, notification.app_name)).then((next) => {
           setPendingItems(next);
         });

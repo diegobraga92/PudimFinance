@@ -21,7 +21,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# VPC
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -32,7 +31,6 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Public subnets
 resource "aws_subnet" "public" {
   count             = length(var.availability_zones)
   vpc_id            = aws_vpc.main.id
@@ -45,7 +43,6 @@ resource "aws_subnet" "public" {
   }
 }
 
-# Internet Gateway
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
@@ -54,7 +51,6 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
-# Route table for public subnets
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -74,7 +70,6 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Security group for RDS
 resource "aws_security_group" "rds" {
   name_prefix = "pudimfinance-rds-${var.environment}"
   vpc_id      = aws_vpc.main.id
@@ -92,7 +87,6 @@ resource "aws_security_group" "rds" {
   }
 }
 
-# RDS PostgreSQL
 resource "aws_db_instance" "postgres" {
   identifier = "pudimfinance-${var.environment}"
 
@@ -137,7 +131,6 @@ resource "aws_db_subnet_group" "main" {
   }
 }
 
-# IAM role for RDS Enhanced Monitoring
 resource "aws_iam_role" "rds_enhanced_monitoring" {
   name_prefix = "pudimfinance-rds-monitoring-${var.environment}"
   assume_role_policy = jsonencode({
@@ -157,7 +150,6 @@ resource "aws_iam_role" "rds_enhanced_monitoring" {
   ]
 }
 
-# Security group for ECS tasks
 resource "aws_security_group" "ecs_tasks" {
   name_prefix = "pudimfinance-ecs-tasks-${var.environment}"
   vpc_id      = aws_vpc.main.id
@@ -182,7 +174,6 @@ resource "aws_security_group" "ecs_tasks" {
   }
 }
 
-# ECS Cluster (for Phase 1+)
 resource "aws_ecs_cluster" "main" {
   name = "pudimfinance-${var.environment}"
 
@@ -196,7 +187,6 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-# CloudWatch log group for ECS
 resource "aws_cloudwatch_log_group" "backend" {
   name              = "/ecs/pudimfinance-backend-${var.environment}"
   retention_in_days = 30

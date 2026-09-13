@@ -49,7 +49,7 @@ cleanup() {
         wait "$BACKEND_PID" 2>/dev/null || true
     fi
 
-    # Broad fallback: catch any cargo process that escaped
+    # Broad fallback to catch any cargo process that escaped
     pkill -9 -f "cargo run.*backend" 2>/dev/null || true
 
     # Stop Docker services if we started them

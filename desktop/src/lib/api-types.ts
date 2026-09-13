@@ -376,8 +376,8 @@ export interface paths {
         put?: never;
         /**
          * Pays a credit-card bill.
-         * @description Records the payment as a transfer (debit the card, credit the paying
-         *     account) — never as an expense — and updates the bill's settlement state.
+         * @description Records the payment as a transfer, debiting the card and crediting the paying
+         *     account. It is never an expense, and it updates the bill's settlement state.
          */
         post: operations["pay_card_bill"];
         delete?: never;
@@ -542,8 +542,8 @@ export interface paths {
         put?: never;
         /**
          * Parses raw OCR text from a receipt photo into structured data.
-         * @description The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web);
-         *     this endpoint turns the resulting text into the same structured shape the
+         * @description The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web).
+         *     This endpoint turns the resulting text into the same structured shape the
          *     QR scan returns, so the save/review flow is identical for both sources.
          */
         post: operations["ocr"];
@@ -579,7 +579,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Merges two normalized products (all items reassigned to target; source deleted). */
+        /** Merges two normalized products. Items move to the target and the source is deleted. */
         post: operations["merge_products"];
         delete?: never;
         options?: never;
@@ -825,8 +825,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Exposes Prometheus-formatted metrics for scraping.
-         *     This endpoint is served on a separate port in production (default 3001).
+         * Documents the Prometheus `/metrics` endpoint for the OpenAPI spec.
+         * @description Stub only. The live endpoint is served by the main router.
          */
         get: operations["metrics_handler_doc"];
         put?: never;
@@ -844,7 +844,7 @@ export interface components {
         /** @description A chart-of-accounts account. */
         Account: {
             /**
-             * @description User-facing kind: `bank`, `cash`, `card`, `loan`, `investment`, or a
+             * @description User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a
              *     system kind (`income`/`expense`/`equity`/`other`).
              */
             account_kind: string;
@@ -855,7 +855,7 @@ export interface components {
             closing_day?: number | null;
             /**
              * Format: date-time
-             * @description Row creation timestamp.
+             * @description Created at.
              */
             created_at: string;
             /** @description Credit limit (credit cards only). */
@@ -867,7 +867,7 @@ export interface components {
             due_day?: number | null;
             /**
              * Format: uuid
-             * @description Unique account identifier.
+             * @description Account ID.
              */
             id: string;
             /** @description Account display name (e.g., "Cash"). */
@@ -883,7 +883,7 @@ export interface components {
         /** @description Account joined with its current computed balance from ledger entries. */
         AccountWithBalance: {
             /**
-             * @description User-facing kind: `bank`, `cash`, `card`, `loan`, `investment`, or a
+             * @description User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a
              *     system kind (`income`/`expense`/`equity`/`other`).
              */
             account_kind: string;
@@ -900,7 +900,7 @@ export interface components {
             closing_day?: number | null;
             /**
              * Format: date-time
-             * @description Row creation timestamp.
+             * @description Created at.
              */
             created_at: string;
             /** @description Credit limit (credit cards only). */
@@ -912,7 +912,7 @@ export interface components {
             due_day?: number | null;
             /**
              * Format: uuid
-             * @description Unique account identifier.
+             * @description Account ID.
              */
             id: string;
             /** @description Account display name (e.g., "Credit Card"). */
@@ -980,12 +980,12 @@ export interface components {
             category_id: string;
             /**
              * Format: date-time
-             * @description Row creation timestamp.
+             * @description Created at.
              */
             created_at: string;
             /**
              * Format: uuid
-             * @description Unique budget identifier.
+             * @description Budget ID.
              */
             id: string;
             /**
@@ -995,7 +995,7 @@ export interface components {
             month: number;
             /**
              * Format: date-time
-             * @description Last row update timestamp.
+             * @description Updated at.
              */
             updated_at: string;
             /**
@@ -1030,7 +1030,7 @@ export interface components {
             category_name: string;
             /**
              * Format: uuid
-             * @description Unique alert identifier.
+             * @description Alert ID.
              */
             id: string;
             /**
@@ -1123,7 +1123,7 @@ export interface components {
             icon?: string | null;
             /**
              * Format: uuid
-             * @description Unique budget identifier.
+             * @description Budget ID.
              */
             id: string;
             /**
@@ -1151,7 +1151,7 @@ export interface components {
             due_date: string;
             /**
              * Format: uuid
-             * @description Unique bill identifier.
+             * @description Bill ID.
              */
             id: string;
             /** @description Total amount paid toward this bill. */
@@ -1180,7 +1180,7 @@ export interface components {
         };
         /** @description Summary of a credit-card account with its current open bill. */
         CardOverview: {
-            /** @description Outstanding balance (signed; negative for liabilities). */
+            /** @description Outstanding balance (signed, negative for liabilities). */
             balance: string;
             /**
              * Format: int32
@@ -1209,14 +1209,14 @@ export interface components {
             color?: string | null;
             /**
              * Format: date-time
-             * @description Row creation timestamp.
+             * @description Created at.
              */
             created_at: string;
             /** @description Icon identifier used by the web/mobile UIs. */
             icon?: string | null;
             /**
              * Format: uuid
-             * @description Unique category identifier.
+             * @description Category ID.
              */
             id: string;
             /** @description Display name (e.g., "Food & Groceries"). */
@@ -1230,7 +1230,7 @@ export interface components {
             type: string;
             /**
              * Format: date-time
-             * @description Last row update timestamp.
+             * @description Updated at.
              */
             updated_at: string;
         };
@@ -1330,7 +1330,7 @@ export interface components {
         /** @description Payload for creating or updating a budget (upsert). */
         CreateBudgetRequest: {
             /**
-             * @description Maximum spend limit — must be > 0.
+             * @description Maximum spend limit that must be greater than 0.
              * @example 500.00
              */
             amount_limit: string;
@@ -1353,7 +1353,7 @@ export interface components {
         /** @description Payload for recording a purchase on a credit card. */
         CreateCardPurchaseRequest: {
             /**
-             * @description Monetary amount — must be > 0.
+             * @description Monetary amount that must be greater than 0.
              * @example 150.00
              */
             amount: string;
@@ -1374,7 +1374,7 @@ export interface components {
              * @description Installment plan this purchase belongs to (optional).
              */
             installment_plan_id?: string | null;
-            /** @description Optional free-form notes. */
+            /** @description Free-form notes. */
             notes?: string | null;
         };
         /** @description Payload for creating a new category. */
@@ -1430,13 +1430,13 @@ export interface components {
         CreateLedgerTransactionRequest: {
             /**
              * Format: date
-             * @description Calendar date of the transaction.
+             * @description Transaction date.
              * @example 2026-08-06
              */
             date: string;
             /** @description Human-readable description (e.g., "Groceries at Supermarket X"). */
             description: string;
-            /** @description At least two entries; debits must equal credits. */
+            /** @description At least two entries. Debits must equal credits. */
             entries: components["schemas"]["LedgerEntryRequest"][];
             /** @description Optional idempotency key (unique per client request). */
             idempotency_key?: string | null;
@@ -1459,7 +1459,7 @@ export interface components {
              */
             account_id?: string | null;
             /**
-             * @description Monetary amount — must be > 0.
+             * @description Monetary amount that must be greater than 0.
              * @example 150.00
              */
             amount: string;
@@ -1470,7 +1470,7 @@ export interface components {
             category_id?: string | null;
             /**
              * Format: date
-             * @description Calendar date of the transaction (ISO 8601 `YYYY-MM-DD`).
+             * @description Transaction date (ISO `YYYY-MM-DD`).
              * @example 2026-04-08
              */
             date: string;
@@ -1488,7 +1488,7 @@ export interface components {
              *     dated expense, starting on `date`.
              */
             installments?: number | null;
-            /** @description Optional free-form notes. */
+            /** @description Free-form notes. */
             notes?: string | null;
             /**
              * @description `income` or `expense`.
@@ -1531,7 +1531,7 @@ export interface components {
             /** @description Backend crate version from `CARGO_PKG_VERSION`. */
             version: string;
         };
-        /** @description An installment plan: a purchase split into N monthly payments. */
+        /** @description An installment plan that splits a purchase into N monthly payments. */
         InstallmentPlan: {
             /**
              * Format: uuid
@@ -1558,7 +1558,7 @@ export interface components {
             description: string;
             /**
              * Format: uuid
-             * @description Unique plan identifier.
+             * @description Plan ID.
              */
             id: string;
             /** @description Value of each installment (total / installments). */
@@ -1626,7 +1626,7 @@ export interface components {
             due_date: string;
             /**
              * Format: uuid
-             * @description Unique installment row identifier.
+             * @description Installment row ID.
              */
             id: string;
             /**
@@ -1664,7 +1664,7 @@ export interface components {
             description?: string | null;
             /**
              * Format: uuid
-             * @description Unique entry identifier.
+             * @description Entry ID.
              */
             id: string;
             /**
@@ -1686,12 +1686,12 @@ export interface components {
              */
             account_id: string;
             /**
-             * @description Credit amount (positive; must be zero on debit entries).
+             * @description Credit amount (positive, must be zero on debit entries).
              * @example 0.00
              */
             credit_amount: string;
             /**
-             * @description Debit amount (positive; must be zero on credit entries).
+             * @description Debit amount (positive, must be zero on credit entries).
              * @example 150.00
              */
             debit_amount: string;
@@ -1707,7 +1707,7 @@ export interface components {
             date: string;
             /** @description Human-readable description. */
             description: string;
-            /** @description All ledger entries (must balance: debits = credits). */
+            /** @description All ledger entries, which must balance with debits equal to credits. */
             entries: components["schemas"]["LedgerEntry"][];
             /**
              * Format: date-time
@@ -1727,7 +1727,7 @@ export interface components {
             /** @description Plaintext password. */
             password: string;
         };
-        /** @description Request: merge two normalized products. */
+        /** @description Request payload for merging two normalized products. */
         MergeProductsRequest: {
             /**
              * Format: uuid
@@ -1787,7 +1787,7 @@ export interface components {
             /** @description One entry per month in the requested range (chronological order). */
             months: components["schemas"]["MonthlyReportItem"][];
         };
-        /** @description Request: parse raw OCR text from a receipt photo. */
+        /** @description Request payload for parsing raw OCR text from a receipt photo. */
         OcrRequest: {
             /** @description Raw text extracted by the OCR engine (ML Kit / tesseract.js). */
             raw_text: string;
@@ -1795,7 +1795,7 @@ export interface components {
         /** @description Payload for paying a credit-card bill. */
         PayCardBillRequest: {
             /**
-             * @description Amount to pay — must be > 0. Defaults to the full remaining amount.
+             * @description Amount to pay, which must be greater than 0. Defaults to the full remaining amount.
              * @example 250.00
              */
             amount?: string | null;
@@ -1856,7 +1856,7 @@ export interface components {
             confidence?: string | null;
             /**
              * Format: uuid
-             * @description Unique item identifier.
+             * @description Item ID.
              */
             id: string;
             /** @description `matched` or `unmatched`. */
@@ -1932,7 +1932,7 @@ export interface components {
             /** @description Plaintext password (hashed with Argon2id). */
             password: string;
         };
-        /** @description Request: save a fully parsed/reviewed receipt. */
+        /** @description Request payload for saving a fully parsed/reviewed receipt. */
         SaveReceiptRequest: {
             /** @description Store CNPJ (optional). */
             cnpj?: string | null;
@@ -1948,7 +1948,7 @@ export interface components {
             /** @description Total amount. */
             total: string;
         };
-        /** @description Request: scan a raw NFC-e QR code. */
+        /** @description Request payload for scanning a raw NFC-e QR code. */
         ScanRequest: {
             /** @description Raw QR code content (URL or `p=` payload). */
             qr_data: string;
@@ -1978,7 +1978,7 @@ export interface components {
              */
             year?: number | null;
         };
-        /** @description Monthly summary response: income, expense, balance, and category breakdown. */
+        /** @description Monthly summary response with income, expense, balance, and category breakdown. */
         SummaryResponse: {
             /** @description Balance = income − expense. */
             balance: string;
@@ -2029,7 +2029,7 @@ export interface components {
              */
             server_id?: string | null;
         };
-        /** @description Request: pull changes since a given timestamp. */
+        /** @description Request payload for pulling changes since a given timestamp. */
         SyncPullRequest: {
             /**
              * Format: date-time
@@ -2037,7 +2037,7 @@ export interface components {
              */
             last_synced_at: string;
         };
-        /** @description Response: entities changed since the client's last sync. */
+        /** @description Response with the entities changed since the client's last sync. */
         SyncPullResponse: {
             /**
              * @description All accounts with their computed balances. Accounts have no
@@ -2048,18 +2048,18 @@ export interface components {
             categories: components["schemas"]["Category"][];
             /**
              * Format: date-time
-             * @description Server time — client stores this as its next `last_synced_at`.
+             * @description Server time. The client stores this as its next `last_synced_at`.
              */
             server_time: string;
             /** @description Transactions changed since last sync. */
             transactions: components["schemas"]["Transaction"][];
         };
-        /** @description Request: batch of client mutations. */
+        /** @description Request payload with a batch of client mutations. */
         SyncPushRequest: {
             /** @description Operations to apply, in order. */
             operations: components["schemas"]["SyncOperation"][];
         };
-        /** @description Response: results for each pushed operation. */
+        /** @description Response with the results for each pushed operation. */
         SyncPushResponse: {
             /** @description Per-operation results (same order as the request). */
             results: components["schemas"]["SyncOpResult"][];
@@ -2072,7 +2072,7 @@ export interface components {
              *     transaction (NULL when unlinked).
              */
             account_id?: string | null;
-            /** @description Monetary amount — always positive; `type` determines direction. */
+            /** @description Monetary amount, always positive. `type` determines direction. */
             amount: string;
             /**
              * Format: uuid
@@ -2081,19 +2081,19 @@ export interface components {
             category_id?: string | null;
             /**
              * Format: date-time
-             * @description Row creation timestamp.
+             * @description Created at.
              */
             created_at: string;
             /**
              * Format: date
-             * @description Calendar date of the transaction.
+             * @description Transaction date.
              */
             date: string;
             /** @description Human-readable description (e.g., "Lunch at Restaurante X"). */
             description: string;
             /**
              * Format: uuid
-             * @description Unique transaction identifier.
+             * @description Transaction ID.
              */
             id: string;
             /**
@@ -2101,13 +2101,13 @@ export interface components {
              * @description Installment plan this transaction belongs to (NULL for regular transactions).
              */
             installment_plan_id?: string | null;
-            /** @description Optional free-form notes. */
+            /** @description Free-form notes. */
             notes?: string | null;
             /** @description `income` or `expense`. */
             type: string;
             /**
              * Format: date-time
-             * @description Last row update timestamp.
+             * @description Updated at.
              */
             updated_at: string;
         };
@@ -2254,7 +2254,7 @@ export interface components {
              */
             account_id?: string | null;
             /**
-             * @description Monetary amount — must be > 0.
+             * @description Monetary amount that must be greater than 0.
              * @example 150.00
              */
             amount: string;
@@ -2265,7 +2265,7 @@ export interface components {
             category_id?: string | null;
             /**
              * Format: date
-             * @description Calendar date of the transaction (ISO 8601 `YYYY-MM-DD`).
+             * @description Transaction date (ISO `YYYY-MM-DD`).
              * @example 2026-04-08
              */
             date: string;
@@ -2276,7 +2276,7 @@ export interface components {
              * @description Installment plan this transaction belongs to (optional).
              */
             installment_plan_id?: string | null;
-            /** @description Optional free-form notes. */
+            /** @description Free-form notes. */
             notes?: string | null;
             /**
              * @description `income` or `expense`.

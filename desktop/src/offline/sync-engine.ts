@@ -43,7 +43,7 @@ let syncInFlight: Promise<SyncResult> | null = null;
 type SyncListener = (result: SyncResult) => void;
 const syncListeners = new Set<SyncListener>();
 
-/** Registers a callback fired after every completed sync (push + pull). */
+/** Registers a callback fired after every completed sync (push and pull). */
 export function subscribeSync(cb: SyncListener): () => void {
   syncListeners.add(cb);
   return () => {
@@ -125,8 +125,8 @@ async function pushPending(): Promise<number> {
     if (!op) continue;
     if (result.status !== 'ok') continue;
     pushed += 1;
-    // A create returned a server-assigned id — remap the local row so the
-    // mirror stays consistent (the server stores client_id as idempotency key).
+    // A create returned a server-assigned id, so remap the local row to keep the
+    // mirror consistent (the server stores client_id as the idempotency key).
     if (result.server_id && op.operation_type === 'create') {
       if (op.entity_type === 'transaction') {
         await markTransactionSynced(op.local_id ?? result.client_id, result.server_id);
@@ -150,7 +150,7 @@ async function pullChanges(): Promise<{
   const lastSyncedAt = (await getLastSync()) ?? '1970-01-01T00:00:00Z';
   const res = await syncPull(lastSyncedAt);
 
-  // Transactions: merge pulled rows without clobbering unsynced local rows.
+  // Merge pulled transaction rows without clobbering unsynced local rows.
   const byId = new Map<string, LocalTransaction>();
   const local = await getLocalTransactions();
   for (const txRow of local) {
@@ -180,7 +180,7 @@ async function pullChanges(): Promise<{
   }
   await replaceLocalTransactions(Array.from(byId.values()));
 
-  // Categories: merge pulled rows without clobbering unsynced local rows.
+  // Merge pulled category rows without clobbering unsynced local rows.
   const categoryById = new Map<string, LocalCategory>();
   for (const c of await getLocalCategories()) {
     if (c.synced === 0) {
@@ -206,7 +206,7 @@ async function pullChanges(): Promise<{
   }
   await replaceLocalCategories(Array.from(categoryById.values()));
 
-  // Accounts: merge pulled rows without clobbering unsynced local rows.
+  // Merge pulled account rows without clobbering unsynced local rows.
   const accountById = new Map<string, LocalAccount>();
   for (const acc of await getLocalAccounts()) {
     if (acc.synced === 0) {
@@ -231,7 +231,7 @@ async function pullChanges(): Promise<{
       balance: a.balance,
       transaction_count: a.transaction_count ?? 0,
       created_at: a.created_at,
-      // The sync pull response has no `updated_at` for accounts; the mirror only
+      // The sync pull response has no `updated_at` for accounts. The mirror only
       // needs a monotonic timestamp, so created_at is a safe proxy.
       updated_at: a.created_at,
       synced: 1,
@@ -281,7 +281,7 @@ export function subscribePendingCount(cb: (count: number) => void): () => void {
     });
   };
   poll();
-  // Simple interval-based polling; the count is cheap.
+  // Simple interval-based polling. The count is cheap.
   const interval = setInterval(poll, 2000);
   return () => {
     active = false;

@@ -1,4 +1,4 @@
-//! Mobile (Android) initialization: registers the Kotlin `PudimNativePlugin` class
+//! Mobile (Android) initialization. Registers the Kotlin `PudimNativePlugin` class
 //! so the webview commands can reach it via a [`PluginHandle`].
 
 use tauri::{
