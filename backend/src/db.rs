@@ -20,7 +20,6 @@ pub async fn init_pool(
 
     info!("PostgreSQL connection pool established");
 
-    // Run migrations
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await

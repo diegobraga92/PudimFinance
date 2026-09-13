@@ -1,7 +1,7 @@
 //! Receipt scanning and price-tracking endpoints.
 //!
 //! Uses the NFC-e QR parser (no OCR) to turn a QR code string into a receipt,
-//! persists receipts + items, and exposes price history + product merging.
+//! persists receipts and items, and exposes price history and product merging.
 
 #![allow(clippy::result_large_err)]
 
@@ -19,14 +19,14 @@ use crate::receipt_ocr;
 use crate::receipt_scanner;
 use crate::state::AppState;
 
-/// Request: scan a raw NFC-e QR code.
+/// Request payload for scanning a raw NFC-e QR code.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ScanRequest {
     /// Raw QR code content (URL or `p=` payload).
     pub qr_data: String,
 }
 
-/// Request: parse raw OCR text from a receipt photo.
+/// Request payload for parsing raw OCR text from a receipt photo.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct OcrRequest {
     /// Raw text extracted by the OCR engine (ML Kit / tesseract.js).
@@ -51,7 +51,7 @@ pub struct PriceHistoryParams {
     pub months: Option<i32>,
 }
 
-/// Request: merge two normalized products.
+/// Request payload for merging two normalized products.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MergeProductsRequest {
     /// Product to keep.
@@ -122,8 +122,8 @@ pub async fn scan(
 
 /// Parses raw OCR text from a receipt photo into structured data.
 ///
-/// The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web);
-/// this endpoint turns the resulting text into the same structured shape the
+/// The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web).
+/// This endpoint turns the resulting text into the same structured shape the
 /// QR scan returns, so the save/review flow is identical for both sources.
 #[utoipa::path(
     post,
@@ -177,7 +177,7 @@ pub struct ReceiptItemInput {
     pub total_price: Option<Decimal>,
 }
 
-/// Request: save a fully parsed/reviewed receipt.
+/// Request payload for saving a fully parsed/reviewed receipt.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct SaveReceiptRequest {
     /// Store name (or from scan).
@@ -214,7 +214,6 @@ pub async fn save_receipt(
         ));
     }
 
-    // Find-or-create the store.
     let store_id = Uuid::new_v4();
     let store_sql = "INSERT INTO stores (id, name, cnpj)
                      VALUES ($1, $2, $3)
@@ -272,7 +271,6 @@ pub async fn save_receipt(
             )
         })?;
 
-        // Find the product id (use the inserted/conflict id).
         let found: Option<Uuid> =
             sqlx::query_scalar("SELECT id FROM normalized_products WHERE name = $1")
                 .bind(&item.description)
@@ -415,7 +413,7 @@ pub async fn price_history(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let months = params.months.unwrap_or(6).clamp(1, 24);
 
-    // Compute the start date (approximate: months * 30 days).
+    // Approximate the start date as months * 30 days.
     let start = chrono::Utc::now().date_naive() - chrono::Duration::days((months * 30) as i64);
 
     #[derive(sqlx::FromRow, serde::Serialize)]
@@ -452,7 +450,7 @@ pub async fn price_history(
     ))
 }
 
-/// Merges two normalized products (all items reassigned to target; source deleted).
+/// Merges two normalized products. Items move to the target and the source is deleted.
 #[utoipa::path(
     post,
     path = "/api/receipts/product/merge",
@@ -474,7 +472,6 @@ pub async fn merge_products(
         ));
     }
 
-    // Reassign items from source to target.
     sqlx::query(
         "UPDATE receipt_items SET normalized_product_id = $1 WHERE normalized_product_id = $2",
     )
@@ -490,7 +487,6 @@ pub async fn merge_products(
         )
     })?;
 
-    // Delete the source product.
     let deleted = sqlx::query("DELETE FROM normalized_products WHERE id = $1")
         .bind(payload.source_id)
         .execute(&state.pg_pool)

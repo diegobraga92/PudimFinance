@@ -51,8 +51,8 @@ pub struct AuditEvent {
 /// Audit sub-router.
 ///
 /// Admin authorization is enforced inside the handler by decoding the Bearer
-/// token (the auth middleware already verified it; we additionally require the
-/// `admin` role here).
+/// token (the auth middleware already verified it, and we additionally require
+/// the `admin` role here).
 pub fn router() -> Router<AppState> {
     Router::new().route("/api/audit/events", axum::routing::get(list_audit_events))
 }
@@ -72,8 +72,8 @@ pub async fn list_audit_events(
     headers: axum::http::HeaderMap,
     Query(params): Query<AuditQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    // Verify admin role from Bearer token (auth middleware already validated the
-    // token; we additionally require the `admin` role here).
+    // Verify the admin role from the Bearer token (the auth middleware already
+    // validated the token, and we additionally require the `admin` role here).
     let token = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())

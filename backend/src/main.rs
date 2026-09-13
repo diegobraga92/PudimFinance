@@ -1,4 +1,4 @@
-//! PudimFinance backend binary — HTTP API server.
+//! PudimFinance backend binary (HTTP API server).
 //!
 //! Serves the REST API, Swagger UI, and health endpoints.
 //! Configuration is loaded from environment variables (see [`config::Config`]).
@@ -39,34 +39,22 @@ use crate::openapi::ApiDoc;
 use crate::routes::api_router;
 use crate::state::AppState;
 
-/// Entry point: loads configuration, initializes telemetry/database,
-/// and serves the HTTP API until a shutdown signal is received.
+/// Entry point that initializes telemetry and the database, then serves the HTTP API until shutdown.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Load .env file
     dotenvy::dotenv().ok();
-
-    // Load configuration
     let config = Config::from_env();
 
-    // Initialize logging and tracing
     telemetry::init_logging(&config.otel_endpoint, "pudimfinance-backend");
-
-    // Initialize metrics recorder
     let metrics_recorder = init_metrics_recorder();
-
-    // Initialize database pool
     let pg_pool = init_pool(
         &config.database_url,
         config.database_pool_max_connections,
         config.database_pool_acquire_timeout_secs,
     )
     .await;
-
-    // Initialize RabbitMQ event publisher (non-blocking recovery)
     let event_publisher = events::EventPublisher::new(&config.rabbitmq_url);
 
-    // Build shared application state
     let app_state = AppState {
         pg_pool,
         event_publisher,
@@ -74,7 +62,6 @@ async fn main() -> anyhow::Result<()> {
         rate_limiter: middleware::RateLimiterState::new(),
     };
 
-    // Build main application router
     let recorder = metrics_recorder.clone();
     let app = Router::new()
         .route("/health", axum::routing::get(health_handler))
@@ -91,28 +78,25 @@ async fn main() -> anyhow::Result<()> {
                 }
             }),
         )
-        // Layer 1 API routes (protected by JWT auth middleware)
         .merge(api_router())
         .route_layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
             middleware::auth_middleware,
         ))
-        // Rate limiting (runs before auth so /api/auth/login is limited)
+        // Runs before auth so /api/auth/login is rate-limited too.
         .layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
             middleware::rate_limit_middleware,
         ))
-        // Deprecation headers (ADR 009) — marks legacy v1 endpoints with Sunset/Link
+        // Deprecation headers (ADR 009) on legacy v1 endpoints.
         .layer(axum::middleware::from_fn(
             middleware::deprecation_middleware,
         ))
-        // Serve OpenAPI spec as JSON and Swagger UI
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 
-    // Bind and serve
     let addr: SocketAddr = config
         .server_addr()
         .parse()
@@ -157,7 +141,6 @@ async fn shutdown_signal() {
         }
     }
 
-    // OpenTelemetry tracer provider will be flushed and shut down automatically
-    // when the provider is dropped at program exit.
+    // The OTel tracer provider flushes on drop at program exit.
     info!("Shutdown signal received, OpenTelemetry will flush on drop");
 }

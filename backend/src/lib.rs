@@ -1,4 +1,4 @@
-//! PudimFinance Backend — Library crate root.
+//! PudimFinance Backend library crate root.
 //!
 //! This file exists to allow other binaries in the same package (e.g., gen-openapi)
 //! to reference types via `backend::ApiDoc`, `backend::health`, etc.
@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
 
-/// Authentication: JWT creation/verification, password hashing, and RBAC claims.
+/// Authentication for JWT creation and verification, password hashing, and RBAC claims.
 pub mod auth;
 /// Environment-based application configuration.
 pub mod config;
@@ -32,13 +32,13 @@ pub mod receipt_ocr;
 pub mod receipt_scanner;
 /// Bank statement parsing (CSV/OFX) for reconciliation.
 pub mod reconciliation_parser;
-/// HTTP route handlers for categories, transactions, summary, budgets, reports, and ledger.
+/// HTTP route handlers, grouped by resource.
 pub mod routes;
 /// Shared application state for axum handlers.
 pub mod state;
 /// Logging and OpenTelemetry tracing initialization.
 pub mod telemetry;
-/// Transaction → ledger posting service (single source of truth for balances).
+/// Transaction to ledger posting service (single source of truth for balances).
 pub mod transaction_ledger;
 
 pub use openapi::ApiDoc;

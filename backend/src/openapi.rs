@@ -197,8 +197,7 @@ use crate::routes::transactions;
         (name = "Audit", description = "Admin-only audit event search"),
         (name = "Receipts", description = "Receipt scanning (NFC-e QR), price history, and product normalization"),
     ),
-    // Public API: no authentication required. Empty security requirement
-    // documents that explicitly (satisfies OpenAPI `security-defined`).
+    // Empty security requirement documents the public API (satisfies `security-defined`).
     security(
         (),
     ),

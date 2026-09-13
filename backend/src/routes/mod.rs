@@ -1,7 +1,3 @@
-//! HTTP route handler
-//!
-//! Group handlers by resource (categories, transactions, summary)
-
 pub mod accounts;
 pub mod audit;
 pub mod auth;

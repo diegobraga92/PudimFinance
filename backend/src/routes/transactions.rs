@@ -76,7 +76,7 @@ pub async fn list_transactions(
         }
     }
 
-    // Use nullable bind parameters: `$1::uuid IS NULL OR category_id = $1` pattern
+    // Use the nullable bind pattern `$1::uuid IS NULL OR category_id = $1`
     // allows a single static SQL query with optional filters.
     let total: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM transactions
@@ -138,7 +138,7 @@ pub async fn list_transactions(
     }))
 }
 
-/// Resolves the payment + posting accounts and their display names for a
+/// Resolves the payment and posting accounts and their display names for a
 /// transaction payload. Runs before the write transaction is opened (it may
 /// create and link a posting account for a new category).
 #[allow(clippy::type_complexity)]
@@ -204,7 +204,7 @@ pub async fn create_transaction(
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     validate_transaction_payload(&payload.description, payload.amount, &payload.r#type)?;
 
-    // Optional installment splitting: 2-60 monthly payments starting on `date`.
+    // Optional installment splitting from 2 to 60 monthly payments starting on `date`.
     let installment_spec = match payload.installments {
         Some(n) if !(2..=60).contains(&n) => {
             return Err((
@@ -323,7 +323,7 @@ pub async fn create_transaction(
         })?;
 
     // When splitting into installments, create the plan and materialize every
-    // installment as a dated expense (cash basis: each counts in its due month).
+    // installment as a dated expense. On a cash basis each counts in its due month.
     if let Some((count, per, last)) = installment_spec {
         // The plan row (account_id is the resolved payment account).
         let plan_id: Uuid = sqlx::query_scalar(
@@ -349,7 +349,7 @@ pub async fn create_transaction(
             )
         })?;
 
-        // First installment → the transaction we just created.
+        // First installment is the transaction we just created.
         sqlx::query("UPDATE transactions SET installment_plan_id = $1 WHERE id = $2")
             .bind(plan_id)
             .bind(transaction.id)
@@ -379,7 +379,7 @@ pub async fn create_transaction(
             )
         })?;
 
-        // Remaining installments: dated monthly, each a real expense.
+        // Remaining installments are dated monthly, and each is a real expense.
         for i in 2..=count {
             let due = transaction_ledger::add_months(payload.date, i - 1);
             let amount_i = if i == count { last } else { per };
@@ -753,7 +753,7 @@ pub async fn delete_transaction(
     transaction_ledger::delete_entries(&mut *db, id, old_ledger_id).await;
 
     // Also drop any installment-plan scheduling rows referencing this
-    // transaction; otherwise the FK below blocks the DELETE (500).
+    // transaction. Otherwise the FK below blocks the DELETE (500).
     sqlx::query("DELETE FROM installment_transactions WHERE transaction_id = $1")
         .bind(id)
         .execute(&mut *db)

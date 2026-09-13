@@ -68,7 +68,7 @@ pub async fn health_handler(
         ));
     }
 
-    // RabbitMQ is optional — report its state without failing the health check.
+    // RabbitMQ is optional, so report its state without failing the health check.
     Ok(Json(HealthResponse {
         status: "ok".into(),
         database: "connected".into(),
@@ -81,8 +81,9 @@ pub async fn health_handler(
     }))
 }
 
-/// Exposes Prometheus-formatted metrics for scraping.
-/// This endpoint is served on a separate port in production (default 3001).
+/// Documents the Prometheus `/metrics` endpoint for the OpenAPI spec.
+///
+/// Stub only. The live endpoint is served by the main router.
 #[allow(dead_code)]
 #[utoipa::path(
     get,
@@ -93,7 +94,5 @@ pub async fn health_handler(
     ),
 )]
 pub async fn metrics_handler_doc() -> &'static str {
-    // This function exists only for utoipa documentation purposes.
-    // The actual metrics endpoint is served separately via the metrics module.
     ""
 }

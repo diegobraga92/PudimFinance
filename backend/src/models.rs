@@ -1,7 +1,4 @@
-//! Data models for the Layer 1 simple transaction tracker.
-//!
-//! These structs map directly to the `categories` and `transactions`
-//! tables created by migration `001_initial_categories_and_transactions.sql`.
+//! Data models shared across all layers (API request/response and DB rows).
 
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -13,7 +10,7 @@ use uuid::Uuid;
 /// A transaction category (income or expense), optionally nested via `parent_id`.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Category {
-    /// Unique category identifier.
+    /// Category ID.
     pub id: Uuid,
     /// Display name (e.g., "Food & Groceries").
     pub name: String,
@@ -25,9 +22,9 @@ pub struct Category {
     pub icon: Option<String>,
     /// Hex color code (e.g., `#ef4444`).
     pub color: Option<String>,
-    /// Row creation timestamp.
+    /// Created at.
     pub created_at: DateTime<Utc>,
-    /// Last row update timestamp.
+    /// Updated at.
     pub updated_at: DateTime<Utc>,
 }
 
@@ -66,28 +63,28 @@ pub struct UpdateCategoryRequest {
 /// A single income or expense transaction.
 #[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct Transaction {
-    /// Unique transaction identifier.
+    /// Transaction ID.
     pub id: Uuid,
     /// Human-readable description (e.g., "Lunch at Restaurante X").
     pub description: String,
-    /// Monetary amount — always positive; `type` determines direction.
+    /// Monetary amount, always positive. `type` determines direction.
     pub amount: Decimal,
     /// `income` or `expense`.
     pub r#type: String,
     /// Category this transaction belongs to (nullable if category deleted).
     pub category_id: Option<Uuid>,
-    /// Calendar date of the transaction.
+    /// Transaction date.
     pub date: NaiveDate,
-    /// Optional free-form notes.
+    /// Free-form notes.
     pub notes: Option<String>,
     /// Installment plan this transaction belongs to (NULL for regular transactions).
     pub installment_plan_id: Option<Uuid>,
     /// Source account (payment method, e.g. a credit card) used for this
     /// transaction (NULL when unlinked).
     pub account_id: Option<Uuid>,
-    /// Row creation timestamp.
+    /// Created at.
     pub created_at: DateTime<Utc>,
-    /// Last row update timestamp.
+    /// Updated at.
     pub updated_at: DateTime<Utc>,
 }
 
@@ -96,7 +93,7 @@ pub struct Transaction {
 pub struct CreateTransactionRequest {
     /// Human-readable description (e.g., "Lunch at Restaurante X").
     pub description: String,
-    /// Monetary amount — must be > 0.
+    /// Monetary amount that must be greater than 0.
     #[schema(value_type = String, example = "150.00")]
     pub amount: Decimal,
     /// `income` or `expense`.
@@ -104,10 +101,10 @@ pub struct CreateTransactionRequest {
     pub r#type: String,
     /// Category this transaction belongs to.
     pub category_id: Option<Uuid>,
-    /// Calendar date of the transaction (ISO 8601 `YYYY-MM-DD`).
+    /// Transaction date (ISO `YYYY-MM-DD`).
     #[schema(value_type = String, format = Date, example = "2026-04-08")]
     pub date: NaiveDate,
-    /// Optional free-form notes.
+    /// Free-form notes.
     pub notes: Option<String>,
     /// Installment plan this transaction belongs to (optional).
     pub installment_plan_id: Option<Uuid>,
@@ -125,7 +122,7 @@ pub struct CreateTransactionRequest {
 pub struct UpdateTransactionRequest {
     /// Human-readable description (e.g., "Lunch at Restaurante X").
     pub description: String,
-    /// Monetary amount — must be > 0.
+    /// Monetary amount that must be greater than 0.
     #[schema(value_type = String, example = "150.00")]
     pub amount: Decimal,
     /// `income` or `expense`.
@@ -133,10 +130,10 @@ pub struct UpdateTransactionRequest {
     pub r#type: String,
     /// Category this transaction belongs to.
     pub category_id: Option<Uuid>,
-    /// Calendar date of the transaction (ISO 8601 `YYYY-MM-DD`).
+    /// Transaction date (ISO `YYYY-MM-DD`).
     #[schema(value_type = String, format = Date, example = "2026-04-08")]
     pub date: NaiveDate,
-    /// Optional free-form notes.
+    /// Free-form notes.
     pub notes: Option<String>,
     /// Installment plan this transaction belongs to (optional).
     pub installment_plan_id: Option<Uuid>,
@@ -202,7 +199,7 @@ pub struct CategorySummary {
     pub total: Decimal,
 }
 
-/// Monthly summary response: income, expense, balance, and category breakdown.
+/// Monthly summary response with income, expense, balance, and category breakdown.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SummaryResponse {
     /// Total income for the selected month (positive value).
@@ -222,14 +219,12 @@ pub struct SummaryResponse {
     pub month: u32,
 }
 
-// ---------------------------------------------------------------------------
-// Layer 2: Budgets
-// ---------------------------------------------------------------------------
+// Layer 2 budgets
 
 /// A monthly budget limit for a category.
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct Budget {
-    /// Unique budget identifier.
+    /// Budget ID.
     pub id: Uuid,
     /// Category this budget applies to.
     pub category_id: Uuid,
@@ -240,16 +235,16 @@ pub struct Budget {
     /// Maximum spend limit for the month.
     #[schema(value_type = String)]
     pub amount_limit: Decimal,
-    /// Row creation timestamp.
+    /// Created at.
     pub created_at: DateTime<Utc>,
-    /// Last row update timestamp.
+    /// Updated at.
     pub updated_at: DateTime<Utc>,
 }
 
 /// Budget joined with its category display info.
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct BudgetWithCategory {
-    /// Unique budget identifier.
+    /// Budget ID.
     pub id: Uuid,
     /// Category id this budget applies to.
     pub category_id: Uuid,
@@ -278,7 +273,7 @@ pub struct CreateBudgetRequest {
     pub month: i32,
     /// Year.
     pub year: i32,
-    /// Maximum spend limit — must be > 0.
+    /// Maximum spend limit that must be greater than 0.
     #[schema(value_type = String, example = "500.00")]
     pub amount_limit: Decimal,
 }
@@ -330,7 +325,7 @@ pub struct BudgetSummaryResponse {
 /// A single budget alert (triggered when spending crosses a threshold).
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct BudgetAlert {
-    /// Unique alert identifier.
+    /// Alert ID.
     pub id: Uuid,
     /// Budget this alert belongs to.
     pub budget_id: Uuid,
@@ -377,9 +372,7 @@ pub struct AcknowledgeAlertsResponse {
     pub acknowledged: i64,
 }
 
-// ---------------------------------------------------------------------------
-// Layer 4: Installments (Parcelas)
-// ---------------------------------------------------------------------------
+// Layer 4 installments (Parcelas)
 
 /// Progress summary computed for an installment plan.
 #[derive(Debug, Serialize, ToSchema)]
@@ -398,10 +391,10 @@ pub struct InstallmentProgress {
     pub remaining_amount: Decimal,
 }
 
-/// An installment plan: a purchase split into N monthly payments.
+/// An installment plan that splits a purchase into N monthly payments.
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct InstallmentPlan {
-    /// Unique plan identifier.
+    /// Plan ID.
     pub id: Uuid,
     /// Purchase description (e.g., "TV 55\" Samsung").
     pub description: String,
@@ -454,7 +447,7 @@ pub struct CreateInstallmentPlanRequest {
 /// A single installment row within a plan.
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct InstallmentTransaction {
-    /// Unique installment row identifier.
+    /// Installment row ID.
     pub id: Uuid,
     /// Parent plan identifier.
     pub plan_id: Uuid,
@@ -499,14 +492,12 @@ pub struct PayInstallmentResponse {
     pub created: bool,
 }
 
-// ---------------------------------------------------------------------------
-// Layer 4: Credit cards (billing cycles + installment anticipation)
-// ---------------------------------------------------------------------------
+// Layer 4 credit cards (billing cycles and installment anticipation)
 
 /// A single billing cycle ("fatura") for a credit card.
 #[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct CardBill {
-    /// Unique bill identifier.
+    /// Bill ID.
     pub id: Uuid,
     /// Card account this bill belongs to.
     pub card_id: Uuid,
@@ -548,7 +539,7 @@ pub struct CardOverview {
     /// Credit limit.
     #[schema(value_type = Option<String>)]
     pub credit_limit: Option<Decimal>,
-    /// Outstanding balance (signed; negative for liabilities).
+    /// Outstanding balance (signed, negative for liabilities).
     #[schema(value_type = String)]
     pub balance: Decimal,
     /// The current open bill, if any.
@@ -560,7 +551,7 @@ pub struct CardOverview {
 pub struct CreateCardPurchaseRequest {
     /// Human-readable description (e.g., "Lunch at Restaurante X").
     pub description: String,
-    /// Monetary amount — must be > 0.
+    /// Monetary amount that must be greater than 0.
     #[schema(value_type = String, example = "150.00")]
     pub amount: Decimal,
     /// Expense category (defaults to Miscellaneous when omitted).
@@ -568,7 +559,7 @@ pub struct CreateCardPurchaseRequest {
     /// Purchase date (defaults to today, ISO `YYYY-MM-DD`).
     #[schema(value_type = Option<String>, format = Date)]
     pub date: Option<NaiveDate>,
-    /// Optional free-form notes.
+    /// Free-form notes.
     pub notes: Option<String>,
     /// Installment plan this purchase belongs to (optional).
     pub installment_plan_id: Option<Uuid>,
@@ -577,7 +568,7 @@ pub struct CreateCardPurchaseRequest {
 /// Payload for paying a credit-card bill.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct PayCardBillRequest {
-    /// Amount to pay — must be > 0. Defaults to the full remaining amount.
+    /// Amount to pay, which must be greater than 0. Defaults to the full remaining amount.
     #[schema(value_type = Option<String>, example = "250.00")]
     pub amount: Option<Decimal>,
     /// Asset account the payment comes from (defaults to "Cash").
@@ -631,9 +622,7 @@ pub struct AnticipateInstallmentsResponse {
     pub installments_anticipated: i64,
 }
 
-// ---------------------------------------------------------------------------
-// Layer 2: Reports
-// ---------------------------------------------------------------------------
+// Layer 2 reports
 
 /// A single month's income/expense totals for the monthly report.
 #[derive(Debug, Serialize, ToSchema)]
@@ -719,20 +708,18 @@ pub struct TrendsResponse {
     pub trends: Vec<TrendPoint>,
 }
 
-// ---------------------------------------------------------------------------
-// Layer 3: Double-entry ledger
-// ---------------------------------------------------------------------------
+// Layer 3 double-entry ledger
 
 /// A chart-of-accounts account.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Account {
-    /// Unique account identifier.
+    /// Account ID.
     pub id: Uuid,
     /// Account display name (e.g., "Cash").
     pub name: String,
     /// `asset`, `liability`, `equity`, `income`, or `expense`.
     pub r#type: String,
-    /// User-facing kind: `bank`, `cash`, `card`, `loan`, `investment`, or a
+    /// User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a
     /// system kind (`income`/`expense`/`equity`/`other`).
     pub account_kind: String,
     /// Optional parent account.
@@ -744,7 +731,7 @@ pub struct Account {
     /// Credit limit (credit cards only).
     #[schema(value_type = Option<String>)]
     pub credit_limit: Option<Decimal>,
-    /// Row creation timestamp.
+    /// Created at.
     pub created_at: DateTime<Utc>,
 }
 
@@ -758,7 +745,7 @@ pub struct CreateAccountRequest {
     #[schema(example = "liability")]
     pub r#type: String,
     /// User-facing kind. When set, the accounting `type` is derived from it
-    /// (`bank`/`cash`/`investment` → asset, `card`/`loan` → liability).
+    /// (`bank`, `cash`, and `investment` map to asset, `card` and `loan` to liability).
     #[schema(example = "card")]
     pub account_kind: Option<String>,
     /// Optional parent account.
@@ -798,13 +785,13 @@ pub struct UpdateAccountRequest {
 /// Account joined with its current computed balance from ledger entries.
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct AccountWithBalance {
-    /// Unique account identifier.
+    /// Account ID.
     pub id: Uuid,
     /// Account display name (e.g., "Credit Card").
     pub name: String,
     /// `asset`, `liability`, `equity`, `income`, or `expense`.
     pub r#type: String,
-    /// User-facing kind: `bank`, `cash`, `card`, `loan`, `investment`, or a
+    /// User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a
     /// system kind (`income`/`expense`/`equity`/`other`).
     pub account_kind: String,
     /// Optional parent account.
@@ -816,7 +803,7 @@ pub struct AccountWithBalance {
     /// Credit limit (credit cards only).
     #[schema(value_type = Option<String>)]
     pub credit_limit: Option<Decimal>,
-    /// Row creation timestamp.
+    /// Created at.
     pub created_at: DateTime<Utc>,
     /// Balance = SUM(debit_amount) − SUM(credit_amount) across ledger entries.
     /// Positive for asset/expense accounts, negative for liability/income/equity
@@ -870,10 +857,10 @@ pub fn account_type_for_kind(kind: &str) -> Option<&'static str> {
 pub struct CreateLedgerTransactionRequest {
     /// Human-readable description (e.g., "Groceries at Supermarket X").
     pub description: String,
-    /// Calendar date of the transaction.
+    /// Transaction date.
     #[schema(value_type = String, format = Date, example = "2026-08-06")]
     pub date: NaiveDate,
-    /// At least two entries; debits must equal credits.
+    /// At least two entries. Debits must equal credits.
     pub entries: Vec<LedgerEntryRequest>,
     /// Optional idempotency key (unique per client request).
     pub idempotency_key: Option<String>,
@@ -884,10 +871,10 @@ pub struct CreateLedgerTransactionRequest {
 pub struct LedgerEntryRequest {
     /// Account this entry posts to.
     pub account_id: Uuid,
-    /// Debit amount (positive; must be zero on credit entries).
+    /// Debit amount (positive, must be zero on credit entries).
     #[schema(value_type = String, example = "150.00")]
     pub debit_amount: Decimal,
-    /// Credit amount (positive; must be zero on debit entries).
+    /// Credit amount (positive, must be zero on debit entries).
     #[schema(value_type = String, example = "0.00")]
     pub credit_amount: Decimal,
     /// Optional per-entry description.
@@ -903,7 +890,7 @@ pub struct LedgerTransaction {
     pub description: String,
     /// Calendar date.
     pub date: NaiveDate,
-    /// All ledger entries (must balance: debits = credits).
+    /// All ledger entries, which must balance with debits equal to credits.
     pub entries: Vec<LedgerEntry>,
     /// Recorded timestamp.
     pub recorded_at: DateTime<Utc>,
@@ -912,7 +899,7 @@ pub struct LedgerTransaction {
 /// A single ledger entry.
 #[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct LedgerEntry {
-    /// Unique entry identifier.
+    /// Entry ID.
     pub id: Uuid,
     /// Transaction ID this entry belongs to.
     pub transaction_id: Uuid,
@@ -954,9 +941,7 @@ pub struct MigrationResponse {
     pub failed: i64,
 }
 
-// ---------------------------------------------------------------------------
-// Layer 3: Reconciliation
-// ---------------------------------------------------------------------------
+// Layer 3 reconciliation
 
 /// A single line item from an uploaded bank statement.
 #[derive(Debug, Deserialize, ToSchema)]
@@ -986,7 +971,7 @@ pub struct ReconciliationUploadRequest {
 /// A reconciliation item result (matched or unmatched).
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct ReconciliationItem {
-    /// Unique item identifier.
+    /// Item ID.
     pub id: Uuid,
     /// Reconciliation ID this item belongs to.
     pub reconciliation_id: Uuid,
@@ -1020,18 +1005,16 @@ pub struct ReconciliationUploadResponse {
     pub items: Vec<ReconciliationItem>,
 }
 
-// ---------------------------------------------------------------------------
 // Offline sync
-// ---------------------------------------------------------------------------
 
-/// Request: pull changes since a given timestamp.
+/// Request payload for pulling changes since a given timestamp.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct SyncPullRequest {
     /// Only return rows with `updated_at` after this timestamp.
     pub last_synced_at: DateTime<Utc>,
 }
 
-/// Response: entities changed since the client's last sync.
+/// Response with the entities changed since the client's last sync.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SyncPullResponse {
     /// All categories (or those changed since last sync).
@@ -1041,7 +1024,7 @@ pub struct SyncPullResponse {
     /// All accounts with their computed balances. Accounts have no
     /// `updated_at` column, so the whole list is sent on every pull.
     pub accounts: Vec<AccountWithBalance>,
-    /// Server time — client stores this as its next `last_synced_at`.
+    /// Server time. The client stores this as its next `last_synced_at`.
     pub server_time: DateTime<Utc>,
 }
 
@@ -1060,7 +1043,7 @@ pub struct SyncOperation {
     pub payload: serde_json::Value,
 }
 
-/// Request: batch of client mutations.
+/// Request payload with a batch of client mutations.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct SyncPushRequest {
     /// Operations to apply, in order.
@@ -1080,7 +1063,7 @@ pub struct SyncOpResult {
     pub error: Option<String>,
 }
 
-/// Response: results for each pushed operation.
+/// Response with the results for each pushed operation.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SyncPushResponse {
     /// Per-operation results (same order as the request).

@@ -1,14 +1,12 @@
-//! Transaction → ledger posting service (Phase A of the reconciliation roadmap).
+//! Transaction to ledger posting service.
 //!
-//! Every "simple" transaction (the `transactions` table) now writes a balanced
-//! pair of `ledger_entries` at write time, so that account balances, the
-//! double-entry ledger, reconciliation, and the single-entry reporting views
-//! (Summary/Budgets/Reports) all agree.
+//! Every "simple" transaction (the `transactions` table) writes a balanced pair
+//! of `ledger_entries` at write time, so account balances, the double-entry
+//! ledger, reconciliation, and the single-entry reporting views all agree.
 //!
-//! Convention: `ledger_entries.transaction_id = transactions.id`, and
+//! By convention `ledger_entries.transaction_id = transactions.id`, and
 //! `transactions.ledger_transaction_id` is set to the same value. Legacy rows
-//! migrated before this change may use a separate UUID; `delete_entries`
-//! handles both forms.
+//! may use a separate UUID, and `delete_entries` handles both forms.
 
 use anyhow::{anyhow, Result};
 use rust_decimal::Decimal;
@@ -18,8 +16,8 @@ use uuid::Uuid;
 /// Posting plan for a transaction, as `(posting_debit, posting_credit,
 /// source_debit, source_credit)`.
 ///
-/// * `expense` → debit the expense (posting) account, credit the source account.
-/// * `income`  → debit the source account, credit the income (posting) account.
+/// * For `expense`, debit the expense (posting) account and credit the source account.
+/// * For `income`, debit the source account and credit the income (posting) account.
 ///
 /// The two entries always balance (debits == credits == `amount`).
 fn legs(ttype: &str, amount: Decimal) -> Option<(Decimal, Decimal, Decimal, Decimal)> {
@@ -31,7 +29,7 @@ fn legs(ttype: &str, amount: Decimal) -> Option<(Decimal, Decimal, Decimal, Deci
 }
 
 /// Resolves the account that receives/emits the transaction value (the
-/// income/expense side). Priority:
+/// income/expense side), in this priority order.
 ///
 /// 1. The category's explicit `ledger_account_id`.
 /// 2. An existing account whose name/type match the category.
@@ -45,9 +43,9 @@ pub async fn resolve_posting_account(
 ) -> Result<Uuid> {
     if let Some(cid) = category_id {
         // 1. Explicit category link.
-        // NB: `ledger_account_id` is nullable. `fetch_optional` already wraps
+        // `ledger_account_id` is nullable. `fetch_optional` already wraps
         // the scalar in `Option<T>`, so the scalar type must be `Option<Uuid>`
-        // here — otherwise a NULL column fails to decode ("unexpected null").
+        // here. Otherwise a NULL column fails to decode ("unexpected null").
         let linked: Option<Uuid> = sqlx::query_scalar::<_, Option<Uuid>>(
             "SELECT ledger_account_id FROM categories WHERE id = $1",
         )
@@ -98,7 +96,7 @@ pub async fn resolve_posting_account(
         return Ok(created);
     }
 
-    // 4. No category: fall back to a generic posting account.
+    // 4. With no category, fall back to a generic posting account.
     let fallback = if ttype == "income" {
         "Other Income"
     } else {
@@ -130,7 +128,7 @@ pub async fn resolve_posting_account(
 }
 
 /// Resolves the source (payment) account for a transaction. Validates that an
-/// explicitly provided account is an asset or liability; otherwise falls back
+/// explicitly provided account is an asset or liability, then falls back
 /// to Cash, then Bank Account, then the oldest asset account.
 pub async fn resolve_source_account(pool: &PgPool, account_id: Option<Uuid>) -> Result<Uuid> {
     if let Some(id) = account_id {
@@ -240,7 +238,7 @@ where
 }
 
 /// Adds `months` to a date, clamping the day to the last valid day of the
-/// target month (e.g. Jan 31 + 1 month → Feb 28).
+/// target month (for example Jan 31 plus one month becomes Feb 28).
 pub fn add_months(d: chrono::NaiveDate, months: i32) -> chrono::NaiveDate {
     use chrono::Datelike;
     let total = d.year() * 12 + (d.month0() as i32) + months;
@@ -309,7 +307,7 @@ mod tests {
     fn add_months_clamps_day_to_month_length() {
         use chrono::NaiveDate;
         let jan31 = NaiveDate::from_ymd_opt(2026, 1, 31).unwrap();
-        // Jan 31 + 1 month clamps to Feb 28 (2026 is not a leap year).
+        // One month after Jan 31 clamps to Feb 28 (2026 is not a leap year).
         assert_eq!(
             add_months(jan31, 1),
             NaiveDate::from_ymd_opt(2026, 2, 28).unwrap()

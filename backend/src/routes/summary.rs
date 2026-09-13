@@ -58,7 +58,6 @@ pub async fn get_summary(
         ));
     }
 
-    // Fetch category breakdown (all transactions in month, grouped by category)
     #[derive(sqlx::FromRow)]
     struct SummaryRow {
         category_id: Option<uuid::Uuid>,

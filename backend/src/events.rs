@@ -1,8 +1,7 @@
 //! RabbitMQ event publishing for the ledger.
 //!
 //! Publishes `TransactionRecorded` events to the `finance.ledger.transactions`
-//! fanout exchange. Uses `deadpool-lapin` for connection pooling and includes
-//! graceful reconnection via the pool's connection recovery.
+//! fanout exchange via `deadpool-lapin`.
 
 use anyhow::Result;
 use deadpool_lapin::{Manager, Pool, Runtime};
@@ -65,7 +64,7 @@ impl EventPublisher {
 
         let publisher = Self { pool };
 
-        // Best-effort async setup: declare the exchange and spawn a task to
+        // Best-effort async setup. Declare the exchange and spawn a task to
         // retry until connected (RabbitMQ may not be up yet at backend start).
         let pool_clone = publisher.pool.clone();
         tokio::spawn(async move {
@@ -115,7 +114,7 @@ impl EventPublisher {
     /// Publishes a `TransactionRecorded` event to the fanout exchange.
     ///
     /// Returns `Ok(())` on success. If RabbitMQ is unavailable, logs a warning
-    /// and returns `Ok(())` — events are recoverable from the DB `events` table,
+    /// and returns `Ok(())`. Events are recoverable from the DB `events` table,
     /// so the ledger itself is never blocked on the broker.
     pub async fn publish_transaction_recorded(
         &self,
@@ -201,7 +200,6 @@ impl EventPublisher {
 
     /// Returns whether RabbitMQ is currently reachable (used by health check).
     pub async fn is_healthy(&self) -> bool {
-        // Try to open a channel; success means the connection is alive.
         match self.pool.get().await {
             Ok(conn) => conn.create_channel().await.is_ok(),
             Err(_) => false,

@@ -3,14 +3,13 @@ use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
-// Metric names (constant strings to avoid typo drift)
-/// Prometheus metric name: total double-entry ledger transactions created.
+/// Total double-entry ledger transactions created.
 pub const METRIC_LEDGER_TX: &str = "pudim_ledger_transactions_total";
-/// Prometheus metric name: total RabbitMQ event publish failures.
+/// Total RabbitMQ event publish failures.
 pub const METRIC_LEDGER_PUBLISH_FAILURES: &str = "pudim_ledger_event_publish_failures_total";
-/// Prometheus metric name: active PostgreSQL connection pool connections.
+/// Active PostgreSQL pool connections.
 pub const METRIC_DB_POOL: &str = "pudim_db_pool_active_connections";
-/// Prometheus metric name: whether RabbitMQ is reachable (1/0).
+/// Whether RabbitMQ is reachable (1/0).
 pub const METRIC_RABBITMQ: &str = "pudim_rabbitmq_connected";
 
 /// Installs the global Prometheus metrics recorder and returns a handle
@@ -20,8 +19,7 @@ pub fn init_metrics_recorder() -> PrometheusHandle {
         .install_recorder()
         .expect("Failed to install Prometheus recorder");
 
-    // Register the custom metrics eagerly so they always appear in output
-    // even when zero-valued (avoids "no data" gaps in Grafana).
+    // Describe eagerly so zero-valued series still appear in Grafana.
     metrics::describe_counter!(
         METRIC_LEDGER_TX,
         "Total number of double-entry ledger transactions created"

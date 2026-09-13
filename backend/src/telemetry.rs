@@ -9,17 +9,14 @@ use tracing_subscriber::EnvFilter;
 
 /// Initializes structured JSON logging and OpenTelemetry tracing.
 ///
-/// Combines a stdout JSON formatter with an OTLP trace exporter,
-/// filtering verbosity via the `RUST_LOG` environment variable.
+/// Filters verbosity via the `RUST_LOG` environment variable.
 pub fn init_logging(otel_endpoint: &str, service_name: &str) {
-    // Build OTLP span exporter (gRPC/tonic transport)
     let exporter = SpanExporter::builder()
         .with_tonic()
         .with_endpoint(otel_endpoint)
         .build()
         .expect("Failed to create OTLP span exporter");
 
-    // Build the tracer provider with batch export
     let tracer_provider = SdkTracerProvider::builder()
         .with_resource(
             Resource::builder()
@@ -32,23 +29,15 @@ pub fn init_logging(otel_endpoint: &str, service_name: &str) {
         .with_batch_exporter(exporter)
         .build();
 
-    // Get a named tracer
     let tracer = tracer_provider.tracer("pudimfinance-backend");
-
-    // Set the global tracer provider for the shutdown hook
     opentelemetry::global::set_tracer_provider(tracer_provider);
-
-    // Create OpenTelemetry tracing-subscriber layer
     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
-
-    // Create stdout JSON logging layer
     let stdout_layer = tracing_subscriber::fmt::layer()
         .json()
         .with_target(true)
         .with_current_span(true)
         .with_span_list(true);
 
-    // Combine layers with env filter
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env())
         .with(telemetry_layer)

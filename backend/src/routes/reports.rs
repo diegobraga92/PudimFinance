@@ -20,13 +20,13 @@ use crate::state::AppState;
 /// Query parameters for the monthly report.
 #[derive(Debug, Default, Deserialize)]
 pub struct MonthlyParams {
-    /// Start year (default: 6 months ago).
+    /// Start year (defaults to 6 months ago).
     pub start_year: Option<i32>,
-    /// Start month (default: 6 months ago).
+    /// Start month (defaults to 6 months ago).
     pub start_month: Option<i32>,
-    /// End year (default: current year).
+    /// End year (defaults to the current year).
     pub end_year: Option<i32>,
-    /// End month (default: current month).
+    /// End month (defaults to the current month).
     pub end_month: Option<i32>,
     /// Restrict to a single source account (payment method) UUID.
     pub account_id: Option<Uuid>,
@@ -35,9 +35,9 @@ pub struct MonthlyParams {
 /// Query parameters for the category breakdown report.
 #[derive(Debug, Default, Deserialize)]
 pub struct BreakdownParams {
-    /// Start date (ISO `YYYY-MM-DD`). Default: first day of current month.
+    /// Start date (ISO `YYYY-MM-DD`). Defaults to the first day of the current month.
     pub start_date: Option<NaiveDate>,
-    /// End date (ISO `YYYY-MM-DD`). Default: today.
+    /// End date (ISO `YYYY-MM-DD`). Defaults to today.
     pub end_date: Option<NaiveDate>,
 }
 

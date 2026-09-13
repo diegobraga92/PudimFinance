@@ -1,7 +1,6 @@
 //! Account CRUD endpoints.
 //!
-//! Manages the chart of accounts (assets, liabilities, credit cards, income,
-//! expense, equity). Account balances are computed on the fly from the
+//! Manages the chart of accounts. Balances are computed on the fly from the
 //! immutable `ledger_entries` table.
 
 use axum::extract::{Path, State};
@@ -196,7 +195,7 @@ fn validate_card_fields(
 }
 
 /// Resolves the user-facing kind and accounting type for an account payload.
-/// The kind is validated first; when present, the accounting type is derived
+/// The kind is validated first. When present, the accounting type is derived
 /// from it (the explicitly provided type is kept only for `other`).
 fn resolve_kind_and_type(
     kind: Option<&str>,
@@ -401,7 +400,6 @@ pub async fn delete_account(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // Refuse to delete if ledger entries reference it.
     let entry_count: (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM ledger_entries WHERE account_id = $1")
             .bind(id)
@@ -428,7 +426,6 @@ pub async fn delete_account(
         ));
     }
 
-    // Refuse to delete if it is a parent of other accounts.
     let child_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM accounts WHERE parent_id = $1")
         .bind(id)
         .fetch_one(&state.pg_pool)

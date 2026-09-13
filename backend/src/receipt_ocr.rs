@@ -1,12 +1,9 @@
 //! Receipt text parsing for OCR-assisted scanning.
 //!
-//! The OCR engine (ML Kit on mobile, tesseract.js on web) extracts raw text
-//! from a receipt photo; this module turns that text into a structured receipt
-//! (access key, CNPJ, date, total, store name, and best-effort line items).
-//!
-//! This is intentionally conservative: it only extracts fields that are
-//! reliably labeled or formatted on Brazilian NFC-e thermal receipts, so the
-//! human review step (the editable item list in the UI) remains the safety net.
+//! Turns raw OCR text (ML Kit on mobile, tesseract.js on web) into a structured
+//! receipt with access key, CNPJ, date, total, store name, and best-effort items.
+//! Only fields reliably labeled on Brazilian NFC-e receipts are extracted. The
+//! UI's editable item list remains the safety net.
 
 use regex::Regex;
 use rust_decimal::Decimal;
@@ -87,7 +84,7 @@ fn extract_access_key(text: &str) -> Option<String> {
             return Some(key[..44].to_string());
         }
     }
-    // Fallback: look right after the "chave de acesso" label.
+    // Otherwise look right after the "chave de acesso" label.
     if let Some(idx) = text.to_lowercase().find("chave de acesso") {
         let digits: String = text[idx..].chars().filter(|c| c.is_ascii_digit()).collect();
         if digits.len() >= 44 {
@@ -171,10 +168,10 @@ fn extract_store_name(lines: &[&str]) -> Option<String> {
 
 /// Best-effort item extraction from the body of the receipt.
 ///
-/// Heuristic: lines that are not header/footer and that end in a plausible
-/// monetary amount are treated as item lines. The trailing amount is the line
-/// total; a `qty x unit` segment, when present, is split out. Because OCR text
-/// is noisy, the UI always allows review.
+/// Lines that are not header/footer and that end in a plausible monetary amount
+/// are treated as item lines. The trailing amount is the line total, and a
+/// `qty x unit` segment, when present, is split out. Because OCR text is noisy,
+/// the UI always allows review.
 fn extract_items(lines: &[&str]) -> Vec<ReceiptOcrItem> {
     let mut items = Vec::new();
     for line in lines {

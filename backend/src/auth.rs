@@ -1,5 +1,3 @@
-//! Authentication: JWT creation/verification, password hashing, and RBAC claims.
-
 use anyhow::{anyhow, Result};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
@@ -10,9 +8,9 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Access token lifetime: 15 minutes (short-lived; refreshed via refresh token).
+/// Access token lifetime of 15 minutes. Short-lived, refreshed via refresh token.
 pub const ACCESS_TOKEN_TTL_SECS: i64 = 15 * 60;
-/// Refresh token lifetime: 7 days.
+/// Refresh token lifetime, 7 days.
 pub const REFRESH_TOKEN_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 
 /// JWT claims embedded in tokens.
@@ -22,7 +20,7 @@ pub struct Claims {
     pub sub: String,
     /// User email.
     pub email: String,
-    /// Role: `user` or `admin`.
+    /// Role, either `user` or `admin`.
     pub role: String,
     /// Token expiry (epoch seconds).
     pub exp: usize,
@@ -84,10 +82,7 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
         .is_ok())
 }
 
-/// Helper to get the number of seconds until a claim expires.
-///
-/// Currently unused; kept for potential middleware that wants to warn users
-/// about imminent token expiry.
+/// Seconds until the claim expires (reserved for expiry warnings, currently unused).
 #[allow(dead_code)]
 pub fn claims_remaining_secs(claims: &Claims) -> i64 {
     let exp = claims.exp as i64;

@@ -21,20 +21,20 @@ use crate::state::AppState;
 /// Query parameters for the budget list and summary.
 #[derive(Debug, Default, Deserialize)]
 pub struct BudgetParams {
-    /// Year (default: current year).
+    /// Year (defaults to the current year).
     pub year: Option<i32>,
-    /// Month 1-12 (default: current month).
+    /// Month from 1 to 12 (defaults to the current month).
     pub month: Option<i32>,
 }
 
 /// Query parameters for the budget alerts listing.
 #[derive(Debug, Default, Deserialize)]
 pub struct BudgetAlertParams {
-    /// Year (default: current year).
+    /// Year (defaults to the current year).
     pub year: Option<i32>,
-    /// Month 1-12 (default: current month).
+    /// Month from 1 to 12 (defaults to the current month).
     pub month: Option<i32>,
-    /// Filter by acknowledgement state (default: false = unacknowledged only).
+    /// Filter by acknowledgement state. Defaults to false, unacknowledged only.
     pub acknowledged: Option<bool>,
     /// Page offset (default 0).
     pub page: Option<u32>,
@@ -149,7 +149,6 @@ pub async fn create_budget(
         ));
     }
 
-    // Category must exist and be an expense category.
     let category_type: Option<String> =
         sqlx::query_scalar("SELECT type FROM categories WHERE id = $1")
             .bind(payload.category_id)
@@ -193,7 +192,7 @@ pub async fn create_budget(
         )
     })?;
 
-    // Upsert: create if no budget exists for (category_id, month, year), update otherwise.
+    // Upsert on (category_id, month, year). Creates when missing, updates otherwise.
     let inserted = sqlx::query_scalar::<_, bool>(
         "INSERT INTO budgets (category_id, month, year, amount_limit)
          VALUES ($1, $2, $3, $4)

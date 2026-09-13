@@ -37,9 +37,7 @@ pub fn parse_statement(raw: &str, format: StatementFormat) -> Result<Vec<Stateme
     }
 }
 
-// ---------------------------------------------------------------------------
 // CSV parsing
-// ---------------------------------------------------------------------------
 
 /// Parses a CSV statement, locating date/description/amount columns by header name.
 fn parse_csv(raw: &str) -> Result<Vec<StatementLine>> {
@@ -59,7 +57,7 @@ fn parse_csv(raw: &str) -> Result<Vec<StatementLine>> {
         return Err(anyhow!("CSV has no header row"));
     }
 
-    // Locate columns by common header names (en + pt-BR).
+    // Locate columns by common header names (en and pt-BR).
     let find_col = |names: &[&str]| headers.iter().position(|h| names.contains(&h.as_str()));
 
     let date_col = find_col(&[
@@ -125,9 +123,7 @@ fn parse_csv(raw: &str) -> Result<Vec<StatementLine>> {
     Ok(lines)
 }
 
-// ---------------------------------------------------------------------------
 // OFX parsing
-// ---------------------------------------------------------------------------
 
 /// Parses an OFX statement file. Handles both SGML (no quotes, no closing tags)
 /// and XML (quoted attributes) variants. Extracts every `<STMTTRN>` block.
@@ -135,7 +131,7 @@ fn parse_ofx(raw: &str) -> Result<Vec<StatementLine>> {
     let text = strip_ofx_headers(raw);
 
     let mut lines = Vec::new();
-    // Split on STMTTRN blocks; each must contain DTPOSTED and TRNAMT.
+    // Split on STMTTRN blocks. Each must contain DTPOSTED and TRNAMT.
     for block in text.split("<STMTTRN>").skip(1) {
         let block = block.split("</STMTTRN>").next().unwrap_or(block);
         let tags = extract_tags(block);
@@ -207,7 +203,7 @@ fn extract_tags(block: &str) -> HashMap<String, String> {
     map
 }
 
-/// Parses an OFX date: `YYYYMMDDHHMMSS[.XXX]` or `YYYYMMDD`.
+/// Parses an OFX date in the `YYYYMMDDHHMMSS[.XXX]` or `YYYYMMDD` form.
 fn parse_ofx_date(raw: &str) -> Result<NaiveDate> {
     let clean: String = raw
         .trim()
@@ -221,9 +217,7 @@ fn parse_ofx_date(raw: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(&clean, "%Y%m%d").map_err(|_| anyhow!("Invalid OFX date: {}", raw))
 }
 
-// ---------------------------------------------------------------------------
 // Shared value parsers
-// ---------------------------------------------------------------------------
 
 /// Parses an amount that may be in Brazilian format (`1.234,56`), US format
 /// (`1,234.56`), or plain (`-49.90`). Returns a signed value.
@@ -244,16 +238,15 @@ fn parse_br_amount(raw: &str) -> Result<Decimal> {
         s = s[1..s.len() - 1].to_string();
     }
 
-    // Determine separators.
     let has_comma = s.contains(',');
     let has_dot = s.contains('.');
     if has_comma && has_dot {
         // Whichever comes LAST is the decimal separator (common BR style).
         if s.rfind(',') > s.rfind('.') {
-            // BR: dots are thousands, comma is decimal.
+            // Brazilian style uses dots as thousands and a comma as decimal.
             s = s.replace('.', "").replace(',', ".");
         } else {
-            // US: comma is thousands, dot is decimal.
+            // US style uses a comma as thousands and a dot as decimal.
             s = s.replace(',', "");
         }
     } else if has_comma {
@@ -283,7 +276,7 @@ fn parse_date(raw: &str) -> Result<NaiveDate> {
     let raw = raw.split([' ', 'T']).next().unwrap_or(&raw).to_string();
 
     if raw.contains('-') && raw.len() >= 10 {
-        // ISO-ish: check first char is a digit of a 4-digit year.
+        // ISO-like date. Check that the first character is a digit of a 4-digit year.
         let parts: Vec<&str> = raw.split('-').collect();
         if parts.len() == 3 && parts[0].len() == 4 {
             return NaiveDate::parse_from_str(&raw, "%Y-%m-%d")

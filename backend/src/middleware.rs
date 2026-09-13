@@ -1,4 +1,4 @@
-//! Auth middleware: verifies JWT on protected routes and injects claims.
+//! Auth middleware that verifies the JWT on protected routes and injects claims.
 
 #![allow(clippy::result_large_err)]
 
@@ -41,7 +41,6 @@ impl RateLimiter {
         let mut windows = self.windows.write().await;
         let entry = windows.entry(key.to_string()).or_insert((now, 0));
 
-        // Reset the window if it expired.
         if now.saturating_sub(entry.0) >= window_secs {
             *entry = (now, 0);
         }
@@ -87,14 +86,12 @@ impl RateLimiterState {
     }
 }
 
-/// Extracts `Authorization: Bearer <token>` header, verifies JWT, injects claims.
+/// Extracts the `Authorization` header with a Bearer token, verifies the JWT, and injects claims.
 ///
-/// Skip (public) paths that should not require authentication: `/api/auth/*`,
-/// `/health`, `/metrics`, and `/swagger-ui`.
+/// Skips the public paths `/api/auth/*`, `/health`, and `/metrics`.
 pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let path = req.uri().path().to_string();
 
-    // Public paths that never require auth.
     if path.starts_with("/api/auth/") || path == "/health" || path == "/metrics" {
         return next.run(req).await;
     }
@@ -120,16 +117,13 @@ pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: 
     }
 }
 
-/// Deprecation middleware: attaches `Sunset`, `Deprecation`, and `Link`
-/// headers to legacy (v1) endpoints that have a v2 successor.
-///
-/// Per ADR 009, deprecated endpoints remain functional but advertise their
-/// successor and retirement date so clients can migrate gracefully.
+/// Deprecation middleware that attaches `Sunset`, `Deprecation`, and `Link`
+/// headers to legacy v1 endpoints with a v2 successor (ADR 009).
 pub async fn deprecation_middleware(req: Request, next: Next) -> Response {
     let path = req.uri().path().to_string();
     let mut response = next.run(req).await;
 
-    // Only mark the v1 ledger transactions path as deprecated in this simulation.
+    // Only the v1 ledger path is deprecated in this simulation.
     if path == "/api/ledger/transactions" {
         response.headers_mut().insert(
             "Sunset",
@@ -149,10 +143,9 @@ pub async fn deprecation_middleware(req: Request, next: Next) -> Response {
     response
 }
 
-/// Rate limiting middleware: enforces per-IP limits on write endpoints.
+/// Rate limiting middleware with fixed-window per-IP limits on write endpoints.
 ///
-/// Applies a fixed-window limit keyed by the request's remote IP. If the
-/// limit is exceeded within the window, returns HTTP 429 Too Many Requests.
+/// Returns HTTP 429 when the limit is exceeded.
 pub async fn rate_limit_middleware(
     State(state): State<AppState>,
     req: Request,
@@ -161,13 +154,11 @@ pub async fn rate_limit_middleware(
     let path = req.uri().path().to_string();
     let method = req.method().to_string();
 
-    // Only rate-limit POST/PUT/DELETE (write) endpoints and auth login.
     let is_write = matches!(method.as_str(), "POST" | "PUT" | "DELETE");
     if !is_write {
         return next.run(req).await;
     }
 
-    // Key by client IP (fallback to "unknown").
     let key = req
         .headers()
         .get("x-forwarded-for")
@@ -175,11 +166,11 @@ pub async fn rate_limit_middleware(
         .map(|s| s.split(',').next().unwrap_or("unknown").trim().to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
-    // Login has a tighter limit (prevents brute-force); general writes are more lenient.
+    // Limits are per minute. Login is stricter to slow brute-force attempts.
     let (limit, window) = if path == "/api/auth/login" {
-        (10, 60u64) // 10 login attempts per minute
+        (10, 60u64)
     } else {
-        (120, 60u64) // 120 writes per minute
+        (120, 60u64)
     };
 
     if !state.rate_limiter.check(&key, limit, window).await {
@@ -193,10 +184,7 @@ pub async fn rate_limit_middleware(
     next.run(req).await
 }
 
-/// RBAC middleware: requires the authenticated user to have an admin role.
-///
-/// Currently unused by installed routes; will protect admin-only endpoints
-/// (migration, audit events) once those are wired.
+/// RBAC middleware requiring the `admin` role (unused, reserved for admin routes).
 #[allow(dead_code)]
 pub async fn require_admin(State(_state): State<AppState>, req: Request, next: Next) -> Response {
     let is_admin = req
@@ -225,7 +213,7 @@ fn unauthorized(message: &str) -> Response {
         .into_response()
 }
 
-/// Helper: extract claims from request extensions in a handler.
+/// Extracts claims from the request extensions in a handler.
 #[allow(dead_code)]
 pub fn extract_claims(req: &Request) -> Option<&Claims> {
     req.extensions().get::<Claims>()

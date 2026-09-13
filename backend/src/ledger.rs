@@ -1,8 +1,7 @@
 //! Double-entry ledger engine.
 //!
-//! Central logic for creating balanced ledger transactions (debits = credits),
-//! validating entries, and interacting with the `ledger_entries` table.
-//! No HTTP concerns here — pure domain logic + repository functions.
+//! Balanced transaction validation and account mapping. Pure domain logic with
+//! no HTTP concerns.
 
 use anyhow::{anyhow, Result};
 use rust_decimal::Decimal;

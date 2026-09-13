@@ -1,9 +1,8 @@
 //! NFC-e QR code parsing (Brazilian electronic invoice).
 //!
-//! Brazilian NFC-e (Nota Fiscal Eletrônica ao Consumidor) receipts encode the
-//! receipt data in the QR code as a URL with a `p` parameter. The `p` value is
-//! URL-decoded and pipe-delimited. This module parses that payload into a
-//! structured receipt without any OCR — the receipt data is in the QR itself.
+//! NFC-e receipts encode their data in the QR code as a URL with a URL-encoded,
+//! pipe-delimited `p` parameter. This module parses that payload into a
+//! structured receipt, with no OCR needed.
 
 use anyhow::{anyhow, Result};
 use rust_decimal::Decimal;
@@ -12,7 +11,7 @@ use std::collections::HashMap;
 
 /// A single line item parsed from an NFC-e QR code (best-effort).
 ///
-/// The official NFC-e spec does not guarantee item data in the QR code — it is
+/// The official NFC-e spec does not guarantee item data in the QR code. It is
 /// a store/state-specific extension. When present, item fields follow the
 /// header as repeating groups.
 #[derive(Debug, Clone, Deserialize)]
@@ -50,10 +49,10 @@ pub struct NfcePayload {
 
 /// Parses a raw NFC-e QR code string into structured data.
 ///
-/// The QR code is a URL like:
-/// `http://www.fazenda.gov.br/nfce/qrcode?v=2&p=...`
-/// where `p` is URL-encoded and contains pipe-delimited fields:
-/// `[accessKey]|[version]|[icmsValue]|[totalValue]|[date]|[cnpj]|[store]`
+/// The QR code is a URL such as
+/// `http://www.fazenda.gov.br/nfce/qrcode?v=2&p=...`,
+/// where `p` is URL-encoded and contains pipe-delimited fields
+/// `[accessKey]|[version]|[icmsValue]|[totalValue]|[date]|[cnpj]|[store]`.
 pub fn parse_qr(qr: &str) -> Result<NfcePayload> {
     // Parse the URL query string (works even if it's not a full URL).
     let raw = qr.trim();
@@ -81,7 +80,7 @@ pub fn parse_qr(qr: &str) -> Result<NfcePayload> {
         .get("p")
         .ok_or_else(|| anyhow!("NFC-e QR payload missing 'p' parameter"))?;
 
-    // The `p` value is URL-encoded; decode common chars.
+    // The `p` value is URL-encoded, so decode common characters.
     let decoded = url_decode(p);
     let fields: Vec<&str> = decoded.split('|').collect();
 
@@ -115,7 +114,7 @@ pub fn parse_qr(qr: &str) -> Result<NfcePayload> {
         .and_then(|s| Decimal::from_str_exact(s).ok())
         .ok_or_else(|| anyhow!("Invalid NFC-e total value"))?;
 
-    // Optional fields: date[4], cnpj[5], store[6]
+    // Optional fields are date[4], cnpj[5], and store[6]
     let date = fields.get(4).cloned().unwrap_or_default().to_string();
     let cnpj = fields
         .get(5)
@@ -127,10 +126,10 @@ pub fn parse_qr(qr: &str) -> Result<NfcePayload> {
         .filter(|s| !s.is_empty());
 
     // Best-effort item extraction from any fields beyond the standard header.
-    // Two supported shapes:
-    //   1. A leading item count followed by N groups of 4:
+    // Two supported shapes follow.
+    //   1. A leading item count followed by N groups of 4,
     //        [count, desc1, qty1, unit1, total1, desc2, qty2, ...]
-    //   2. Plain repeating groups of 4 (no count):
+    //   2. Plain repeating groups of 4 with no count,
     //        [desc1, qty1, unit1, total1, desc2, qty2, ...]
     let items = parse_items(&fields[7.min(fields.len())..]);
 
@@ -157,7 +156,7 @@ fn parse_items(rest: &[&str]) -> Vec<NfceItem> {
         return Vec::new();
     }
 
-    // Shape 1: optional leading item count.
+    // Shape 1, an optional leading item count.
     let (start, count_hint) = match rest.first().and_then(|s| s.parse::<usize>().ok()) {
         Some(n) if n > 0 && rest.len() == 1 + n * 4 => (1usize, Some(n)),
         Some(n) if n > 0 && rest.len() > 1 + n * 4 => (1usize, Some(n)),
@@ -198,7 +197,6 @@ fn url_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            // Handle %XX
             let hex = &s[i + 1..i + 3];
             if let Ok(byte) = u8::from_str_radix(hex, 16) {
                 out.push(byte);

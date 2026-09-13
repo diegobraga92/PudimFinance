@@ -70,7 +70,6 @@ pub async fn list_ledger_transactions(
         }
     };
 
-    // Group by transaction_id
     let mut transactions: std::collections::BTreeMap<
         Uuid,
         (String, NaiveDate, chrono::DateTime<Utc>, Vec<LedgerEntry>),
@@ -84,7 +83,7 @@ pub async fn list_ledger_transactions(
             .or_insert_with(|| {
                 (
                     entry.description.clone().unwrap_or_default(),
-                    // placeholder — will be filled via date from entries
+                    // placeholder, filled later from the entry dates
                     NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
                     entry.recorded_at,
                     vec![entry],
@@ -93,7 +92,7 @@ pub async fn list_ledger_transactions(
     }
 
     // Fetch transaction metadata from a simple transactions table if available
-    // (the ledger_entries table has no date — we derive it from the recorded_at
+    // (the ledger_entries table has no date, so we derive it from the recorded_at
     // and the associated simple transaction when applicable).
     let simple_rows: Vec<(Uuid, String, NaiveDate)> = sqlx::query_as(
         "SELECT id, description, date FROM transactions WHERE ledger_transaction_id IS NOT NULL",
@@ -149,7 +148,6 @@ pub async fn create_ledger_transaction(
     State(state): State<AppState>,
     Json(payload): Json<CreateLedgerTransactionRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<serde_json::Value>)> {
-    // Validate payload
     if payload.description.trim().is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -173,7 +171,6 @@ pub async fn create_ledger_transaction(
         ));
     }
 
-    // Check account IDs exist
     for e in &payload.entries {
         let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM accounts WHERE id = $1")
             .bind(e.account_id)
@@ -195,7 +192,7 @@ pub async fn create_ledger_transaction(
         }
     }
 
-    // Idempotency check: if key provided, return cached response if already processed
+    // If an idempotency key was provided and already processed, return the cached response
     let idempotency_key = payload.idempotency_key.clone();
     if let Some(key) = &idempotency_key {
         let cached: Option<(i32, serde_json::Value)> = sqlx::query_as(
@@ -217,7 +214,6 @@ pub async fn create_ledger_transaction(
         }
     }
 
-    // Generate transaction ID
     let transaction_id = Uuid::new_v4();
     let recorded_at = Utc::now();
 
@@ -316,7 +312,7 @@ pub async fn create_ledger_transaction(
 
     metrics::inc_ledger_transactions();
 
-    // Publish event to RabbitMQ (non-blocking: failure is logged, not returned)
+    // Publish the event to RabbitMQ. Failures are logged, not returned.
     let publisher = state.event_publisher.clone();
     let tx_id_clone = transaction_id;
     let desc_clone = payload.description.clone();
@@ -392,7 +388,6 @@ pub async fn migrate_single_to_double(
         )
     })?;
 
-    // Load account map
     let account_map = AccountMap::load(&state.pg_pool).await.map_err(|e| {
         error!("Failed to load account map: {}", e);
         (
@@ -414,10 +409,9 @@ pub async fn migrate_single_to_double(
     let mut failed: i64 = 0;
 
     for (id, description, amount, ttype, category_id, _date) in &simple_rows {
-        // Resolve the paired account:
-        // - income  → credit the income account, debit Cash
-        // - expense → debit the expense account, credit Cash
-        // We try category match first, fall back to generic accounts.
+        // Resolve the paired account. Income credits the income account and
+        // debits Cash. Expense debits the expense account and credits Cash. We
+        // try a category match first and fall back to generic accounts.
         let paired_name = if ttype == "income" {
             match category_id {
                 Some(cid) => {
@@ -574,7 +568,7 @@ pub async fn reconcile(
     run_reconciliation(&state, &payload.statement_name, &payload.lines, auto_create).await
 }
 
-/// Shared reconciliation engine: creates the summary record, matches each line
+/// Shared reconciliation engine. Creates the summary record, matches each line
 /// against existing transactions (optionally auto-creating for unmatched rows),
 /// and persists per-row results.
 async fn run_reconciliation(
@@ -585,7 +579,6 @@ async fn run_reconciliation(
 ) -> Result<Json<ReconciliationUploadResponse>, (StatusCode, Json<serde_json::Value>)> {
     let total_rows = lines.len() as i32;
 
-    // Create reconciliation record
     let recon_id = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO reconciliations (id, statement_name, total_rows, status)
@@ -609,8 +602,8 @@ async fn run_reconciliation(
     let mut items = Vec::with_capacity(lines.len());
 
     for line in lines {
-        // Match against simple transactions:
-        // exact amount (ignoring sign) within ±1 day date tolerance
+        // Match against simple transactions by exact amount (ignoring sign)
+        // within a ±1 day date tolerance
         let signed_amount = line.amount;
         let abs_amount = signed_amount.abs();
 
@@ -636,9 +629,9 @@ async fn run_reconciliation(
 
         // If no match found and auto-create is enabled, create a new expense
         // transaction from the statement line. The category stays NULL
-        // ("Uncategorized") — the user can categorize it later.
+        // ("Uncategorized"). The user can categorize it later.
         let matched_tx_id = if matched_tx_id.is_none() && auto_create {
-            // Default posting: Cash is the source account, the generic expense
+            // Default posting. Cash is the source account, and the generic expense
             // account receives the debit.
             let source_account =
                 crate::transaction_ledger::resolve_source_account(&state.pg_pool, None)
@@ -796,7 +789,6 @@ async fn run_reconciliation(
         items.push(item);
     }
 
-    // Update reconciliation summary
     sqlx::query("UPDATE reconciliations SET matched_rows = $1, unmatched_rows = $2 WHERE id = $3")
         .bind(matched_rows as i32)
         .bind(unmatched_rows as i32)

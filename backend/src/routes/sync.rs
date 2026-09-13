@@ -175,7 +175,7 @@ async fn apply_transaction_create(
     state: &AppState,
     op: &SyncOperation,
 ) -> Result<Option<Uuid>, (StatusCode, String)> {
-    // Idempotency: a previous attempt may have already created this transaction.
+    // A previous attempt may have already created this transaction.
     let existing: Option<Uuid> =
         sqlx::query_scalar("SELECT id FROM transactions WHERE idempotency_key = $1")
             .bind(&op.client_id)
@@ -238,7 +238,7 @@ async fn apply_transaction_create(
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
 
-    // Resolve the payment + posting accounts (read-only pool work).
+    // Resolve the payment and posting accounts (read-only pool work).
     let source_account =
         crate::transaction_ledger::resolve_source_account(&state.pg_pool, account_id)
             .await
@@ -399,7 +399,7 @@ async fn apply_transaction_update(
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
 
-    // Resolve the payment + posting accounts (read-only pool work).
+    // Resolve the payment and posting accounts (read-only pool work).
     let source_account =
         crate::transaction_ledger::resolve_source_account(&state.pg_pool, account_id)
             .await
@@ -716,7 +716,7 @@ async fn apply_category_delete(
         })?;
 
     if result.rows_affected() == 0 {
-        // Idempotent — the category is already gone.
+        // Idempotent. The category is already gone.
         return Ok(Some(server_id));
     }
     Ok(Some(server_id))
@@ -746,7 +746,7 @@ fn account_fields_from_payload(op: &SyncOperation) -> AccountPayload {
         .get("account_kind")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    // Mirror the /api/accounts create route: when a user-facing kind is
+    // Mirrors the /api/accounts create route. When a user-facing kind is
     // provided, the accounting type is derived from it.
     let mut acct_type = op
         .payload
@@ -805,7 +805,7 @@ async fn apply_account_create(
         credit_limit,
     } = account_fields_from_payload(op);
 
-    // Idempotency: the client UUID is the account id, so a retried push simply
+    // The client UUID is the account id, so a retried push simply
     // updates the same row.
     let account_id = Uuid::parse_str(&op.client_id).unwrap_or_else(|_| Uuid::new_v4());
     let account: Uuid = sqlx::query_scalar(
@@ -961,7 +961,7 @@ async fn apply_account_delete(
         })?;
 
     if result.rows_affected() == 0 {
-        // Idempotent — the account is already gone.
+        // Idempotent. The account is already gone.
         return Ok(Some(server_id));
     }
     Ok(Some(server_id))

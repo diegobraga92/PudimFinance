@@ -129,7 +129,6 @@ pub async fn create_category(
         ));
     }
 
-    // Validate parent_id if provided
     if let Some(pid) = payload.parent_id {
         let exists: Option<uuid::Uuid> =
             sqlx::query_scalar("SELECT id FROM categories WHERE id = $1")
@@ -253,7 +252,6 @@ pub async fn update_category(
         ));
     }
 
-    // Validate parent_id if provided (and it's not self-referencing)
     if let Some(pid) = payload.parent_id {
         if pid == id {
             return Err((
@@ -333,7 +331,6 @@ pub async fn delete_category(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // Refuse to delete if transactions reference it.
     let tx_count: (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM transactions WHERE category_id = $1")
             .bind(id)
@@ -359,7 +356,6 @@ pub async fn delete_category(
         ));
     }
 
-    // Refuse to delete if it is a parent of other categories.
     let child_count: (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM categories WHERE parent_id = $1")
             .bind(id)

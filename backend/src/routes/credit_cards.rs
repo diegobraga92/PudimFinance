@@ -1,14 +1,12 @@
 //! Credit-card endpoints.
 //!
-//! Cards are `liability` accounts with `closing_day`/`due_day` set. This module
-//! manages their monthly billing cycles ("faturas"), records purchases against
-//! a card (posting double-entry ledger entries so the card balance grows), pays
-//! bills as transfers (never as expenses), and anticipates future installments
-//! onto the current bill ("antecipar parcelas").
+//! Cards are `liability` accounts with `closing_day`/`due_day`. This module
+//! manages billing cycles ("faturas"), records purchases (posting balanced
+//! ledger entries), pays bills as transfers (never as expenses), and anticipates
+//! future installments onto the current bill ("antecipar parcelas").
 //!
-//! Invariant: monthly expense totals (summary/reports/budgets) come from
-//! `transactions.date`, so a card purchase dated at purchase time always counts
-//! in the purchase month, and bill payments create no `transactions` row at all.
+//! Monthly expense totals come from `transactions.date`, so a card purchase
+//! counts in the purchase month and bill payments create no transaction.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -48,9 +46,7 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-// ---------------------------------------------------------------------------
 // Billing cycle math
-// ---------------------------------------------------------------------------
 
 /// Adds `months` to a (year, month) pair, returning the new (year, month).
 fn add_months_ym(year: i32, month: u32, months: i32) -> (i32, u32) {
@@ -173,9 +169,7 @@ mod cycle_tests {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Shared DB helpers
-// ---------------------------------------------------------------------------
 
 /// Fetches a card account (a `liability` account with `due_day` set).
 /// Returns `(name, closing_day, due_day)`.
@@ -205,7 +199,7 @@ async fn fetch_card(
     }
 }
 
-/// Loads an expense ledger account for a category name (fallback: Miscellaneous).
+/// Loads an expense ledger account for a category name, falling back to Miscellaneous.
 async fn expense_account_for(
     pool: &PgPool,
     account_map: &AccountMap,
@@ -365,9 +359,7 @@ async fn fetch_current_bill(
     Ok(bill)
 }
 
-// ---------------------------------------------------------------------------
 // Read endpoints
-// ---------------------------------------------------------------------------
 
 /// Lists credit-card accounts with balances and their current open bill.
 #[utoipa::path(
@@ -547,9 +539,7 @@ pub async fn list_card_bills(
     Ok(Json(bills))
 }
 
-// ---------------------------------------------------------------------------
 // Write endpoints
-// ---------------------------------------------------------------------------
 
 /// Records a purchase on a credit card.
 ///
@@ -640,7 +630,7 @@ pub async fn create_card_purchase(
         )
     })?;
 
-    // 1. Simple transaction — this is what drives monthly expense totals.
+    // 1. Simple transaction that drives monthly expense totals.
     let transaction: Transaction = sqlx::query_as(
         "INSERT INTO transactions (description, amount, type, category_id, date, notes, installment_plan_id, account_id)
          VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)
@@ -664,7 +654,7 @@ pub async fn create_card_purchase(
         )
     })?;
 
-    // 2. Balanced ledger entries: debit expense account, credit card.
+    // 2. Balanced ledger entries that debit the expense account and credit the card.
     let debits = vec![payload.amount, Decimal::ZERO];
     let credits = vec![Decimal::ZERO, payload.amount];
     validate_balance(&debits, &credits).map_err(|e| {
@@ -752,8 +742,8 @@ pub async fn create_card_purchase(
 
 /// Pays a credit-card bill.
 ///
-/// Records the payment as a transfer (debit the card, credit the paying
-/// account) — never as an expense — and updates the bill's settlement state.
+/// Records the payment as a transfer, debiting the card and crediting the paying
+/// account. It is never an expense, and it updates the bill's settlement state.
 #[utoipa::path(
     post,
     path = "/api/credit-cards/{id}/bills/{bill_id}/pay",
@@ -776,7 +766,7 @@ pub async fn pay_card_bill(
 ) -> Result<Json<PayCardBillResponse>, (StatusCode, Json<Value>)> {
     let _ = fetch_card(&state.pg_pool, id).await?;
 
-    // Determine the bill: explicit, or the current open bill by default.
+    // Use the explicit bill when provided, otherwise the current open bill.
     let target_bill_id = payload.bill_id.unwrap_or(bill_id);
     let bill = {
         let b = fetch_bill_by_id(&state.pg_pool, target_bill_id).await?;
@@ -818,7 +808,6 @@ pub async fn pay_card_bill(
         ));
     }
 
-    // Determine the paying account.
     let from_account_id = match payload.from_account_id {
         Some(aid) => {
             let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM accounts WHERE id = $1")
@@ -1101,7 +1090,6 @@ pub async fn anticipate_installments(
         gross += amt;
     }
 
-    // Discount resolution.
     let discount = if let Some(p) = payload.discount_percent {
         if p < Decimal::ZERO || p > Decimal::from(100) {
             return Err((
@@ -1198,7 +1186,7 @@ pub async fn anticipate_installments(
                 )
             })?;
 
-            // The amount may have been discounted — re-post the ledger entries.
+            // The amount may have been discounted, so re-post the ledger entries.
             let (desc, amt): (String, Decimal) =
                 sqlx::query_as("SELECT description, amount FROM transactions WHERE id = $1")
                     .bind(existing_id)

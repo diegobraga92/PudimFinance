@@ -1,4 +1,4 @@
-//! Authentication endpoints: register, login, refresh, and me.
+//! Endpoints for registration, login, token refresh, and the current user.
 
 #![allow(clippy::result_large_err)]
 

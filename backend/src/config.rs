@@ -22,7 +22,7 @@ pub struct Config {
 }
 
 impl Config {
-    /// Builds a [`Config`] from environment variables, applying sensible defaults.
+    /// Builds a [`Config`] from environment variables, applying defaults.
     ///
     /// # Panics
     /// Panics if the required `DATABASE_URL` environment variable is not set.
@@ -51,7 +51,7 @@ impl Config {
         }
     }
 
-    /// Returns the socket address string (`host:port`) used to bind the HTTP server.
+    /// Returns the socket address (`host` and `port`) used to bind the HTTP server.
     pub fn server_addr(&self) -> String {
         format!("{}:{}", self.server_host, self.server_port)
     }

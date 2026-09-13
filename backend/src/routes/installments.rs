@@ -184,7 +184,6 @@ pub async fn create_installment_plan(
 
     let installment_amount = payload.total_amount / Decimal::from(payload.installments);
 
-    // Validate the linked account exists when provided.
     if let Some(aid) = payload.account_id {
         let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM accounts WHERE id = $1")
             .bind(aid)
@@ -206,7 +205,6 @@ pub async fn create_installment_plan(
         }
     }
 
-    // Insert the plan.
     #[derive(sqlx::FromRow)]
     struct Inserted {
         id: Uuid,
@@ -235,7 +233,6 @@ pub async fn create_installment_plan(
         )
     })?;
 
-    // Pre-create the installment rows.
     for n in 1..=payload.installments {
         let due = add_months(payload.start_date, n - 1);
         let _ = sqlx::query(
@@ -498,7 +495,6 @@ pub async fn generate_installments(
     let mut already_generated: i64 = 0;
 
     for row in pending {
-        // Check if a transaction already exists for this installment row.
         let existing: Option<Uuid> =
             sqlx::query_scalar("SELECT transaction_id FROM installment_transactions WHERE id = $1")
                 .bind(row.id)
@@ -517,7 +513,7 @@ pub async fn generate_installments(
             row.installment_number, row.installments_total, row.plan_description
         );
 
-        // Resolve the payment + posting accounts (defaults to Cash).
+        // Resolve the payment and posting accounts (defaults to Cash).
         let source_account =
             crate::transaction_ledger::resolve_source_account(&state.pg_pool, row.account_id)
                 .await
@@ -568,7 +564,6 @@ pub async fn generate_installments(
             )
         })?;
 
-        // Create the simple transaction.
         let tx: Transaction = sqlx::query_as(
             "INSERT INTO transactions
                 (description, amount, type, category_id, date, installment_plan_id, account_id)
@@ -728,7 +723,7 @@ pub async fn pay_installment(
         ));
     }
 
-    // Resolve the payment + posting accounts (defaults to Cash).
+    // Resolve the payment and posting accounts (defaults to Cash).
     let source_account =
         crate::transaction_ledger::resolve_source_account(&state.pg_pool, row.account_id)
             .await
@@ -799,8 +794,7 @@ pub async fn pay_installment(
 
         match tx {
             Some(t) => {
-                // Ensure the reused transaction has its ledger entries (it may
-                // predate the unified posting).
+                // Backfill ledger entries for transactions predating unified posting.
                 let linked: Option<Uuid> = sqlx::query_scalar(
                     "SELECT ledger_transaction_id FROM transactions WHERE id = $1",
                 )
@@ -844,7 +838,7 @@ pub async fn pay_installment(
                 (t, false)
             }
             None => {
-                // Linked transaction was deleted — create a new one.
+                // Linked transaction was deleted, so create a new one.
                 let description = format!(
                     "Parcela {}/{} — {}",
                     number, row.installments_total, row.plan_description
@@ -907,7 +901,7 @@ pub async fn pay_installment(
             }
         }
     } else {
-        // No transaction yet — create one and link it.
+        // No transaction yet, so create one and link it.
         let description = format!(
             "Parcela {}/{} — {}",
             number, row.installments_total, row.plan_description
@@ -969,7 +963,6 @@ pub async fn pay_installment(
         (t, true)
     };
 
-    // Mark the installment as paid.
     sqlx::query(
         "UPDATE installment_transactions
          SET status = 'paid', transaction_id = $1
