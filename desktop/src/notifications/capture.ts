@@ -24,6 +24,15 @@ export interface NotificationSettings {
   mode: CaptureMode;
   /** Default category id used when the parser can't guess one. */
   defaultCategoryId: string | null;
+  /**
+   * In `ask` mode, post a system notification (Income / Debit / Credit
+   * actions) instead of only queueing the capture in the review inbox.
+   */
+  pushPrompt: boolean;
+  /** Account used when a capture is imported as a debit (checking) expense. */
+  debitAccountId: string | null;
+  /** Account (credit card) used when a capture is imported as a credit expense. */
+  creditAccountId: string | null;
 }
 
 const SETTINGS_KEY = 'pudim_notification_settings';
@@ -34,7 +43,26 @@ export const DEFAULT_SETTINGS: NotificationSettings = {
   monitoredApps: [],
   mode: 'ask',
   defaultCategoryId: null,
+  pushPrompt: true,
+  debitAccountId: null,
+  creditAccountId: null,
 };
+
+/**
+ * The three import choices offered by the capture-prompt notification.
+ * `debit` and `credit` both create an expense, but post to a different account.
+ */
+export type CaptureActionKind = 'income' | 'debit' | 'credit';
+
+/** Narrows an untrusted (native) value to a [CaptureActionKind]. */
+export function isCaptureActionKind(value: unknown): value is CaptureActionKind {
+  return value === 'income' || value === 'debit' || value === 'credit';
+}
+
+/** Maps a prompt action to the transaction type it creates. */
+export function transactionTypeForAction(action: CaptureActionKind): 'income' | 'expense' {
+  return action === 'income' ? 'income' : 'expense';
+}
 
 /**
  * Known Brazilian banks/payment apps. The monitor matches against the
@@ -233,6 +261,8 @@ export interface PendingCapture {
   categoryId: string | null;
   dedupKey: string;
   postTime: number;
+  /** Whether the OS import prompt was already posted for this capture. */
+  prompted?: boolean;
 }
 
 const MAX_PENDING = 50;
@@ -253,9 +283,13 @@ export function appLabelFor(appName: string): string {
   return KNOWN_APPS.find((a) => a.appName === appName)?.label ?? appName;
 }
 
-export function toPendingCapture(parsed: ParsedTransaction, appName: string): PendingCapture {
+export function toPendingCapture(
+  parsed: ParsedTransaction,
+  appName: string,
+  options?: { id?: string; prompted?: boolean },
+): PendingCapture {
   return {
-    id: `cap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: options?.id ?? `cap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     appName,
     type: parsed.type,
     amount: parsed.amount,
@@ -264,6 +298,7 @@ export function toPendingCapture(parsed: ParsedTransaction, appName: string): Pe
     categoryId: parsed.categoryId,
     dedupKey: dedupKeyOf(parsed),
     postTime: Date.now(),
+    prompted: options?.prompted ?? false,
   };
 }
 
@@ -308,6 +343,28 @@ export async function addPendingCapture(item: PendingCapture): Promise<PendingCa
 
 export async function removePendingCapture(id: string): Promise<PendingCapture[]> {
   const next = readInbox().filter((c) => c.id !== id);
+  await writeInbox(next);
+  return next;
+}
+
+/**
+ * Removes every inbox entry matching a de-dup key. Used when a prompt action is
+ * applied, to clear an entry the same notification produced under a different id.
+ */
+export async function removePendingCaptureByDedupKey(
+  dedupKey: string,
+): Promise<PendingCapture[]> {
+  const next = readInbox().filter((c) => c.dedupKey !== dedupKey);
+  await writeInbox(next);
+  return next;
+}
+
+/**
+ * Records that the OS import prompt was posted for a capture, so re-processing
+ * the same (drained) notification on a later launch doesn't prompt twice.
+ */
+export async function markCapturePrompted(id: string): Promise<PendingCapture[]> {
+  const next = readInbox().map((c) => (c.id === id ? { ...c, prompted: true } : c));
   await writeInbox(next);
   return next;
 }

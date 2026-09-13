@@ -38,13 +38,12 @@ internal object NotificationCaptureQueue {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val items = read(prefs)
         prefs.edit().remove(KEY_ITEMS).apply()
+        // Generic mapping so optional fields (capture_id, prompted) survive;
+        // internal bookkeeping keys (prefixed with "_") are dropped.
         return items.map { item ->
-            mapOf(
-                "app_name" to item.optString("app_name"),
-                "title" to item.optString("title"),
-                "text" to item.optString("text"),
-                "post_time" to item.optLong("post_time"),
-            )
+            item.keys().asSequence()
+                .filterNot { it.startsWith("_") }
+                .associateWith { key -> item.opt(key) }
         }
     }
 

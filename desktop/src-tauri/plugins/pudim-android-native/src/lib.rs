@@ -15,7 +15,7 @@ pub mod commands;
 #[cfg(mobile)]
 mod mobile;
 
-pub use commands::{CaptureHandle, CapturedNotification};
+pub use commands::{CaptureAction, CaptureHandle, CapturedNotification};
 
 #[cfg(mobile)]
 pub use commands::{mobile_secure_delete, mobile_secure_get, mobile_secure_set};
@@ -28,6 +28,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::access_granted,
             commands::open_settings,
             commands::drain_pending,
+            commands::show_capture_prompt,
+            commands::cancel_capture_prompt,
+            commands::drain_capture_actions,
+            commands::notification_posting_allowed,
+            commands::request_notification_permission,
+            commands::set_capture_settings,
             commands::biometric_available,
             commands::biometric_authenticate,
             commands::set_widget_spent_today,

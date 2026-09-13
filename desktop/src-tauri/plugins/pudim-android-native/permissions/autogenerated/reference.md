@@ -8,6 +8,12 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-access-granted`
 - `allow-open-settings`
 - `allow-drain-pending`
+- `allow-show-capture-prompt`
+- `allow-cancel-capture-prompt`
+- `allow-drain-capture-actions`
+- `allow-notification-posting-allowed`
+- `allow-request-notification-permission`
+- `allow-set-capture-settings`
 - `allow-secure-get`
 - `allow-secure-set`
 - `allow-secure-delete`
@@ -106,6 +112,58 @@ Denies the biometric_available command without any pre-configured scope.
 <tr>
 <td>
 
+`pudim-android-native:allow-cancel-capture-prompt`
+
+</td>
+<td>
+
+Enables the cancel_capture_prompt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-cancel-capture-prompt`
+
+</td>
+<td>
+
+Denies the cancel_capture_prompt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-drain-capture-actions`
+
+</td>
+<td>
+
+Enables the drain_capture_actions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-drain-capture-actions`
+
+</td>
+<td>
+
+Denies the drain_capture_actions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `pudim-android-native:allow-drain-pending`
 
 </td>
@@ -158,6 +216,32 @@ Denies the is_supported command without any pre-configured scope.
 <tr>
 <td>
 
+`pudim-android-native:allow-notification-posting-allowed`
+
+</td>
+<td>
+
+Enables the notification_posting_allowed command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-notification-posting-allowed`
+
+</td>
+<td>
+
+Denies the notification_posting_allowed command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `pudim-android-native:allow-open-settings`
 
 </td>
@@ -177,6 +261,32 @@ Enables the open_settings command without any pre-configured scope.
 <td>
 
 Denies the open_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-request-notification-permission`
+
+</td>
+<td>
+
+Enables the request_notification_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-request-notification-permission`
+
+</td>
+<td>
+
+Denies the request_notification_permission command without any pre-configured scope.
 
 </td>
 </tr>
@@ -262,6 +372,32 @@ Denies the secure_set command without any pre-configured scope.
 <tr>
 <td>
 
+`pudim-android-native:allow-set-capture-settings`
+
+</td>
+<td>
+
+Enables the set_capture_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-set-capture-settings`
+
+</td>
+<td>
+
+Denies the set_capture_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `pudim-android-native:allow-set-widget-spent-today`
 
 </td>
@@ -281,6 +417,32 @@ Enables the set_widget_spent_today command without any pre-configured scope.
 <td>
 
 Denies the set_widget_spent_today command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-show-capture-prompt`
+
+</td>
+<td>
+
+Enables the show_capture_prompt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-show-capture-prompt`
+
+</td>
+<td>
+
+Denies the show_capture_prompt command without any pre-configured scope.
 
 </td>
 </tr>

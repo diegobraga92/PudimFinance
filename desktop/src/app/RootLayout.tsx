@@ -61,11 +61,15 @@ function NavSection({ title, items }: { title?: string; items: NavItem[] }) {
   );
 }
 
-/** Maps a widget deep link (e.g. "add?type=expense") to a route. */
+/** Maps a widget/notification deep link (e.g. "add?type=expense") to a route. */
 function routeFromDeepLink(link: string): string | null {
   if (link.startsWith('add')) {
     const type = link.includes('type=income') ? 'income' : 'expense';
     return `/transactions?add=1&type=${type}`;
+  }
+  // Capture-prompt notifications open the pending-review inbox.
+  if (link.startsWith('pending-review')) {
+    return '/pending-review';
   }
   return null;
 }

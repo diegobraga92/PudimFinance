@@ -7,6 +7,12 @@
     <string name="widget_quickadd_default_spent">Gastos hoje: R$ 0,00</string>
     <string name="widget_quickadd_add_expense">− Despesa</string>
     <string name="widget_quickadd_add_income">+ Receita</string>
+    <string name="capture_prompt_channel_name">Transação detectada</string>
+    <string name="capture_prompt_channel_desc">Pergunta como importar uma transação detectada em uma notificação bancária</string>
+    <string name="capture_prompt_title">Transação detectada — %1$s</string>
+    <string name="capture_prompt_income">Receita</string>
+    <string name="capture_prompt_debit">Débito</string>
+    <string name="capture_prompt_credit">Crédito</string>
     <string name="biometric_title">Desbloquear PudimFinance</string>
     <string name="biometric_subtitle">Use sua impressão digital ou rosto para continuar</string>
 </resources>

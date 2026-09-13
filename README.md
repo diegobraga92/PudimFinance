@@ -123,6 +123,22 @@ notifications (Nubank, Itaú, Banco do Brasil, PicPay, PIX, …):
 4. Optionally pick a **default category** used when the merchant can't be
    matched to an existing category.
 
+In **Ask** mode, **Ask from a notification** (on by default) posts a heads-up
+notification when a transaction is detected — e.g. *"Nubank transaction
+detected: Compra aprovada — R$ 49,90"* — with three import actions:
+
+- **Income** → creates an income transaction.
+- **Debit** → creates an expense on the configured **Debit account**.
+- **Credit** → creates an expense on the configured **Credit card**.
+
+Tapping an action imports the transaction right away (no app open needed). If the
+app process was killed, Android keeps the `NotificationListenerService` bound,
+so it detects the amount, posts the prompt itself using a settings copy mirrored
+to native storage, and stores the tap to apply on the next launch. Tapping the
+notification body opens **Pending review**. Pick the debit and credit accounts in
+the same settings screen; on Android 13+ you'll also be asked to allow
+notifications so the prompt can appear.
+
 The parser understands common Brazilian alert formats:
 
 ```

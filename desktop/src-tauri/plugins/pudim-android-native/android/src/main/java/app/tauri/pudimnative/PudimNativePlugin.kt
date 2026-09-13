@@ -14,7 +14,6 @@ import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
-import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.util.concurrent.Executor
@@ -52,6 +51,11 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         fun notifyPosted(payload: Map<String, Any?>) {
             instance?.triggerObject("notificationCaptured", payload.toJSObject())
         }
+
+        /** Called by [CaptureActionReceiver] when an import action is tapped. */
+        fun notifyCaptureAction(payload: Map<String, Any?>) {
+            instance?.triggerObject("captureAction", payload.toJSObject())
+        }
     }
 
     override fun load(webView: WebView) {
@@ -80,25 +84,26 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     fun takeDeepLink(invoke: Invoke) {
         val value = PendingDeepLink.value
         PendingDeepLink.value = null
-        invoke.resolve(value)
+        // Wrapped because `resolveObject` cannot serialize a bare JSON null.
+        invoke.resolveObject(mapOf("value" to value))
     }
 
     /** Whether a biometric authenticator (fingerprint/face) is available and enrolled. */
     @Command
     fun biometricAvailable(invoke: Invoke) {
-        invoke.resolve(isBiometricAvailable())
+        invoke.resolveObject(isBiometricAvailable())
     }
 
     /** Shows the system biometric prompt. Resolves true only on success. */
     @Command
     fun biometricAuthenticate(invoke: Invoke) {
         if (!isBiometricAvailable()) {
-            invoke.resolve(false)
+            invoke.resolveObject(false)
             return
         }
         val host = activity as? FragmentActivity
         if (host == null) {
-            invoke.resolve(false)
+            invoke.resolveObject(false)
             return
         }
         val executor: Executor = ContextCompat.getMainExecutor(activity)
@@ -107,12 +112,12 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
             executor,
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    invoke.resolve(true)
+                    invoke.resolveObject(true)
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     // Includes user cancel, so resolve false. A failed attempt stays open.
-                    invoke.resolve(false)
+                    invoke.resolveObject(false)
                 }
             },
         )
@@ -155,7 +160,7 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     fun accessGranted(invoke: Invoke) {
         val granted = NotificationManagerCompat.getEnabledListenerPackages(activity)
             .contains(activity.packageName)
-        invoke.resolve(granted)
+        invoke.resolveObject(granted)
     }
 
     /** Opens the system "Notification access" settings screen. */
@@ -171,15 +176,59 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     /** Returns (and clears) notifications captured while the app was killed. */
     @Command
     fun drainPending(invoke: Invoke) {
-        val arr = JSArray()
-        NotificationCaptureQueue.drain(activity).forEach { payload -> arr.put(payload.toJSObject()) }
-        invoke.resolveObject(arr)
+        invoke.resolveObject(NotificationCaptureQueue.drain(activity))
+    }
+
+    /** Posts the income/debit/credit import prompt for a captured transaction. */
+    @Command
+    fun showCapturePrompt(invoke: Invoke) {
+        val args = invoke.parseArgs(CapturePromptArgs::class.java)
+        CapturePromptNotifier.show(activity, args.id, args.title, args.body, args.appLabel)
+        invoke.resolve()
+    }
+
+    /** Dismisses a capture-prompt notification the user already handled in-app. */
+    @Command
+    fun cancelCapturePrompt(invoke: Invoke) {
+        val args = invoke.parseArgs(CaptureIdArgs::class.java)
+        CapturePromptNotifier.cancel(activity, args.id)
+        invoke.resolve()
+    }
+
+    /** Returns (and clears) import actions tapped while the app was killed. */
+    @Command
+    fun drainCaptureActions(invoke: Invoke) {
+        invoke.resolveObject(PendingCaptureActions.drain(activity))
+    }
+
+    /** Whether the OS currently allows posting notifications. */
+    @Command
+    fun notificationPostingAllowed(invoke: Invoke) {
+        invoke.resolveObject(CapturePromptNotifier.postingAllowed(activity))
+    }
+
+    /** Requests the Android 13+ `POST_NOTIFICATIONS` permission if needed. */
+    @Command
+    fun requestNotificationPermission(invoke: Invoke) {
+        invoke.resolveObject(CapturePromptNotifier.requestPermission(activity))
+    }
+
+    /**
+     * Mirrors the webview's capture settings so the listener can honor them
+     * (and post prompts) while the app process is dead.
+     */
+    @Command
+    fun setCaptureSettings(invoke: Invoke) {
+        val args = invoke.parseArgs(CaptureSettingsArgs::class.java)
+        CaptureSettingsStore.save(activity, args.enabled, args.pushPrompt, args.monitoredApps)
+        invoke.resolve()
     }
 
     @Command
     fun secureGet(invoke: Invoke) {
         val args = invoke.parseArgs(SecureGetArgs::class.java)
-        invoke.resolve(SecureStorage.get(activity, args.key))
+        // Wrapped because `resolveObject` cannot serialize a bare JSON null.
+        invoke.resolveObject(mapOf("value" to SecureStorage.get(activity, args.key)))
     }
 
     @Command
@@ -220,6 +269,26 @@ private fun Map<String, Any?>.toJSObject(): JSObject {
 @InvokeArg
 internal class WidgetArgs {
     lateinit var value: String
+}
+
+@InvokeArg
+internal class CapturePromptArgs {
+    lateinit var id: String
+    lateinit var title: String
+    lateinit var body: String
+    lateinit var appLabel: String
+}
+
+@InvokeArg
+internal class CaptureIdArgs {
+    lateinit var id: String
+}
+
+@InvokeArg
+internal class CaptureSettingsArgs {
+    var enabled: Boolean = false
+    var pushPrompt: Boolean = true
+    var monitoredApps: List<String> = emptyList()
 }
 
 @InvokeArg

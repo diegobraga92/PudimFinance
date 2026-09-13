@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // Generated OpenAPI types and build output are not authored by hand.
-  { ignores: ['dist', 'src/lib/api-types.ts'] },
+  { ignores: ['dist', 'src/lib/api-types.ts', 'src-tauri'] },
 
   // Node-side build/config files.
   {

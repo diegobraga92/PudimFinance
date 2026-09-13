@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { BellRing, Settings2, Smartphone } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
-import { fetchCategories } from '@/lib/api';
+import { fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { categoryIcon } from '@shared/category-icons';
@@ -19,7 +20,10 @@ import {
 import {
   captureSupported,
   notificationAccessGranted,
+  notificationPostingAllowed,
   openNotificationAccessSettings,
+  requestNotificationPermission,
+  syncCaptureSettings,
 } from '@/notifications/native';
 
 /**
@@ -33,10 +37,14 @@ export function NotificationSettingsPage() {
   const { t } = useI18n();
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const categories = categoriesQuery.data ?? [];
+  const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: () => fetchAccountsWithBalance() });
+  const accounts = accountsQuery.data ?? [];
 
   const [settings, setSettings] = React.useState<NotificationSettings | null>(null);
   const [supported, setSupported] = React.useState<boolean | null>(null);
   const [accessGranted, setAccessGranted] = React.useState<boolean | null>(null);
+  // Whether Android lets the app post its own (import-prompt) notifications.
+  const [postingAllowed, setPostingAllowed] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
     let mounted = true;
@@ -47,17 +55,20 @@ export function NotificationSettingsPage() {
       setSupported(isSupported);
       setSettings(s);
       setAccessGranted(isSupported ? await notificationAccessGranted() : false);
+      setPostingAllowed(isSupported ? await notificationPostingAllowed() : false);
     })();
     return () => {
       mounted = false;
     };
   }, []);
 
-  // Refresh the access flag when the window regains focus (the user may have
-  // just toggled it in the Android system settings).
+  // Refresh the access/permission flags when the window regains focus (the user
+  // may have just toggled them in the Android system settings).
   React.useEffect(() => {
     const onFocus = () => {
-      if (supported) void notificationAccessGranted().then(setAccessGranted);
+      if (!supported) return;
+      void notificationAccessGranted().then(setAccessGranted);
+      void notificationPostingAllowed().then(setPostingAllowed);
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -68,6 +79,8 @@ export function NotificationSettingsPage() {
       if (!cur) return cur;
       const next = { ...cur, ...patch };
       void saveNotificationSettings(next);
+      // Keep the native listener's copy in sync so it can prompt while dead.
+      void syncCaptureSettings(next);
       return next;
     });
   }, []);
@@ -103,6 +116,37 @@ export function NotificationSettingsPage() {
             >
               <Settings2 className="h-4 w-4" />
               {t('notifications.openSettings')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {supported && settings.pushPrompt && postingAllowed === false && (
+        <div className="flex flex-col gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <div className="flex items-start gap-3">
+            <BellRing className="h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">{t('notifications.pushBlocked')}</p>
+              <p className="text-xs">{t('notifications.pushBlockedDesc')}</p>
+            </div>
+          </div>
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // The system dialog resolves asynchronously, so re-check shortly
+                // after instead of trusting the immediate (pre-answer) state.
+                void requestNotificationPermission().then(() => {
+                  window.setTimeout(
+                    () => void notificationPostingAllowed().then(setPostingAllowed),
+                    800,
+                  );
+                });
+              }}
+            >
+              <BellRing className="h-4 w-4" />
+              {t('notifications.enableNotifications')}
             </Button>
           </div>
         </div>
@@ -191,6 +235,22 @@ export function NotificationSettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>{t('notifications.pushPrompt')}</CardTitle>
+          <CardDescription>{t('notifications.pushPromptDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <span className="text-sm text-muted-foreground">{t('notifications.promptHint')}</span>
+          <Switch
+            checked={settings.pushPrompt}
+            onCheckedChange={(pushPrompt) => update({ pushPrompt })}
+            disabled={!canCapture || settings.mode !== 'ask'}
+            aria-label={t('notifications.pushPrompt')}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>{t('notifications.captureMode')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -275,6 +335,53 @@ export function NotificationSettingsPage() {
                   {c.name}
                 </button>
               ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('notifications.importAccounts')}</CardTitle>
+          <CardDescription>{t('notifications.importAccountsDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="nc-debit-account">{t('notifications.debitAccount')}</Label>
+            <select
+              id="nc-debit-account"
+              disabled={!canCapture}
+              value={settings.debitAccountId ?? ''}
+              onChange={(e) => update({ debitAccountId: e.target.value || null })}
+              className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+            >
+              <option value="">— {t('common.none')} —</option>
+              {accounts
+                .filter((a) => a.type === 'asset')
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="nc-credit-account">{t('notifications.creditAccount')}</Label>
+            <select
+              id="nc-credit-account"
+              disabled={!canCapture}
+              value={settings.creditAccountId ?? ''}
+              onChange={(e) => update({ creditAccountId: e.target.value || null })}
+              className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+            >
+              <option value="">— {t('common.none')} —</option>
+              {accounts
+                .filter((a) => a.type === 'liability')
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} 💳
+                  </option>
+                ))}
+            </select>
           </div>
         </CardContent>
       </Card>

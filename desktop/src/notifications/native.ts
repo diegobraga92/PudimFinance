@@ -8,12 +8,43 @@
  */
 
 import { addPluginListener, invoke } from '@tauri-apps/api/core';
+import type { CaptureActionKind } from './capture';
 
 export interface CapturedNotification {
   app_name: string;
+  /** Resolved user-visible app label (e.g. "Nubank"); falls back to app_name. */
+  app_label?: string;
   title: string;
   text: string;
   post_time: number;
+  /** Id assigned by the listener when captured while the app was dead. */
+  capture_id?: string;
+  /** Whether the listener already posted an import prompt for it. */
+  prompted?: boolean;
+}
+
+/** Content of an OS notification asking how to import a captured transaction. */
+export interface CapturePrompt {
+  /** Pending-capture id the prompt belongs to. */
+  id: string;
+  /** Notification title (localized by the caller). */
+  title: string;
+  /** Notification body (localized by the caller). */
+  body: string;
+  /** Human-readable source app label, shown as the sub-text. */
+  appLabel: string;
+}
+
+/** A tap on one of the capture-prompt action buttons. */
+export interface CaptureAction {
+  capture_id: string;
+  action: CaptureActionKind;
+  /** Source app id/label and raw notification, present for listener-posted prompts. */
+  app_name?: string;
+  app_label?: string;
+  title?: string;
+  text?: string;
+  post_time?: number;
 }
 
 function isTauri(): boolean {
@@ -56,6 +87,104 @@ export async function drainNativeNotifications(): Promise<CapturedNotification[]
     return await invoke<CapturedNotification[]>('plugin:pudim-native|drain_pending');
   } catch {
     return [];
+  }
+}
+
+/**
+ * Posts an Android notification with Income / Debit / Credit import actions.
+ * No-ops on desktop (no equivalent OS API).
+ */
+export async function showCapturePrompt(prompt: CapturePrompt): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await invoke('plugin:pudim-native|show_capture_prompt', {
+      id: prompt.id,
+      title: prompt.title,
+      body: prompt.body,
+      appLabel: prompt.appLabel,
+    });
+  } catch {
+    // Non-fatal: the capture is still queued in the review inbox.
+  }
+}
+
+/** Dismisses a capture-prompt notification already handled in-app (Android). */
+export async function cancelCapturePrompt(id: string): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await invoke('plugin:pudim-native|cancel_capture_prompt', { id });
+  } catch {
+    // Non-fatal.
+  }
+}
+
+/** Drains import actions tapped while the app was killed (Android). */
+export async function drainCaptureActions(): Promise<CaptureAction[]> {
+  if (!isTauri()) return [];
+  try {
+    return await invoke<CaptureAction[]>('plugin:pudim-native|drain_capture_actions');
+  } catch {
+    return [];
+  }
+}
+
+/** Subscribes to capture-prompt action taps. Returns an unlisten function. */
+export async function subscribeCaptureActions(
+  cb: (action: CaptureAction) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    const unlisten = await addPluginListener<CaptureAction>(
+      'pudim-native',
+      'captureAction',
+      (payload) => cb(payload),
+    );
+    return () => {
+      void unlisten.unregister();
+    };
+  } catch {
+    return () => {};
+  }
+}
+
+/** Whether the OS currently allows PudimFinance to post notifications (Android). */
+export async function notificationPostingAllowed(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    return await invoke<boolean>('plugin:pudim-native|notification_posting_allowed');
+  } catch {
+    return false;
+  }
+}
+
+/** Requests the Android 13+ notification permission. Resolves the resulting state. */
+export async function requestNotificationPermission(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    return await invoke<boolean>('plugin:pudim-native|request_notification_permission');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mirrors the capture settings to the native listener so it can keep prompting
+ * for detected transactions while the app process is dead.
+ */
+export async function syncCaptureSettings(settings: {
+  enabled: boolean;
+  pushPrompt: boolean;
+  monitoredApps: string[];
+}): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await invoke('plugin:pudim-native|set_capture_settings', {
+      enabled: settings.enabled,
+      pushPrompt: settings.pushPrompt,
+      monitoredApps: settings.monitoredApps,
+    });
+  } catch {
+    // Non-fatal: while the app is alive JS still drives capture/prompting.
   }
 }
 

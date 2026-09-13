@@ -331,6 +331,30 @@
           "markdownDescription": "Denies the biometric_available command without any pre-configured scope."
         },
         {
+          "description": "Enables the cancel_capture_prompt command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-capture-prompt",
+          "markdownDescription": "Enables the cancel_capture_prompt command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_capture_prompt command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-capture-prompt",
+          "markdownDescription": "Denies the cancel_capture_prompt command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the drain_capture_actions command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-drain-capture-actions",
+          "markdownDescription": "Enables the drain_capture_actions command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the drain_capture_actions command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-drain-capture-actions",
+          "markdownDescription": "Denies the drain_capture_actions command without any pre-configured scope."
+        },
+        {
           "description": "Enables the drain_pending command without any pre-configured scope.",
           "type": "string",
           "const": "allow-drain-pending",
@@ -355,6 +379,18 @@
           "markdownDescription": "Denies the is_supported command without any pre-configured scope."
         },
         {
+          "description": "Enables the notification_posting_allowed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-notification-posting-allowed",
+          "markdownDescription": "Enables the notification_posting_allowed command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the notification_posting_allowed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-notification-posting-allowed",
+          "markdownDescription": "Denies the notification_posting_allowed command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_settings command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-settings",
@@ -365,6 +401,18 @@
           "type": "string",
           "const": "deny-open-settings",
           "markdownDescription": "Denies the open_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the request_notification_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-request-notification-permission",
+          "markdownDescription": "Enables the request_notification_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the request_notification_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-request-notification-permission",
+          "markdownDescription": "Denies the request_notification_permission command without any pre-configured scope."
         },
         {
           "description": "Enables the secure_delete command without any pre-configured scope.",
@@ -403,6 +451,18 @@
           "markdownDescription": "Denies the secure_set command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_capture_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-capture-settings",
+          "markdownDescription": "Enables the set_capture_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_capture_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-capture-settings",
+          "markdownDescription": "Denies the set_capture_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_widget_spent_today command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-widget-spent-today",
@@ -413,6 +473,18 @@
           "type": "string",
           "const": "deny-set-widget-spent-today",
           "markdownDescription": "Denies the set_widget_spent_today command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the show_capture_prompt command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-show-capture-prompt",
+          "markdownDescription": "Enables the show_capture_prompt command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the show_capture_prompt command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-show-capture-prompt",
+          "markdownDescription": "Denies the show_capture_prompt command without any pre-configured scope."
         },
         {
           "description": "Enables the take_deep_link command without any pre-configured scope.",
@@ -427,10 +499,10 @@
           "markdownDescription": "Denies the take_deep_link command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`",
+          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`"
+          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`"
         }
       ]
     }

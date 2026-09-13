@@ -119,6 +119,24 @@ live in `src/notifications/` (Settings → Notification Capture; ask mode queues
 entries in **Pending review**). Desktop platforms have no equivalent OS API,
 so those screens render an "Android only" notice there.
 
+In ask mode, `NotificationCaptureProvider` also posts an import prompt through
+the plugin (`show_capture_prompt`): a heads-up notification with **Income /
+Debit / Credit** action buttons (`CapturePromptNotifier` +
+`CaptureActionReceiver`). A tapped action is delivered live via the
+`captureAction` event, or persisted in `PendingCaptureActions` and drained with
+`drain_capture_actions` when the app was dead. Debit and credit expenses post to
+the accounts chosen in the settings screen; the prompt is cancelled whenever the
+capture is imported or skipped from the in-app inbox.
+
+Because Android keeps a `NotificationListenerService` bound (and restarts it
+after process death), the listener posts the prompt itself when the webview is
+gone: `set_capture_settings` mirrors the settings to `CaptureSettingsStore`, the
+listener resolves the source app's label via `PackageManager`, checks for an
+amount, and embeds the raw notification in the action so the tap can be replayed
+on the next launch. Drained notifications carry a `capture_id`/`prompted` flag so
+each capture is only prompted once. (Foreground services can't help here — a
+Tauri webview needs an Activity, so the JS parser can't run in the background.)
+
 ## Offline-first (Phase 8)
 
 - `src/offline/database.ts` — IndexedDB mirror (transactions/categories/accounts),

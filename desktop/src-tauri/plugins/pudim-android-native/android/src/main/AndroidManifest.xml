@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Posting the import prompt on Android 13+ requires the runtime opt-in. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application>
         <!--
           Declared with the BIND_NOTIFICATION_LISTENER_SERVICE permission + intent
@@ -15,6 +18,11 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- Handles the income/debit/credit buttons on an import-prompt notification. -->
+        <receiver
+            android:name="app.tauri.pudimnative.CaptureActionReceiver"
+            android:exported="false" />
 
         <!-- Home-screen Quick Add widget. -->
         <receiver

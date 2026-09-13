@@ -3,6 +3,12 @@ const COMMANDS: &[&str] = &[
     "access_granted",
     "open_settings",
     "drain_pending",
+    "show_capture_prompt",
+    "cancel_capture_prompt",
+    "drain_capture_actions",
+    "notification_posting_allowed",
+    "request_notification_permission",
+    "set_capture_settings",
     "secure_get",
     "secure_set",
     "secure_delete",
@@ -13,5 +19,7 @@ const COMMANDS: &[&str] = &[
 ];
 
 fn main() {
-    tauri_plugin::Builder::new(COMMANDS).build();
+    tauri_plugin::Builder::new(COMMANDS)
+        .android_path("android")
+        .build();
 }
