@@ -1,10 +1,8 @@
--- Credit card accounts: monthly billing cycles (faturas) and installment
+-- Credit card accounts with monthly billing cycles (faturas) and installment
 -- anticipation ("antecipar parcelas").
 
--- ---------------------------------------------------------------------------
 -- Card-specific fields on accounts
--- (nullable; only meaningful for liability/card accounts)
--- ---------------------------------------------------------------------------
+-- (nullable, only meaningful for liability/card accounts)
 ALTER TABLE accounts
     ADD COLUMN closing_day SMALLINT CHECK (closing_day IS NULL OR (closing_day BETWEEN 1 AND 31)),
     ADD COLUMN due_day SMALLINT CHECK (due_day IS NULL OR (due_day BETWEEN 1 AND 31)),
@@ -16,11 +14,9 @@ ALTER TABLE transactions
 
 CREATE INDEX idx_transactions_account ON transactions (account_id);
 
--- ---------------------------------------------------------------------------
--- Billing cycles ("faturas"): one row per card per closing date.
--- Total amount is computed on read from the card's transactions in the period;
--- only the settlement state is persisted here.
--- ---------------------------------------------------------------------------
+-- Billing cycles ("faturas"), one row per card per closing date.
+-- Total amount is computed on read from the card's transactions in the period.
+-- Only the settlement state is persisted here.
 CREATE TABLE card_bills (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     card_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -37,21 +33,17 @@ CREATE TABLE card_bills (
 CREATE INDEX idx_card_bills_card ON card_bills (card_id);
 CREATE INDEX idx_card_bills_due ON card_bills (due_date);
 
--- ---------------------------------------------------------------------------
 -- Installment plans can be tied to a card account so generated/payed
 -- installment expenses carry the correct payment method.
--- ---------------------------------------------------------------------------
 ALTER TABLE installment_plans
     ADD COLUMN account_id UUID REFERENCES accounts(id) ON DELETE SET NULL;
 
 CREATE INDEX idx_installment_plans_account ON installment_plans (account_id);
 
--- ---------------------------------------------------------------------------
 -- Installment anticipation support.
 -- Anticipated installments keep their status ('pending'/'generated') but are
--- marked here; their linked expense transaction is re-dated/re-priced into the
+-- marked here. Their linked expense transaction is re-dated and re-priced into
 -- current billing period.
--- ---------------------------------------------------------------------------
 ALTER TABLE installment_transactions
     ADD COLUMN anticipated_at TIMESTAMPTZ,
     ADD COLUMN anticipated_bill_id UUID REFERENCES card_bills(id) ON DELETE SET NULL;

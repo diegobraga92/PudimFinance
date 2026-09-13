@@ -1,4 +1,4 @@
--- Layer 3: Double-entry ledger, event sourcing, and idempotency
+-- Layer 3 double-entry ledger, event sourcing, and idempotency
 
 -- Chart of accounts
 CREATE TABLE accounts (
@@ -54,7 +54,7 @@ CREATE INDEX idx_ledger_entries_transaction ON ledger_entries (transaction_id);
 CREATE INDEX idx_ledger_entries_account ON ledger_entries (account_id);
 CREATE INDEX idx_ledger_entries_date ON ledger_entries (recorded_at);
 
--- Event sourcing: immutable event log
+-- Event sourcing, an immutable event log
 CREATE TABLE events (
     id BIGSERIAL PRIMARY KEY,
     aggregate_id UUID NOT NULL,

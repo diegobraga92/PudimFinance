@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        # Check latest: https://hub.docker.com/_/postgres/tags
+        # Check the latest at https://hub.docker.com/_/postgres/tags
         image: postgres:18.4-alpine
         env:
           POSTGRES_USER: pudim
@@ -36,7 +36,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       rabbitmq:
-        # Check latest: https://hub.docker.com/_/rabbitmq/tags
+        # Check the latest at https://hub.docker.com/_/rabbitmq/tags
         image: rabbitmq:4.3.4-management-alpine
         env:
           RABBITMQ_DEFAULT_USER: pudim
@@ -54,16 +54,16 @@ jobs:
         working-directory: backend
 
     steps:
-      # Check latest: https://github.com/actions/checkout/releases
+      # Check the latest at https://github.com/actions/checkout/releases
       - uses: actions/checkout@v7
 
-      # Check latest: https://github.com/actions-rust-lang/setup-rust-toolchain/releases
+      # Check the latest at https://github.com/actions-rust-lang/setup-rust-toolchain/releases
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: clippy, rustfmt
 
       - name: Cache dependencies
-        # Check latest: https://github.com/Swatinem/rust-cache/releases
+        # Check the latest at https://github.com/Swatinem/rust-cache/releases
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
@@ -101,7 +101,7 @@ jobs:
         working-directory: backend
 
     steps:
-      # Check latest: https://github.com/actions/checkout/releases
+      # Check the latest at https://github.com/actions/checkout/releases
       - uses: actions/checkout@v7
 
       - name: Install cargo-audit

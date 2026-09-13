@@ -1,7 +1,7 @@
--- 011: User-facing account kinds.
+-- 011 User-facing account kinds.
 --
--- Users think in "bank account", "cash", "credit card", "loan", "investment" —
--- not chart-of-accounts types. `account_kind` is the user-facing dimension;
+-- Users think in "bank account", "cash", "credit card", "loan", and "investment",
+-- not chart-of-accounts types. `account_kind` is the user-facing dimension, and
 -- the accounting `type` is derived from it on write.
 
 ALTER TABLE accounts ADD COLUMN account_kind TEXT NOT NULL DEFAULT 'other';

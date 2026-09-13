@@ -68,6 +68,10 @@ jobs:
         working-directory: desktop
         run: npm run typecheck
 
+      - name: Lint (frontend)
+        working-directory: desktop
+        run: npm run lint
+
       - name: Build frontend
         working-directory: desktop
         run: npm run build
@@ -142,7 +146,7 @@ jobs:
         working-directory: desktop
         run: npm run build
 
-      # GitHub-hosted runners ship the Android SDK + NDK (ANDROID_HOME set);
+      # GitHub-hosted runners ship the Android SDK and NDK (ANDROID_HOME set).
       # tauri-cli resolves the NDK under $ANDROID_HOME/ndk automatically.
       - name: Initialize Android project
         working-directory: desktop

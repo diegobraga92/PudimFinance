@@ -1,4 +1,4 @@
--- Installment plans (Parcelas): split a purchase into N monthly payments.
+-- Installment plans (Parcelas) that split a purchase into N monthly payments.
 
 CREATE TABLE installment_plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,4 +1,4 @@
--- Layer 2: Budgets and budget alerts
+-- Layer 2 budgets and budget alerts
 
 CREATE TABLE budgets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

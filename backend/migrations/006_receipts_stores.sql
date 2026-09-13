@@ -1,4 +1,4 @@
--- Layer 4: Receipt scanner (NFC-e QR parsing, no OCR)
+-- Layer 4 receipt scanner (NFC-e QR parsing, no OCR)
 
 CREATE TABLE stores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

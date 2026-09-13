@@ -1,6 +1,6 @@
--- 010: Unify the single-entry `transactions` table with the double-entry ledger.
+-- 010 Unify the single-entry `transactions` table with the double-entry ledger.
 --
--- Phase A of the reconciliation roadmap. Goals:
+-- Phase A of the reconciliation roadmap. The goals are these.
 --
 --   1. Every category is mapped to an income/expense ledger posting account
 --      (`categories.ledger_account_id`) so posting is deterministic.
@@ -14,17 +14,13 @@
 -- After this migration, the API posts ledger entries at write time, so
 -- Accounts/Ledger/Reconciliation and Summary/Budgets/Reports agree.
 
--- ---------------------------------------------------------------------------
 -- 1. Category -> posting account (the income/expense side of each transaction)
--- ---------------------------------------------------------------------------
 ALTER TABLE categories
     ADD COLUMN ledger_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL;
 
--- ---------------------------------------------------------------------------
 -- 2. Link categories to existing chart-of-accounts rows by name/type.
 --    Mirrors the conventions previously hard-coded in the single-to-double
 --    migration endpoint.
--- ---------------------------------------------------------------------------
 UPDATE categories c
 SET ledger_account_id = a.id
 FROM accounts a
@@ -37,10 +33,8 @@ WHERE c.ledger_account_id IS NULL
     OR (c.type = 'income' AND c.name = 'Investments' AND a.name = 'Investment Income')
   );
 
--- ---------------------------------------------------------------------------
 -- 3. Create posting accounts for categories that have no matching account yet
 --    (e.g. user-created categories), then link them.
--- ---------------------------------------------------------------------------
 INSERT INTO accounts (name, type)
 SELECT c.name, c.type
 FROM categories c
@@ -56,9 +50,7 @@ WHERE c.ledger_account_id IS NULL
   AND a.name = c.name
   AND a.type = c.type;
 
--- ---------------------------------------------------------------------------
--- 4. Backfill `account_id` for transactions that have none (default: Cash).
--- ---------------------------------------------------------------------------
+-- 4. Backfill `account_id` for transactions that have none (defaults to Cash).
 UPDATE transactions t
 SET account_id = (
     SELECT a.id
@@ -69,14 +61,12 @@ SET account_id = (
 )
 WHERE t.account_id IS NULL;
 
--- ---------------------------------------------------------------------------
 -- 5. Backfill balanced ledger entries for every transaction without them.
---    Expense: debit expense account, credit source account.
---    Income:  debit source account, credit income account.
+--    For an expense, debit the expense account and credit the source account.
+--    For income, debit the source account and credit the income account.
 --    (LATERAL rows silently skip transactions whose account is unresolvable.)
--- ---------------------------------------------------------------------------
 
--- Leg 1: the income/expense (posting) side.
+-- Leg 1, the income/expense (posting) side.
 INSERT INTO ledger_entries (transaction_id, account_id, debit_amount, credit_amount, description)
 SELECT
     t.id,
@@ -104,7 +94,7 @@ WHERE t.ledger_transaction_id IS NULL
   AND t.type IN ('income', 'expense')
   AND NOT EXISTS (SELECT 1 FROM ledger_entries e WHERE e.transaction_id = t.id);
 
--- Leg 2: the source (payment) side.
+-- Leg 2, the source (payment) side.
 INSERT INTO ledger_entries (transaction_id, account_id, debit_amount, credit_amount, description)
 SELECT
     t.id,
@@ -122,10 +112,8 @@ WHERE t.ledger_transaction_id IS NULL
   AND t.type IN ('income', 'expense')
   AND NOT EXISTS (SELECT 1 FROM ledger_entries e WHERE e.transaction_id = t.id);
 
--- ---------------------------------------------------------------------------
 -- 6. Mark every transaction that now has ledger entries with its ledger group
---    id (unifies the convention: ledger_entries.transaction_id = transactions.id).
--- ---------------------------------------------------------------------------
+--    id, unifying the convention that ledger_entries.transaction_id = transactions.id.
 UPDATE transactions t
 SET ledger_transaction_id = t.id
 WHERE t.ledger_transaction_id IS NULL

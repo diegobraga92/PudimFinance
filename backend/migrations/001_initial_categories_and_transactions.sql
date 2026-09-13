@@ -1,4 +1,5 @@
 -- Create pgcrypto extension for gen_random_uuid()
+-- TODO: Clean all experimental migrations and start from scratch on 0.1.0
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE categories (
@@ -30,7 +31,6 @@ CREATE INDEX idx_transactions_date ON transactions (date DESC);
 CREATE INDEX idx_transactions_category ON transactions (category_id);
 CREATE INDEX idx_transactions_type ON transactions (type);
 
--- Seed default categories
 INSERT INTO categories (id, name, type, icon, color) VALUES
     (gen_random_uuid(), 'Salary', 'income', 'briefcase', '#22c55e'),
     (gen_random_uuid(), 'Freelance', 'income', 'laptop', '#16a34a'),

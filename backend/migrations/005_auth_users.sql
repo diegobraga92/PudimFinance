@@ -1,4 +1,4 @@
--- Layer 4: Authentication — users table
+-- Layer 4 authentication (users table)
 
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

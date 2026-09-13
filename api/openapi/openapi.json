@@ -937,7 +937,7 @@
           "Credit Cards"
         ],
         "summary": "Pays a credit-card bill.",
-        "description": "Records the payment as a transfer (debit the card, credit the paying\naccount) — never as an expense — and updates the bill's settlement state.",
+        "description": "Records the payment as a transfer, debiting the card and crediting the paying\naccount. It is never an expense, and it updates the bill's settlement state.",
         "operationId": "pay_card_bill",
         "parameters": [
           {
@@ -1357,7 +1357,7 @@
           "Receipts"
         ],
         "summary": "Parses raw OCR text from a receipt photo into structured data.",
-        "description": "The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web);\nthis endpoint turns the resulting text into the same structured shape the\nQR scan returns, so the save/review flow is identical for both sources.",
+        "description": "The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web).\nThis endpoint turns the resulting text into the same structured shape the\nQR scan returns, so the save/review flow is identical for both sources.",
         "operationId": "ocr",
         "requestBody": {
           "content": {
@@ -1398,7 +1398,7 @@
         "tags": [
           "Receipts"
         ],
-        "summary": "Merges two normalized products (all items reassigned to target; source deleted).",
+        "summary": "Merges two normalized products. Items move to the target and the source is deleted.",
         "operationId": "merge_products",
         "requestBody": {
           "content": {
@@ -2060,7 +2060,8 @@
         "tags": [
           "Health"
         ],
-        "summary": "Exposes Prometheus-formatted metrics for scraping.\nThis endpoint is served on a separate port in production (default 3001).",
+        "summary": "Documents the Prometheus `/metrics` endpoint for the OpenAPI spec.",
+        "description": "Stub only. The live endpoint is served by the main router.",
         "operationId": "metrics_handler_doc",
         "responses": {
           "200": {
@@ -2088,7 +2089,7 @@
         "properties": {
           "account_kind": {
             "type": "string",
-            "description": "User-facing kind: `bank`, `cash`, `card`, `loan`, `investment`, or a\nsystem kind (`income`/`expense`/`equity`/`other`)."
+            "description": "User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a\nsystem kind (`income`/`expense`/`equity`/`other`)."
           },
           "closing_day": {
             "type": [
@@ -2101,7 +2102,7 @@
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Row creation timestamp."
+            "description": "Created at."
           },
           "credit_limit": {
             "type": [
@@ -2121,7 +2122,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique account identifier."
+            "description": "Account ID."
           },
           "name": {
             "type": "string",
@@ -2156,7 +2157,7 @@
         "properties": {
           "account_kind": {
             "type": "string",
-            "description": "User-facing kind: `bank`, `cash`, `card`, `loan`, `investment`, or a\nsystem kind (`income`/`expense`/`equity`/`other`)."
+            "description": "User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a\nsystem kind (`income`/`expense`/`equity`/`other`)."
           },
           "balance": {
             "type": "string",
@@ -2173,7 +2174,7 @@
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Row creation timestamp."
+            "description": "Created at."
           },
           "credit_limit": {
             "type": [
@@ -2193,7 +2194,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique account identifier."
+            "description": "Account ID."
           },
           "name": {
             "type": "string",
@@ -2323,12 +2324,12 @@
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Row creation timestamp."
+            "description": "Created at."
           },
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique budget identifier."
+            "description": "Budget ID."
           },
           "month": {
             "type": "integer",
@@ -2338,7 +2339,7 @@
           "updated_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Last row update timestamp."
+            "description": "Updated at."
           },
           "year": {
             "type": "integer",
@@ -2409,7 +2410,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique alert identifier."
+            "description": "Alert ID."
           },
           "month": {
             "type": "integer",
@@ -2590,7 +2591,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique budget identifier."
+            "description": "Budget ID."
           },
           "month": {
             "type": "integer",
@@ -2632,7 +2633,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique bill identifier."
+            "description": "Bill ID."
           },
           "paid_amount": {
             "type": "string",
@@ -2681,7 +2682,7 @@
         "properties": {
           "balance": {
             "type": "string",
-            "description": "Outstanding balance (signed; negative for liabilities)."
+            "description": "Outstanding balance (signed, negative for liabilities)."
           },
           "closing_day": {
             "type": [
@@ -2749,7 +2750,7 @@
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Row creation timestamp."
+            "description": "Created at."
           },
           "icon": {
             "type": [
@@ -2761,7 +2762,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique category identifier."
+            "description": "Category ID."
           },
           "name": {
             "type": "string",
@@ -2782,7 +2783,7 @@
           "updated_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Last row update timestamp."
+            "description": "Updated at."
           }
         }
       },
@@ -2935,7 +2936,7 @@
               "string",
               "null"
             ],
-            "description": "User-facing kind. When set, the accounting `type` is derived from it\n(`bank`/`cash`/`investment` → asset, `card`/`loan` → liability).",
+            "description": "User-facing kind. When set, the accounting `type` is derived from it\n(`bank`, `cash`, and `investment` map to asset, `card` and `loan` to liability).",
             "example": "card"
           },
           "closing_day": {
@@ -2992,7 +2993,7 @@
         "properties": {
           "amount_limit": {
             "type": "string",
-            "description": "Maximum spend limit — must be > 0.",
+            "description": "Maximum spend limit that must be greater than 0.",
             "example": "500.00"
           },
           "category_id": {
@@ -3024,7 +3025,7 @@
         "properties": {
           "amount": {
             "type": "string",
-            "description": "Monetary amount — must be > 0.",
+            "description": "Monetary amount that must be greater than 0.",
             "example": "150.00"
           },
           "category_id": {
@@ -3060,7 +3061,7 @@
               "string",
               "null"
             ],
-            "description": "Optional free-form notes."
+            "description": "Free-form notes."
           }
         }
       },
@@ -3166,7 +3167,7 @@
           "date": {
             "type": "string",
             "format": "date",
-            "description": "Calendar date of the transaction.",
+            "description": "Transaction date.",
             "example": "2026-08-06"
           },
           "description": {
@@ -3178,7 +3179,7 @@
             "items": {
               "$ref": "#/components/schemas/LedgerEntryRequest"
             },
-            "description": "At least two entries; debits must equal credits."
+            "description": "At least two entries. Debits must equal credits."
           },
           "idempotency_key": {
             "type": [
@@ -3229,7 +3230,7 @@
           },
           "amount": {
             "type": "string",
-            "description": "Monetary amount — must be > 0.",
+            "description": "Monetary amount that must be greater than 0.",
             "example": "150.00"
           },
           "category_id": {
@@ -3243,7 +3244,7 @@
           "date": {
             "type": "string",
             "format": "date",
-            "description": "Calendar date of the transaction (ISO 8601 `YYYY-MM-DD`).",
+            "description": "Transaction date (ISO `YYYY-MM-DD`).",
             "example": "2026-04-08"
           },
           "description": {
@@ -3273,7 +3274,7 @@
               "string",
               "null"
             ],
-            "description": "Optional free-form notes."
+            "description": "Free-form notes."
           },
           "type": {
             "type": "string",
@@ -3360,7 +3361,7 @@
       },
       "InstallmentPlan": {
         "type": "object",
-        "description": "An installment plan: a purchase split into N monthly payments.",
+        "description": "An installment plan that splits a purchase into N monthly payments.",
         "required": [
           "id",
           "description",
@@ -3421,7 +3422,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique plan identifier."
+            "description": "Plan ID."
           },
           "installment_amount": {
             "type": "string",
@@ -3539,7 +3540,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique installment row identifier."
+            "description": "Installment row ID."
           },
           "installment_number": {
             "type": "integer",
@@ -3607,7 +3608,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique entry identifier."
+            "description": "Entry ID."
           },
           "recorded_at": {
             "type": "string",
@@ -3637,12 +3638,12 @@
           },
           "credit_amount": {
             "type": "string",
-            "description": "Credit amount (positive; must be zero on debit entries).",
+            "description": "Credit amount (positive, must be zero on debit entries).",
             "example": "0.00"
           },
           "debit_amount": {
             "type": "string",
-            "description": "Debit amount (positive; must be zero on credit entries).",
+            "description": "Debit amount (positive, must be zero on credit entries).",
             "example": "150.00"
           },
           "description": {
@@ -3679,7 +3680,7 @@
             "items": {
               "$ref": "#/components/schemas/LedgerEntry"
             },
-            "description": "All ledger entries (must balance: debits = credits)."
+            "description": "All ledger entries, which must balance with debits equal to credits."
           },
           "recorded_at": {
             "type": "string",
@@ -3713,7 +3714,7 @@
       },
       "MergeProductsRequest": {
         "type": "object",
-        "description": "Request: merge two normalized products.",
+        "description": "Request payload for merging two normalized products.",
         "required": [
           "target_id",
           "source_id"
@@ -3816,7 +3817,7 @@
       },
       "OcrRequest": {
         "type": "object",
-        "description": "Request: parse raw OCR text from a receipt photo.",
+        "description": "Request payload for parsing raw OCR text from a receipt photo.",
         "required": [
           "raw_text"
         ],
@@ -3836,7 +3837,7 @@
               "string",
               "null"
             ],
-            "description": "Amount to pay — must be > 0. Defaults to the full remaining amount.",
+            "description": "Amount to pay, which must be greater than 0. Defaults to the full remaining amount.",
             "example": "250.00"
           },
           "bill_id": {
@@ -3976,7 +3977,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique item identifier."
+            "description": "Item ID."
           },
           "match_status": {
             "type": "string",
@@ -4118,7 +4119,7 @@
       },
       "SaveReceiptRequest": {
         "type": "object",
-        "description": "Request: save a fully parsed/reviewed receipt.",
+        "description": "Request payload for saving a fully parsed/reviewed receipt.",
         "required": [
           "store_name",
           "date",
@@ -4157,7 +4158,7 @@
       },
       "ScanRequest": {
         "type": "object",
-        "description": "Request: scan a raw NFC-e QR code.",
+        "description": "Request payload for scanning a raw NFC-e QR code.",
         "required": [
           "qr_data"
         ],
@@ -4217,7 +4218,7 @@
       },
       "SummaryResponse": {
         "type": "object",
-        "description": "Monthly summary response: income, expense, balance, and category breakdown.",
+        "description": "Monthly summary response with income, expense, balance, and category breakdown.",
         "required": [
           "income_total",
           "expense_total",
@@ -4329,7 +4330,7 @@
       },
       "SyncPullRequest": {
         "type": "object",
-        "description": "Request: pull changes since a given timestamp.",
+        "description": "Request payload for pulling changes since a given timestamp.",
         "required": [
           "last_synced_at"
         ],
@@ -4343,7 +4344,7 @@
       },
       "SyncPullResponse": {
         "type": "object",
-        "description": "Response: entities changed since the client's last sync.",
+        "description": "Response with the entities changed since the client's last sync.",
         "required": [
           "categories",
           "transactions",
@@ -4368,7 +4369,7 @@
           "server_time": {
             "type": "string",
             "format": "date-time",
-            "description": "Server time — client stores this as its next `last_synced_at`."
+            "description": "Server time. The client stores this as its next `last_synced_at`."
           },
           "transactions": {
             "type": "array",
@@ -4381,7 +4382,7 @@
       },
       "SyncPushRequest": {
         "type": "object",
-        "description": "Request: batch of client mutations.",
+        "description": "Request payload with a batch of client mutations.",
         "required": [
           "operations"
         ],
@@ -4397,7 +4398,7 @@
       },
       "SyncPushResponse": {
         "type": "object",
-        "description": "Response: results for each pushed operation.",
+        "description": "Response with the results for each pushed operation.",
         "required": [
           "results"
         ],
@@ -4434,7 +4435,7 @@
           },
           "amount": {
             "type": "string",
-            "description": "Monetary amount — always positive; `type` determines direction."
+            "description": "Monetary amount, always positive. `type` determines direction."
           },
           "category_id": {
             "type": [
@@ -4447,12 +4448,12 @@
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Row creation timestamp."
+            "description": "Created at."
           },
           "date": {
             "type": "string",
             "format": "date",
-            "description": "Calendar date of the transaction."
+            "description": "Transaction date."
           },
           "description": {
             "type": "string",
@@ -4461,7 +4462,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "Unique transaction identifier."
+            "description": "Transaction ID."
           },
           "installment_plan_id": {
             "type": [
@@ -4476,7 +4477,7 @@
               "string",
               "null"
             ],
-            "description": "Optional free-form notes."
+            "description": "Free-form notes."
           },
           "type": {
             "type": "string",
@@ -4485,7 +4486,7 @@
           "updated_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Last row update timestamp."
+            "description": "Updated at."
           }
         }
       },
@@ -4758,7 +4759,7 @@
           },
           "amount": {
             "type": "string",
-            "description": "Monetary amount — must be > 0.",
+            "description": "Monetary amount that must be greater than 0.",
             "example": "150.00"
           },
           "category_id": {
@@ -4772,7 +4773,7 @@
           "date": {
             "type": "string",
             "format": "date",
-            "description": "Calendar date of the transaction (ISO 8601 `YYYY-MM-DD`).",
+            "description": "Transaction date (ISO `YYYY-MM-DD`).",
             "example": "2026-04-08"
           },
           "description": {
@@ -4792,7 +4793,7 @@
               "string",
               "null"
             ],
-            "description": "Optional free-form notes."
+            "description": "Free-form notes."
           },
           "type": {
             "type": "string",
