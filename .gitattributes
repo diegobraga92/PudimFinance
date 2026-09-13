@@ -1,0 +1,41 @@
+# GitHub Linguist overrides
+# https://github.com/github-linguist/linguist/blob/main/docs/overrides.md
+#
+# PudimFinance is a Rust project at its core: the Axum/PostgreSQL API in
+# `backend/` and the Tauri core used by the desktop + Android clients in
+# `desktop/src-tauri/` are both Rust. `desktop/src/` is only the React +
+# TypeScript UI rendered inside Tauri's WebView.
+#
+# GitHub ranks a repository's language by the bytes of tracked source per
+# language, so the TypeScript UI (which is roughly half of the code by size)
+# outranks the Rust core in the language bar. The rules below keep the
+# frontend UI layer out of the language statistics, so the repository is
+# labelled as Rust.
+#
+# These overrides affect *only* GitHub's language statistics bar: syntax
+# highlighting, formatting, linting and review are unchanged, and every file
+# remains tracked and diffed as usual (see the `linguist-generated` note below
+# for the one exception, which only applies to build output).
+
+# --- Frontend UI layer (React + TypeScript + Vite) --------------------------
+# Rendered by Tauri's WebView; not part of the Rust implementation.
+desktop/src/**      linguist-detectable=false
+desktop/scripts/**  linguist-detectable=false
+desktop/*.ts        linguist-detectable=false
+desktop/*.js        linguist-detectable=false
+desktop/index.html  linguist-detectable=false
+
+# Shared TypeScript assets consumed by the frontend (i18n dictionaries, icons).
+shared/**           linguist-detectable=false
+
+# --- Generated code / build output (normally gitignored) --------------------
+# Guard rails so these never skew the statistics if committed by accident.
+# Note: `linguist-generated=true` additionally collapses these paths in diffs,
+# which is the desired behaviour for compiled/bundled output.
+desktop/src-tauri/gen/**    linguist-generated=true linguist-detectable=false
+desktop/src-tauri/target/** linguist-generated=true linguist-detectable=false
+desktop/dist/**             linguist-generated=true linguist-detectable=false
+backend/target/**           linguist-generated=true linguist-detectable=false
+
+# --- Vendored dependencies (normally gitignored) ---------------------------
+desktop/node_modules/** linguist-vendored=true
