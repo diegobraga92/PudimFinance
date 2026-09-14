@@ -18,9 +18,9 @@ ORDER BY date DESC, created_at DESC
 LIMIT 50 OFFSET 0;
 ```
 
-**Before (migration 004):** Used `idx_transactions_date` (single-column B-tree on date DESC). The filter on `category_id` / `type` caused a bitmap scan when filters were provided.
+**Before:** Used `idx_transactions_date` (single-column B-tree on date DESC). The filter on `category_id` / `type` caused a bitmap scan when filters were provided.
 
-**After (migration 004):** New composite `idx_transactions_date_type (date DESC, type)` enables index-only scans when filtering by date + type. The `idx_transactions_amount_date (amount, date)` supports reconciliation matching.
+**After (composite indexes):** New composite `idx_transactions_date_type (date DESC, type)` enables index-only scans when filtering by date + type. The `idx_transactions_amount_date (amount, date)` supports reconciliation matching.
 
 ---
 
@@ -40,7 +40,7 @@ ORDER BY total DESC;
 
 **Observation:** `EXTRACT(YEAR FROM date)` prevents the index from being used for range pruning. Consider a future refactor to use `date >= $1 AND date < $2` with the composite index. For Layer 4 scale this is acceptable; the query executes in < 10ms on small datasets.
 
-**Mitigation:** The `idx_transactions_date_only (date DESC)` index supports month-range filtering when the query is rewritten to use `>= / <`.
+**Mitigation:** The `idx_transactions_date (date DESC)` index supports month-range filtering when the query is rewritten to use `>= / <`.
 
 ---
 
@@ -55,7 +55,7 @@ LEFT JOIN accounts a ON a.id = e.account_id
 ORDER BY e.recorded_at DESC;
 ```
 
-**After (migration 004):** `idx_ledger_entries_account_date (account_id, recorded_at DESC)` supports the account-filtered time-series queries used by future balance reporting.
+**After:** `idx_ledger_entries_account_date (account_id, recorded_at DESC)` supports the account-filtered time-series queries used by future balance reporting.
 
 ---
 
@@ -73,7 +73,7 @@ GROUP BY EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int
 ORDER BY year, month;
 ```
 
-**After (migration 004):** `idx_transactions_date_type (date DESC, type)` is well-suited: PostgreSQL can do an index-only scan over the range, aggregating per month/type without touching the heap.
+**After:** `idx_transactions_date_type (date DESC, type)` is well-suited: PostgreSQL can do an index-only scan over the range, aggregating per month/type without touching the heap.
 
 ---
 
@@ -87,7 +87,7 @@ ORDER BY year, month;
 | `GET /api/reports/monthly` | Empty DB, 6-month range | 3ms | 8ms | 15ms |
 | `GET /api/ledger/transactions` | 1k entries | 4ms | 10ms | 20ms |
 
-**Methodology:** `EXPLAIN (ANALYZE, BUFFERS)` against the Docker PostgreSQL container. Benchmarks were taken before and after adding migration 004 indexes.
+**Methodology:** `EXPLAIN (ANALYZE, BUFFERS)` against the Docker PostgreSQL container. Benchmarks were taken before and after adding the composite indexes.
 
 ## Recommendations
 

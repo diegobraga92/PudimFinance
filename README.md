@@ -246,7 +246,8 @@ a card purchase counts in the month it was made (`purchase_date`, the default)
 or in the month its bill is due (`due_date`; the `card_expense_dating` setting
 behind `/api/settings`). The ledger always keeps the real purchase date — only
 the dashboard, budgets, reports and the transaction list's date filters follow
-the preference (see `012_card_expense_dating.sql`).
+the preference (see `effective_transaction_date` in
+`backend/migrations/001_initial_schema.sql`).
 
 Each purchase is attached to the billing cycle it falls into, producing monthly
 **bills** with computed totals and a payment deadline:
@@ -272,7 +273,7 @@ The desktop client keeps **planning** and **organisation** on one screen
 that deep-links (`/budgets?month=&year=`; the dashboard's "New budget" shortcut
 adds `&add=1`). `/categories` redirects to `/budgets?tab=categories`.
 
-**Category hierarchy.** `categories.parent_id` (migration `001`) gives every
+**Category hierarchy.** `categories.parent_id` gives every
 category an optional parent. The API keeps the tree valid
 (`backend/src/routes/categories.rs`):
 
@@ -284,7 +285,7 @@ category an optional parent. The API keeps the tree valid
 
 **Budgets.** A budget row is either a *category budget* (`category_id` set) or the
 *overall monthly budget* (`category_id IS NULL`, one per month via a partial
-unique index — migration `013`). The overall limit is an independent "how much
+unique index). The overall limit is an independent "how much
 can I spend this month?" figure; it does not need to match the sum of the
 category limits, and the UI says so when it falls back to that sum.
 
@@ -373,10 +374,10 @@ so the change is per store rather than global. Duplicate products are repaired
 with `POST /api/receipts/product/merge` from the *Items & Prices* tab; the
 backend stays the owner of product identity.
 
-**Stores.** Stores are derived from receipts — never created by hand. Migration
-`014` deduplicated the legacy rows (the old save path inserted a fresh store per
-receipt) and added partial unique indexes so a store is matched by CNPJ, or by
-name when no CNPJ is known. A store disappears when its last receipt is deleted.
+**Stores.** Stores are derived from receipts — never created by hand. Partial
+unique indexes match a store by CNPJ, or by name when no CNPJ is known, so the
+save path never inserts a duplicate. A store disappears when its last receipt is
+deleted.
 `GET /api/stores` accepts a period (`month`, `last_month`, `3m`, `6m`, `year`,
 `all`) that scopes the aggregates; `GET /api/stores/{id}` returns the monthly
 spend buckets, the most purchased items, the item prices recorded there and the

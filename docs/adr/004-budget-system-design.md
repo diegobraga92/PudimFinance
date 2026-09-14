@@ -29,7 +29,7 @@ A single `POST /api/budgets` endpoint upserts a budget: creates if no budget exi
 
 ### 3. Alerts computed on-read, not event-driven
 
-The `budget_alerts` table exists in migration 002, but the primary alert mechanism is the `GET /api/budgets/summary` endpoint which computes the percentage on every request. Client applications (web dashboard, mobile) check this endpoint and display warnings when spending reaches ≥80% of any budget.
+The `budget_alerts` table exists in the initial schema, but the primary alert mechanism is the `GET /api/budgets/summary` endpoint which computes the percentage on every request. Client applications (web dashboard, mobile) check this endpoint and display warnings when spending reaches ≥80% of any budget.
 
 **Rationale:** At Layer 2 scale (single user, personal finance), there is no need for a background worker or event pipeline to trigger alerts. Computing percentages at read time is trivially cheap (a few aggregate queries) and avoids eventual-consistency issues where an alert is stale. The `budget_alerts` table is preserved for future event-driven alerts in Layer 3 when RabbitMQ is introduced.
 

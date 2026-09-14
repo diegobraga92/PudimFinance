@@ -61,7 +61,7 @@
 |--------|------|-----------|
 | Brute-force login attempts | **Medium** | Rate limiting planned (per-user token bucket); Argon2id slows password cracking |
 | Large reconciliation uploads | **Medium** | Payload size limited; reconciliation endpoint is admin/moderated |
-| Excessive report queries | **Low** | Indexes added (migration 004); SLOs track P95/P99 |
+| Excessive report queries | **Low** | Composite indexes added (`backend/migrations/001_initial_schema.sql`); SLOs track P95/P99 |
 | RabbitMQ message flood | **Low** | Messages are fire-and-forget; producer is single-user |
 
 ### 6. Elevation of Privilege — gaining higher rights
