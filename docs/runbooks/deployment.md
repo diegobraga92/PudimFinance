@@ -22,7 +22,7 @@ This starts, in order:
 1. `postgres` (wait for healthy)
 2. `rabbitmq` (wait for healthy)
 3. `backend` (runs DB migrations on startup, connects RMQ)
-4. `web` (nginx serving React SPA)
+4. `web` (nginx serving the `desktop/` frontend as a SPA, proxying `/api` + `/health` to the backend)
 5. `prometheus` (scrapes backend:3000/metrics)
 6. `grafana` (provisioned datasource + dashboard)
 
@@ -33,8 +33,9 @@ This starts, in order:
 curl -s http://localhost:3000/health | jq .
 # Expect: {"status":"ok","database":"connected","rabbitmq":"connected",...}
 
-# Web
-curl -s -o /dev/null -w "%{http_code}" http://localhost:5173   # 200
+# Web client (SPA shell served, same-origin API proxy)
+curl -s http://localhost:5173 | grep -i 'id="root"'
+curl -s http://localhost:5173/health | jq .
 
 # Metrics
 curl -s http://localhost:3000/metrics | grep pudim_
@@ -101,8 +102,8 @@ docker compose down -v       # destroy volume (DANGER: loses data)
 | `SERVER_PORT` | `3000` | — |
 | `RUST_LOG` | `backend=debug,tower_http=debug` | — |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | — |
-| `VITE_API_BASE_URL` | `http://localhost:3000` | — |
-| `EXPO_PUBLIC_API_BASE_URL` | `http://localhost:3000` | — |
+| `VITE_API_BASE_URL` | *empty* → same-origin via the nginx proxy | — (baked into the web bundle when the image is built) |
+| `WEB_PORT` | `5173` | — (web client host port) |
 
 ---
 
@@ -112,6 +113,8 @@ docker compose down -v       # destroy volume (DANGER: loses data)
 |---------|-----|
 | Backend can't connect to DB | Ensure `postgres` is healthy: `docker compose ps`; check `DATABASE_URL` |
 | Backend can't connect to RMQ | App still works (events skipped); `docker compose restart rabbitmq` |
-| CORS errors in web | `VITE_API_BASE_URL` must match the origin of the frontend; nginx proxies API |
+| CORS errors in web | Serve the SPA through the `web` service (empty `VITE_API_BASE_URL` = same-origin nginx proxy). If the bundle was baked to an absolute URL, that origin must be reachable/allowed |
+| Web client says the backend is unreachable | The `web` container resolves `backend` by service name: check `docker compose ps` and `curl http://localhost:5173/health` |
+| Old SPA still on :5173 | Remove the pre-Tauri `web` container: `docker compose down --remove-orphans`, then `up --build` |
 | Migrations fail | Run `docker compose exec backend /app/backend` once; check `backend/migrations/` |
 | `/metrics` empty | Backend metrics recorder registered on startup; hit `curl localhost:3000/metrics` |

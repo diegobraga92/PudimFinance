@@ -9,11 +9,8 @@
 
 ```mermaid
 graph TB
-    User[User] --> Web[Web App]
-    User --> Mobile[Mobile App]
-    User --> API[PudimFinance API]
-    Web -->|HTTPS| API
-    Mobile -->|HTTPS| API
+    User[User] --> Client[PudimFinance Client<br/>desktop + Android app, or browser]
+    Client -->|HTTPS /api| API[PudimFinance API]
     API -->|SQL| Postgres[(PostgreSQL)]
     API -->|AMQP| RabbitMQ[(RabbitMQ)]
     API -->|HTTP scrape| Prometheus[Prometheus]
@@ -27,11 +24,9 @@ graph TB
 
 ```mermaid
 graph LR
-    subgraph Browser
-        ReactWeb[React SPA<br/>nginx:80]
-    end
-    subgraph Mobile
-        RNApp[React Native<br/>Expo]
+    subgraph Client
+        SPA[Web client<br/>desktop/ SPA · nginx:80]
+        TauriApp[Tauri 2 app<br/>desktop + Android]
     end
     subgraph Backend
         Axum[Axum Server<br/>:3000]
@@ -44,8 +39,8 @@ graph LR
         Prom[Prometheus :9090]
         Graf[Grafana :3001]
     end
-    ReactWeb -->|/api| Axum
-    RNApp -->|/api| Axum
+    SPA -->|/api, /health<br/>same-origin proxy| Axum
+    TauriApp -->|/api, /health| Axum
     Axum -->|ledger CRUD + migrations| PG
     Axum -->|event publish| RMQ
     Prom -->|/metrics scrape| Axum
@@ -89,7 +84,7 @@ graph TB
 | `postgres` | postgres:16-alpine | 5432 | Primary data store |
 | `rabbitmq` | rabbitmq:3.13-management | 5672, 15672 | Event broker |
 | `backend` | local (rust) | 3000 | Axum API + metrics |
-| `web` | local (nginx) | 5173→80 | React SPA |
+| `web` | local (nginx + `desktop/` build) | 5173→80 | Client SPA served to browsers; proxies `/api` + `/health` to the backend |
 | `prometheus` | prom/prometheus:v2.53 | 9090 | Metrics collection |
 | `grafana` | grafana/grafana:11.1 | 3001 | Dashboards |
 
@@ -103,5 +98,5 @@ graph TB
 - **jsonwebtoken + argon2** — auth
 - **metrics + metrics-exporter-prometheus** — observability
 - **utoipa** — OpenAPI generation
-- **recharts** (web) — charts
-- **Expo / React Native** — mobile
+- **recharts** — client charts
+- **Tauri 2 + React/Vite/Tailwind** — desktop + Android client (the same frontend is also served as the browser client)

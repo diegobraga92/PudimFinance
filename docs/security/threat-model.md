@@ -9,8 +9,8 @@
 
 | Component | Description |
 |-----------|-------------|
-| **Web UI** | React SPA served by nginx (port 5173/80) |
-| **Mobile** | React Native via Expo (camera, QR, forms) |
+| **Desktop / Android app** | Tauri 2 client (`desktop/`): Rust core + system webview, OS keyring / Android Keystore token storage |
+| **Web UI** | The same React frontend served by nginx (port 5173/80) with a same-origin API proxy; tokens fall back to `localStorage` |
 | **Backend** | Rust/Axum API (port 3000) |
 | **PostgreSQL** | Main data store (port 5432) |
 | **RabbitMQ** | Event broker (amqp 5672, mgmt 15672) |

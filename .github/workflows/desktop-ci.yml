@@ -5,13 +5,17 @@ on:
     branches: [main]
     paths:
       - 'desktop/**'
+      - 'shared/**'
       - 'api/openapi/openapi.json'
+      - '.dockerignore'
       - '.github/workflows/desktop-ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'desktop/**'
+      - 'shared/**'
       - 'api/openapi/openapi.json'
+      - '.dockerignore'
       - '.github/workflows/desktop-ci.yml'
   workflow_dispatch:
 
@@ -155,3 +159,34 @@ jobs:
       - name: Build Android app (aarch64)
         working-directory: desktop
         run: npm run tauri android build -- --target aarch64
+
+  web:
+    name: Web (nginx image + smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # The same image the LAN server publishes on WEB_PORT (see docker-compose.yml).
+      - name: Build web image
+        run: docker build -f desktop/Dockerfile.web -t pudimfinance-web:ci .
+
+      - name: Smoke-test the served SPA
+        # `backend` is only consulted by /api|/health; nginx resolves upstream
+        # names when the config loads, so give it a dummy address or it refuses
+        # to start outside the compose network.
+        run: |
+          docker run -d --name pudim-web-ci --add-host backend:127.0.0.1 -p 8080:80 pudimfinance-web:ci
+          for _ in $(seq 1 20); do
+            if curl -fsS http://localhost:8080 >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+
+          shell=$(curl -fsS http://localhost:8080)
+          echo "$shell" | grep -q 'id="root"' || { echo 'SPA shell not served'; exit 1; }
+          asset=$(echo "$shell" | grep -o '/assets/[^"]*\.js' | head -1)
+          test -n "$asset" || { echo 'no hashed JS bundle referenced'; exit 1; }
+          curl -fsS "http://localhost:8080${asset}" | head -c 200 >/dev/null
+          # Deep links fall back to the shell (the SPA routes under /#/...).
+          curl -fsS http://localhost:8080/transactions | grep -q 'id="root"'
+          docker rm -f pudim-web-ci

@@ -44,10 +44,11 @@ PudimFinance/
 ### Local Development (Docker)
 
 ```bash
-# Start the backend stack (PostgreSQL, backend API)
+# Start the full stack (PostgreSQL, RabbitMQ, backend API, web client)
 docker compose up --build
 
 # Services:
+#   Web client:   http://localhost:5173
 #   Backend API:  http://localhost:3000/health
 #   Swagger UI:   http://localhost:3000/swagger-ui
 ```
@@ -55,7 +56,8 @@ docker compose up --build
 > **Auth:** the API requires a JWT on every `/api/*` route except `/api/auth/*`.
 > On first launch the client shows a registration form — create an account
 > there and subsequent visits keep you signed in (tokens live in the OS
-> keyring / Android Keystore, auto-refreshed for 7 days).
+> keyring / Android Keystore; the web build falls back to `localStorage`, and
+> every client auto-refreshes for 7 days).
 
 Running on a shared LAN server where Docker ports may conflict? See
 [LAN Server Deployment](#lan-server-deployment).
@@ -82,6 +84,38 @@ npm run tauri dev      # Tauri window + HMR
 > Linux desktop builds need the webkit2gtk dev libraries (see the desktop
 > README); CI installs them automatically.
 
+### Web client (Docker)
+
+The **same** React frontend the Tauri app renders can be served to any browser —
+this is the supported replacement for the retired `web/` React SPA:
+
+```bash
+docker compose up --build web        # build + serve the SPA
+# → open http://localhost:5173
+```
+
+- `desktop/Dockerfile.web` builds the frontend (`npm ci && npm run build`) and
+  `desktop/nginx.conf` serves the static bundle, caching the hashed
+  `/assets/*` forever and never caching `index.html`.
+- The bundle is built with an **empty** `VITE_API_BASE_URL`, i.e. same-origin:
+  nginx proxies `/api`, `/health`, `/metrics` and `/swagger-ui` to the backend,
+  so **no per-browser server address is needed** (it also sidesteps CORS).
+- To bake direct API calls instead, build with
+  `VITE_API_BASE_URL=http://192.168.1.100:3000` (build arg, or the variable in
+  `.env.docker`) — the client then calls that backend directly (CORS is
+  permissive). This requires rebuilding the image when the address changes.
+- Tauri-only features degrade gracefully in a browser: tokens fall back to
+  `localStorage` (no OS keyring) and notification capture / biometrics / widget
+  show the "Android only" notice.
+
+Iterating on the web build without Docker:
+
+```bash
+cd desktop
+npm run build && npm run preview -- --host   # static bundle, no Tauri APIs
+# point it elsewhere with: VITE_API_BASE_URL=http://host:3000 npm run build
+```
+
 ### Configuring the backend server (in-app)
 
 The client's backend address is **configured at runtime** — not baked into the
@@ -92,7 +126,11 @@ bundle — so you can point the app at any PudimFinance server without rebuildin
   in — it is saved automatically.
 - **Already signed in**: open **Settings → Server** to view, change, test
   (`/health` ping) and save the address. Changes take effect immediately.
-- If no address is configured, the app falls back to `http://localhost:3000`.
+- **Web client** (served by `docker compose`, see [Web client](#web-client-docker)):
+  the bundle is built for same-origin calls, so it needs no configuration — the
+  nginx proxy reaches the backend automatically.
+- If no address is configured, the app falls back to `VITE_API_BASE_URL` when it
+  was baked into the bundle, otherwise `http://localhost:3000`.
 
 ### Installing the Android app (CI-built APK)
 
@@ -368,10 +406,11 @@ grouping — no backend or browser needed.
 Running PudimFinance on a LAN server that already hosts other services in Docker
 requires two things:
 
-1. **No port conflicts** — the default host ports (`3000`, `5432`, `5672`,
-   `15672`, `9090`, `3001`) may already be taken by other containers.
-2. **A backend URL that works from other devices** — clients must reach the
-   backend from the LAN (not from `localhost` on the server itself).
+1. **No port conflicts** — the default host ports (`3000`, `5173`, `5432`,
+   `5672`, `15672`, `9090`, `3001`) may already be taken by other containers.
+2. **Addresses that work from other devices** — desktop/Android clients must
+   reach the backend from the LAN (not `localhost` on the server itself), while
+   the web client is served same-origin so it needs no address at all.
 
 All host ports are configurable via environment variables, so you never need to
 edit `docker-compose.yml`:
@@ -384,20 +423,56 @@ $EDITOR .env.docker.local
 ```dotenv
 PUBLIC_HOST=192.168.1.100   # this server's LAN IP (hostname -I)
 BACKEND_PORT=3100           # if 3000 is taken
+WEB_PORT=5180               # if 5173 is taken
+VITE_API_BASE_URL=          # empty = same-origin (recommended)
 ```
 
-Then start and point each client at the backend:
+Then start and open the clients:
 
 ```bash
 docker compose --env-file .env.docker.local up --build -d
-# Clients: Settings → Server → http://192.168.1.100:3100
+# Web UI:  http://192.168.1.100:5180
+# Apps:    Settings → Server → http://192.168.1.100:3100
 ```
 
-If a firewall is enabled, allow the backend port:
+If a firewall is enabled, allow the web and backend ports:
 
 ```bash
+sudo ufw allow 5180/tcp
 sudo ufw allow 3100/tcp
 ```
+
+### Replacing the retired Web UI
+
+Before the Tauri migration the stack shipped a separate `web/` service (the old
+React SPA) on the same port. The current `docker-compose.yml` builds the client
+from `desktop/` instead, so clean up the leftovers once:
+
+```bash
+# 1) Stop everything, including containers whose service no longer exists
+#    (this is the old `web` container still holding the port).
+docker compose down --remove-orphans
+
+# 2) Pull the current repo (compose + desktop/Dockerfile.web + desktop/nginx.conf).
+git pull
+
+# 3) Start again — this builds the new `web` image from desktop/.
+docker compose --env-file .env.docker.local up --build -d
+
+# 4) Optional: drop the now-dangling old web image.
+docker image prune -f
+```
+
+Verify the port serves the new client (dark theme, hash routes such as
+`/#/transactions`) and that the same-origin API proxy works:
+
+```bash
+curl -s http://localhost:5173 | grep -i 'id="root"'
+curl -s http://localhost:5173/health | jq .
+```
+
+If you kept a separate checkout of the old `web/` app, delete that directory
+afterwards — nothing in this repo references it anymore.
 
 ### Configuration reference
 
@@ -405,6 +480,8 @@ sudo ufw allow 3100/tcp
 |----------|---------|------------------|
 | `PUBLIC_HOST` | — | Server LAN IP/hostname (documentation only) |
 | `JWT_SECRET` | `dev-secret-change-me-in-production` | Signs JWTs — override in production (`openssl rand -hex 32`); changing it signs everyone out |
+| `WEB_PORT` | `5173` | Web client (SPA behind nginx) — see [Web client](#web-client-docker) |
+| `VITE_API_BASE_URL` | *(empty)* | Web client API origin, baked at image build time; empty = same-origin via the nginx proxy |
 | `PG_PORT` | `5432` | PostgreSQL |
 | `RABBIT_PORT` | `5672` | RabbitMQ AMQP |
 | `RABBIT_MGMT_PORT` | `15672` | RabbitMQ management UI |

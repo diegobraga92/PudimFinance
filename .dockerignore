@@ -1,6 +1,7 @@
-# Keep the repo-root build context small. The web service builds with
-# `context: .` (see docker-compose.yml), so everything here would otherwise
-# be uploaded to the Docker daemon on every build.
+# Keep the repo-root build context small. The `web` service builds with
+# `context: .` + `dockerfile: desktop/Dockerfile.web` (see docker-compose.yml),
+# so everything here would otherwise be uploaded to the Docker daemon on every
+# build.
 
 # VCS
 .git
@@ -11,12 +12,13 @@
 backend/target/
 **/target/
 
+# Tauri native shell — the web client build only needs desktop/src + shared/
+# (gen/ is the generated Android project, ~600 MB)
+desktop/src-tauri/
+
 # Node
 **/node_modules/
 **/dist/
-**/.expo/
-mobile/android/
-mobile/ios/
 **/*.tsbuildinfo
 
 # Local environment files — never ship secrets into an image

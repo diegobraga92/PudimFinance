@@ -53,6 +53,35 @@ SDK-equipped runner (`tauri android init` + `tauri android build`).
 npm run generate-types   # reads ../api/openapi/openapi.json → src/lib/api-types.ts
 ```
 
+## Web client (LAN server)
+
+The frontend doubles as a browser app: `desktop/Dockerfile.web` runs
+`npm ci && npm run build` and serves the static bundle with
+`desktop/nginx.conf`. The root `docker-compose.yml` wires it up as the `web`
+service (`WEB_PORT`, default `5173`) — it replaces the retired `web/` React SPA.
+
+- The bundle is built with an **empty** `VITE_API_BASE_URL`
+  (`src/lib/serverConfig.ts` treats that as *same-origin*), and nginx proxies
+  `/api`, `/health`, `/metrics`, `/swagger-ui` and `/api-docs/` to
+  `backend:3000`, so a browser on the LAN needs no server configuration.
+- Pass `VITE_API_BASE_URL=http://host:3000` as a build arg to bake direct API
+  calls instead (rebuild required when the address changes).
+- Browser-specific behaviour: `isTauri()` is false, so session tokens are kept
+  in `localStorage` instead of the OS keyring and every native bridge
+  (`src/notifications/native.ts`) no-ops, which makes the capture/biometric
+  screens show their "Android only" notice.
+
+```bash
+# From the repo root
+docker compose up --build web           # → http://localhost:5173
+
+# Without Docker (uses the local dev backend on :3000)
+npm run build && npm run preview -- --host
+```
+
+CI builds the image and smoke-tests the served SPA in the `web` job of
+`.github/workflows/desktop-ci.yml`.
+
 ## Verification
 
 ```bash

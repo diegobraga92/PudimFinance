@@ -1,9 +1,14 @@
 /**
- * Server configuration for the PudimFinance desktop app.
+ * Server configuration for the PudimFinance client.
  *
  * The backend URL is configurable at runtime (the Server screen under Settings) and persisted
  * in localStorage so the app can be pointed at any PudimFinance server without
  * rebuilding. It prefers the user-configured URL, then VITE_API_BASE_URL, then localhost.
+ *
+ * `VITE_API_BASE_URL` is *defined but empty* in the web image (`desktop/Dockerfile.web`) to
+ * mean **same-origin**: nginx proxies `/api` and `/health` to the backend, so a browser on
+ * the LAN needs no configuration. On the desktop/Android builds the variable is unset and
+ * the app falls back to `http://localhost:3000`.
  */
 
 const SERVER_URL_KEY = 'pudim_server_url';
@@ -13,7 +18,8 @@ let cached: string | null = null;
 /** Default from the environment, or localhost for dev. */
 export function getDefaultServerUrl(): string {
   const env = (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env;
-  return env?.VITE_API_BASE_URL || 'http://localhost:3000';
+  // `??` (not `||`) so an explicitly empty value means same-origin requests.
+  return env?.VITE_API_BASE_URL ?? 'http://localhost:3000';
 }
 
 /** Normalizes a user-entered server address. Returns '' for blank input. */

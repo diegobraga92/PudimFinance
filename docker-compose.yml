@@ -53,6 +53,26 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Web client — the `desktop/` frontend built as a static SPA behind nginx
+  # (replaces the retired `web/` React SPA). Open http://<PUBLIC_HOST>:<WEB_PORT>.
+  # The bundle is built with an empty VITE_API_BASE_URL, so the SPA talks to the
+  # backend on the same origin: nginx proxies /api and /health to `backend:3000`.
+  web:
+    build:
+      # Context is the repo root (not ./desktop) because the client imports the
+      # shared i18n/icons from ../shared — they must be in the build.
+      context: .
+      dockerfile: desktop/Dockerfile.web
+      args:
+        # Empty → same-origin (nginx proxy, no client setup needed). Set to e.g.
+        # http://192.168.1.100:3000 to have the SPA call the backend directly.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:v2.53.0
     ports:
