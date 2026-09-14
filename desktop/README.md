@@ -45,7 +45,14 @@ npm run tauri android build     # needs Android SDK + NDK + JDK 17
 ```
 
 CI (`.github/workflows/desktop-ci.yml`) builds the Android app on an
-SDK-equipped runner (`tauri android init` + `tauri android build`).
+SDK-equipped runner (`tauri android init` + `tauri android build --target
+aarch64 --apk`), signs it and uploads the APK as the `pudimfinance-android-apk`
+workflow artifact. Signing is injected by `../scripts/android-signing.py`, which
+writes `gen/android/keystore.properties` from the CI keystore secrets and patches
+the generated `gen/android/app/build.gradle.kts` (both gitignored and re-created
+by `android init`, so they cannot be committed); without a keystore secret the
+release build falls back to the debug keystore. See the root
+[README](../README.md#installing-the-android-app-ci-built-apk) for the secrets.
 
 ### Regenerating API types
 
@@ -93,7 +100,8 @@ npm run test:offline     # offline-first smoke tests (fake-indexeddb + live back
 
 CI: `.github/workflows/desktop-ci.yml` runs typecheck, frontend build, Rust
 clippy/rustfmt for the app and the plugin, the full `tauri build`, and the
-Android build.
+Android build — which also signs and uploads the APK as the
+`pudimfinance-android-apk` artifact.
 
 ## Layout
 

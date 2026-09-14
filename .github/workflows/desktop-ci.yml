@@ -156,9 +156,37 @@ jobs:
         working-directory: desktop
         run: npm run tauri android init
 
+      # gen/ is gitignored and re-created by `android init` above, so the release
+      # signing config (keystore.properties + app/build.gradle.kts) has to be
+      # injected on every run — see https://v2.tauri.app/distribute/sign/android/.
+      # With the keystore secrets set the APK is signed with the upload key;
+      # without them the script falls back to the debug keystore (with a warning)
+      # so the workflow still publishes an installable APK instead of an
+      # unsigned one.
+      - name: Configure Android release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 || secrets.ANDROID_KEY_BASE64 || secrets.RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.RELEASE_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || secrets.ANDROID_KEY_PASSWORD || secrets.RELEASE_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.RELEASE_KEY_PASSWORD || secrets.RELEASE_KEYSTORE_PASSWORD }}
+        run: python3 scripts/android-signing.py
+
+      # `--apk` skips the (unused) AAB bundle; add `--aab` back if the app ever
+      # goes to the Play Store.
       - name: Build Android app (aarch64)
         working-directory: desktop
-        run: npm run tauri android build -- --target aarch64
+        run: npm run tauri android build -- --target aarch64 --apk
+
+      # Pull requests still build the APK for validation, but only main pushes
+      # and manual runs publish a downloadable artifact.
+      - name: Upload APK
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pudimfinance-android-apk
+          path: desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 30
 
   web:
     name: Web (nginx image + smoke test)

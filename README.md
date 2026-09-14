@@ -134,12 +134,42 @@ bundle — so you can point the app at any PudimFinance server without rebuildin
 
 ### Installing the Android app (CI-built APK)
 
-The **Android** job in `.github/workflows/desktop-ci.yml` builds the app on
-`main` pushes (or manually via **Run workflow**). The APK is uploaded as a
-workflow artifact:
+The **Android** job in `.github/workflows/desktop-ci.yml` builds *and publishes*
+the app: it runs `tauri android init` + `tauri android build --target aarch64
+--apk` on `main` pushes (or manually via **Run workflow**) and uploads the
+signed APK as the **`pudimfinance-android-apk`** workflow artifact. Pull
+requests build the APK too (so a broken Android build fails CI), but only `main`
+and manual runs publish it.
 
 1. Open the **Actions** tab → select the **Android (tauri android build)** run.
-2. Download the **Artifacts** and transfer the APK to your phone to install.
+2. Download the **`pudimfinance-android-apk`** artifact (a zip containing
+   `app-universal-release.apk`) and transfer the APK to your phone to install.
+
+The artifact is arm64-v8a only (`--target aarch64`), which covers every recent
+phone; x86_64 emulators need `--target x86_64` instead.
+
+Release signing uses the upload keystore from the repository secrets, injected
+by `scripts/android-signing.py` (the generated `src-tauri/gen/android` project is
+gitignored, so the Gradle signing config cannot be committed):
+
+```bash
+keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 \
+  -validity 10000 -alias upload
+base64 -w0 upload-keystore.jks   # → secret ANDROID_KEYSTORE_BASE64
+```
+
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | the base64 above |
+| `ANDROID_KEY_ALIAS` | `upload` (the `-alias` used above) |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_PASSWORD` | optional, only if the key password differs |
+
+The legacy Expo names (`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEY_ALIAS`,
+`RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_PASSWORD`) are still accepted, so an
+already-configured repository needs no changes. When no keystore secret is set
+the workflow logs a warning and debug-signs the release APK, so you still get an
+installable build.
 
 **Google Play Protect**: because the app is sideloaded, Play Protect may warn
 or block the install. If it does, tap **"More details"** → **"Install

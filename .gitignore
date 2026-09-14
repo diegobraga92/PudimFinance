@@ -7,6 +7,9 @@ desktop/src-tauri/gen/
 desktop/src-tauri/plugins/*/target/
 *.tsbuildinfo
 
+# Python (scripts/)
+__pycache__/
+
 # Rust
 backend/target/
 backend/**/*.rs.bk
