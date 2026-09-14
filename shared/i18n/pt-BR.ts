@@ -102,6 +102,8 @@ export const ptBR = {
   'nav.descAudit': 'Histórico de eventos do sistema',
   'nav.descCreditCards': 'Cartões, faturas e datas',
   'nav.descServer': 'Configuração do servidor',
+  'nav.descNotifications': 'Capture alertas bancários como transações',
+  'nav.descReviewCaptures': 'Confirme as transações capturadas',
   'tools.title': 'Ferramentas de contabilidade e dados',
   'tools.subtitle': 'Importe, concilie e inspecione seus dados financeiros.',
   'common.back': 'Voltar',

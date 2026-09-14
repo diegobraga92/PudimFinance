@@ -104,6 +104,8 @@ export const en = {
   'nav.descAudit': 'System event history',
   'nav.descCreditCards': 'Cards, bills and dates',
   'nav.descServer': 'Server configuration',
+  'nav.descNotifications': 'Capture bank alerts as transactions',
+  'nav.descReviewCaptures': 'Confirm captured transactions',
   'tools.title': 'Accounting & Data Tools',
   'tools.subtitle': 'Import, reconcile and inspect your financial data with powerful tools.',
   'common.back': 'Back',

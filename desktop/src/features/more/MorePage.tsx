@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import {
   ArrowRight,
   BookOpen,
+  Bell,
+  Inbox,
   Languages,
   Moon,
   Palette,
@@ -21,6 +23,8 @@ import type { TranslationKey } from '@shared/i18n';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { captureSupported } from '@/notifications/native';
+import { useNotificationCapture } from '@/notifications/NotificationCaptureProvider';
 
 interface Row {
   key: string;
@@ -30,6 +34,7 @@ interface Row {
   route?: string;
   onSelect?: () => void;
   active?: boolean;
+  badge?: string;
 }
 
 /**
@@ -42,8 +47,39 @@ export function MorePage() {
   const { t, locale, setLocale } = useI18n();
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
+  const { pendingCount } = useNotificationCapture();
+  const [notificationCaptureSupported, setNotificationCaptureSupported] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    void captureSupported().then((supported) => {
+      if (mounted) setNotificationCaptureSupported(supported);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const tools: Row[] = [
+    ...(notificationCaptureSupported
+      ? [
+          {
+            key: 'notifications',
+            labelKey: 'nav.notifications' as const,
+            descKey: 'nav.descNotifications' as const,
+            icon: Bell,
+            route: '/notifications',
+          },
+          {
+            key: 'pendingReview',
+            labelKey: 'nav.reviewCaptures' as const,
+            descKey: 'nav.descReviewCaptures' as const,
+            icon: Inbox,
+            route: '/pending-review',
+            badge: pendingCount > 0 ? String(pendingCount) : undefined,
+          },
+        ]
+      : []),
     {
       key: 'receipts',
       labelKey: 'nav.receipts',
@@ -195,6 +231,11 @@ function MoreRow({ row }: { row: Row }) {
         <span className="block truncate text-sm font-medium">{t(row.labelKey)}</span>
         <span className="block truncate text-xs text-dim">{t(row.descKey)}</span>
       </span>
+      {row.badge && (
+        <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+          {row.badge}
+        </span>
+      )}
       {row.active ? (
         <span className="shrink-0 text-xs font-medium text-primary">{t('more.active')}</span>
       ) : (

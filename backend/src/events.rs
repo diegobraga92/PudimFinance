@@ -4,7 +4,7 @@
 //! fanout exchange via `deadpool-lapin`.
 
 use anyhow::Result;
-use deadpool_lapin::{Manager, Pool, Runtime};
+use deadpool_lapin::{Config, Pool, PoolConfig, Runtime};
 use lapin::options::ExchangeDeclareOptions;
 use lapin::types::FieldTable;
 use lapin::{BasicProperties, ConnectionProperties, ExchangeKind};
@@ -55,11 +55,19 @@ impl EventPublisher {
     ///
     /// Panics if the pool cannot be created (the URL is malformed).
     pub fn new(rabbitmq_url: &str) -> Self {
-        let manager = Manager::new(rabbitmq_url.to_string(), ConnectionProperties::default());
-        let pool = deadpool_lapin::Pool::builder(manager)
-            .max_size(5)
-            .runtime(Runtime::Tokio1)
-            .build()
+        // Build the pool via `deadpool_lapin::Config`; this is the supported way
+        // to select the async runtime in deadpool-lapin 0.14+ (the runtime is
+        // baked into the `Manager` at construction time).
+        let config = Config {
+            url: Some(rabbitmq_url.to_string()),
+            pool: Some(PoolConfig {
+                max_size: 5,
+                ..Default::default()
+            }),
+        };
+
+        let pool = config
+            .create_pool(ConnectionProperties::default, Runtime::Tokio1)
             .expect("Failed to create RabbitMQ pool");
 
         let publisher = Self { pool };
@@ -76,7 +84,7 @@ impl EventPublisher {
                             Ok(channel) => {
                                 let declare_result = channel
                                     .exchange_declare(
-                                        LEDGER_EXCHANGE,
+                                        LEDGER_EXCHANGE.into(),
                                         ExchangeKind::Fanout,
                                         ExchangeDeclareOptions {
                                             durable: true,
@@ -129,8 +137,8 @@ impl EventPublisher {
                     Ok(channel) => {
                         let publish_result = channel
                             .basic_publish(
-                                LEDGER_EXCHANGE,
-                                "",
+                                LEDGER_EXCHANGE.into(),
+                                "".into(),
                                 Default::default(),
                                 body.as_slice(),
                                 BasicProperties::default()
