@@ -95,58 +95,63 @@ export function CategoryDonut({
           </div>
         ) : (
           <>
-            <div className="relative h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={rows}
-                    dataKey="amount"
-                    nameKey="name"
-                    innerRadius={60}
-                    outerRadius={88}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {rows.map((row) => (
-                      <Cell key={row.key} fill={row.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgb(var(--surface-elevated))',
-                      border: '1px solid rgb(var(--border))',
-                      borderRadius: 10,
-                      fontSize: 12,
-                      color: 'rgb(var(--foreground))',
-                    }}
-                    formatter={(value) => formatMoney(Number(value))}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-xl font-bold tabular-nums">{formatMoney(total)}</span>
-                <span className="text-xs text-dim">{centerLabel}</span>
+            {/* The legend sits beside the ring whenever the card is wide enough
+             * (~400px) and wraps underneath on narrow cards/phones, so the
+             * card never grows taller than it needs to. */}
+            <div className="flex flex-wrap items-center justify-center gap-5">
+              <div className="relative h-[190px] w-[190px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={rows}
+                      dataKey="amount"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={88}
+                      paddingAngle={2}
+                      stroke="none"
+                    >
+                      {rows.map((row) => (
+                        <Cell key={row.key} fill={row.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgb(var(--surface-elevated))',
+                        border: '1px solid rgb(var(--border))',
+                        borderRadius: 10,
+                        fontSize: 12,
+                        color: 'rgb(var(--foreground))',
+                      }}
+                      formatter={(value) => formatMoney(Number(value))}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-xl font-bold tabular-nums">{formatMoney(total)}</span>
+                  <span className="text-xs text-dim">{centerLabel}</span>
+                </div>
               </div>
-            </div>
 
-            <ul className="mt-4 space-y-2.5">
-              {rows.map((row) => (
-                <li key={row.key} className="flex items-center gap-2.5 text-sm">
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: row.color }}
-                  />
-                  <span className="min-w-0 flex-1 truncate">
-                    {row.icon ? `${categoryIcon(row.icon)} ` : ''}
-                    {row.name}
-                  </span>
-                  <span className="shrink-0 text-xs tabular-nums text-dim">{row.pct}%</span>
-                  <span className="w-20 shrink-0 text-right font-medium tabular-nums">
-                    {formatMoney(row.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+              <ul className="min-w-[12rem] flex-1 space-y-2.5">
+                {rows.map((row) => (
+                  <li key={row.key} className="flex items-center gap-2.5 text-sm">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: row.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate">
+                      {row.icon ? `${categoryIcon(row.icon)} ` : ''}
+                      {row.name}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-dim">{row.pct}%</span>
+                    <span className="w-[5.5rem] shrink-0 whitespace-nowrap text-right font-medium tabular-nums">
+                      {formatMoney(row.amount)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </>
         )}
       </CardContent>

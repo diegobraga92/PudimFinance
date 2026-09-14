@@ -9,7 +9,6 @@ import {
   fetchAccountsWithBalance,
   fetchCategories,
   fetchSummary,
-  fetchTransactions,
   type AccountWithBalance,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -24,7 +23,7 @@ import { AccountDetail } from './AccountDetail';
 import { AccountsSummary } from './AccountsSummary';
 import { AccountGroupCard } from './AccountGroupCard';
 import { AccountDistributionCard } from './AccountDistributionCard';
-import { AccountActivityCard } from './AccountActivityCard';
+import { InvestmentsSummaryCard } from './InvestmentsSummaryCard';
 import { AccountQuickActions } from './AccountQuickActions';
 import { TransferDialog } from './TransferDialog';
 import {
@@ -36,9 +35,6 @@ import {
   type AccountGroupKey,
 } from './account-groups';
 import { cn } from '@/lib/utils';
-
-/** Newest activity shown in the sidebar. */
-const ACTIVITY_SIZE = 6;
 
 type TabKey = 'all' | AccountGroupKey;
 
@@ -62,10 +58,10 @@ const TABS: {
 /** Skeleton shaped like the group list, so the layout does not jump. */
 function AccountsListSkeleton() {
   return (
-    <div className="space-y-4">
+    <div>
       {[0, 1].map((group) => (
-        <Card key={group} className="overflow-hidden border-border bg-surface shadow-card">
-          <div className="flex items-center gap-3 border-b border-border bg-primary/[0.03] px-4 py-3.5">
+        <div key={group} className="border-t border-border first:border-t-0">
+          <div className="flex items-center gap-3 bg-primary/[0.03] px-4 py-3.5">
             <Skeleton className="h-9 w-9 rounded-md" />
             <div className="flex-1 space-y-1.5">
               <Skeleton className="h-4 w-40" />
@@ -73,20 +69,19 @@ function AccountsListSkeleton() {
             </div>
             <Skeleton className="h-4 w-24" />
           </div>
-          {[0, 1, 2].map((row) => (
-            <div
-              key={row}
-              className="flex min-h-[64px] items-center gap-3 border-b border-border/60 px-4 py-2.5 last:border-b-0"
-            >
-              <Skeleton className="h-10 w-10 rounded-md" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-44" />
+          <div className="divide-y divide-border/60">
+            {[0, 1, 2].map((row) => (
+              <div key={row} className="flex min-h-[64px] items-center gap-3 px-4 py-2.5">
+                <Skeleton className="h-10 w-10 rounded-md" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-44" />
+                </div>
+                <Skeleton className="h-4 w-24" />
               </div>
-              <Skeleton className="h-4 w-24" />
-            </div>
-          ))}
-        </Card>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -121,35 +116,33 @@ export function AccountsPage() {
   });
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const summaryQuery = useQuery({ queryKey: ['summary'], queryFn: () => fetchSummary() });
-  const recentQuery = useQuery({
-    queryKey: ['transactions', 'accounts-activity'],
-    queryFn: () => fetchTransactions({ page: 0, page_size: ACTIVITY_SIZE }),
-  });
 
   const accounts = React.useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
   const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const balanceSheet = React.useMemo(() => accounts.filter(isBalanceSheet), [accounts]);
-  const accountById = React.useMemo(
-    () => new Map(accounts.map((account) => [account.id, account])),
-    [accounts],
-  );
-  const categoryById = React.useMemo(
-    () => new Map(categories.map((category) => [category.id, category])),
-    [categories],
-  );
 
   const totals = React.useMemo(() => {
     let assets = 0;
     let liabilities = 0;
+    let investments = 0;
+    let liabilityCount = 0;
     for (const account of balanceSheet) {
       const balance = parseFloat(account.balance) || 0;
-      if (account.type === 'liability') liabilities += Math.abs(balance);
-      else assets += balance;
+      if (account.type === 'liability') {
+        liabilities += Math.abs(balance);
+        liabilityCount += 1;
+      } else {
+        assets += balance;
+        if (account.account_kind === 'investment') investments += balance;
+      }
     }
-    return { assets, liabilities };
+    return { assets, liabilities, investments, liabilityCount };
   }, [balanceSheet]);
 
   const monthlyIncome = summaryQuery.data ? parseFloat(summaryQuery.data.income_total) : null;
+  const monthlyExpenses = summaryQuery.data ? parseFloat(summaryQuery.data.expense_total) : null;
+  const monthlyNet =
+    monthlyIncome !== null && monthlyExpenses !== null ? monthlyIncome - monthlyExpenses : null;
   const hasCards = balanceSheet.some((account) => account.account_kind === 'card');
 
   const tabCounts = React.useMemo(() => {
@@ -284,14 +277,18 @@ export function AccountsPage() {
             loading={loading || summaryQuery.isLoading}
             available={accountsQuery.data !== undefined}
             totalAssets={totals.assets}
+            investments={totals.investments}
             totalLiabilities={totals.liabilities}
+            liabilityCount={totals.liabilityCount}
             monthlyIncome={monthlyIncome}
+            monthlyExpenses={monthlyExpenses}
+            monthlyNet={monthlyNet}
           />
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,1fr)]">
-            {/* Accounts list */}
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
+            {/* One box holds the filters and every account group. */}
+            <Card className="overflow-hidden shadow-card">
+              <div className="flex flex-wrap items-center gap-3 border-b border-border p-4 md:p-5">
                 <div className="-mx-1 flex gap-1 overflow-x-auto rounded-md bg-muted p-1 px-1 max-md:w-full md:flex-wrap">
                   {TABS.map(({ key, labelKey }) => {
                     const active = tab === key;
@@ -329,15 +326,15 @@ export function AccountsPage() {
               {loading ? (
                 <AccountsListSkeleton />
               ) : groups.length === 0 ? (
-                <Card className="p-7">
+                <div className="p-7">
                   <EmptyState
                     icon={<SearchX className="h-8 w-8" />}
                     title={t('accounts.noMatches')}
                     description={t('accounts.noMatchesDesc')}
                   />
-                </Card>
+                </div>
               ) : (
-                <div className="space-y-4">
+                <div>
                   {groups.map((group) => (
                     <AccountGroupCard
                       key={group.meta.key}
@@ -350,17 +347,13 @@ export function AccountsPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
 
-            {/* Sidebar */}
+            {/* Sidebar: distribution, investments and shortcuts. Recent activity
+             * is not repeated here — the dashboard already shows it. */}
             <div className="flex flex-col gap-4">
               <AccountDistributionCard accounts={balanceSheet} loading={loading} />
-              <AccountActivityCard
-                transactions={recentQuery.data?.items ?? []}
-                accountById={accountById}
-                categoryById={categoryById}
-                loading={recentQuery.isLoading}
-              />
+              <InvestmentsSummaryCard accounts={balanceSheet} loading={loading} />
               <AccountQuickActions
                 onNewAccount={() => openCreate('bank')}
                 onTransfer={() => setTransferOpen(true)}

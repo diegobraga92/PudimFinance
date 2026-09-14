@@ -3,7 +3,6 @@ import { ChevronDown, EllipsisVertical, Eye, Pencil, Trash2 } from 'lucide-react
 
 import { useI18n } from '@/app/i18n';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +33,10 @@ function formatBalance(account: AccountWithBalance, formatMoney: (v: number) => 
 /**
  * One group of accounts (bank / cards & loans / investments / other) with its
  * collapsible header, group total and account rows.
+ *
+ * Rendered as a section rather than its own card: the accounts screen wraps the
+ * filters and every group inside a single box, so the groups only draw the
+ * dividers between them.
  */
 export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete }: Props) {
   const { t, formatMoney } = useI18n();
@@ -44,7 +47,7 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete }: P
     accounts.length === 1 ? 'accounts.group.count_one' : 'accounts.group.count_other';
 
   return (
-    <Card className="overflow-hidden border-border bg-surface shadow-card">
+    <section className="border-t border-border first:border-t-0">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -175,6 +178,6 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete }: P
           })}
         </ul>
       )}
-    </Card>
+    </section>
   );
 }

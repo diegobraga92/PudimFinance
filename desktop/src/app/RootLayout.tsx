@@ -17,6 +17,7 @@ import { MobileTabBar } from '@/app/MobileTabBar';
 import { MobileTopBar } from '@/app/MobileTopBar';
 import { QuickAddFab } from '@/app/QuickAddFab';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LanguageToggle } from '@/components/language-toggle';
 import {
   captureSupported as isCaptureSupported,
@@ -343,7 +344,10 @@ export function RootLayout() {
         {/* Routed content. Extra bottom room on phones for the tab bar + FAB. */}
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="px-4 pb-28 pt-4 sm:px-6 md:pb-12 md:pt-6 lg:px-8 lg:pt-7">
-            <Outlet />
+            {/* Remounts per route, so navigating away clears a crashed screen. */}
+            <ErrorBoundary key={pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
 

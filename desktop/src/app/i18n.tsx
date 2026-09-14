@@ -65,7 +65,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       formatMoney: (value) => {
         const n = typeof value === 'string' ? parseFloat(value) : value;
         if (Number.isNaN(n)) return 'R$ 0,00';
-        return n.toLocaleString(intl, { style: 'currency', currency: 'BRL' });
+        // Format the number separately and prepend an explicit `R$ ` so the
+        // symbol is always spaced from the digits (`R$1,00` in `en-US` would
+        // otherwise look cramped).
+        const amount = Math.abs(n).toLocaleString(intl, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        return `${n < 0 ? '-' : ''}R$ ${amount}`;
       },
       formatDate: (isoDate) => {
         const d = new Date(`${isoDate.slice(0, 10)}T00:00:00`);

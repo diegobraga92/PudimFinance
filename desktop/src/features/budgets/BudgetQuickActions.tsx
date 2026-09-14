@@ -58,19 +58,21 @@ export function BudgetQuickActions({
       <CardHeader className="p-5 pb-3">
         <CardTitle className="text-lg font-semibold">{t('dashboard.quickActions')}</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3 p-5 pt-0">
+      {/* Compact tiles: two across in the sidebar, four across when the column
+       * is full width, so wide screens never stretch them. */}
+      <CardContent className="grid grid-cols-2 gap-2.5 p-5 pt-0 sm:grid-cols-4 xl:grid-cols-2">
         {tiles.map((tile) => (
           <button
             key={tile.key}
             type="button"
             onClick={tile.onClick}
             className={cn(
-              'flex min-h-[72px] flex-col justify-center gap-2 rounded-md px-3.5 py-3 text-left text-sm font-medium ring-1 ring-inset transition-colors',
+              'flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center text-xs font-medium ring-1 ring-inset transition-colors',
               tile.tone,
             )}
           >
             <tile.icon className="h-4 w-4" />
-            <span className="leading-tight">{tile.label}</span>
+            <span className="text-balance leading-tight">{tile.label}</span>
           </button>
         ))}
       </CardContent>

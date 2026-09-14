@@ -24,11 +24,14 @@ export interface CashFlowPoint {
   net: number;
 }
 
+/** Windows offered by the cash-flow chart: 1 = just the selected month. */
+export type CashFlowRange = 1 | 6 | 12;
+
 interface CashFlowCardProps {
   data: CashFlowPoint[];
   loading: boolean;
-  range: 6 | 12;
-  onRangeChange: (range: 6 | 12) => void;
+  range: CashFlowRange;
+  onRangeChange: (range: CashFlowRange) => void;
 }
 
 const TOOLTIP_STYLE: React.CSSProperties = {
@@ -44,6 +47,10 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
   const { t, locale, formatMoney } = useI18n();
   const intl = toIntlLocale(locale);
   const hasData = data.some((point) => point.income !== 0 || point.expenses !== 0 || point.net !== 0);
+  // A single month has no line to draw, so the series opt into visible dots.
+  // Explicit fills are required: Recharts' default marker fill is white.
+  const dotFor = (color: string) =>
+    data.length === 1 ? { r: 4, fill: color, stroke: 'none' } : false;
 
   return (
     <Card className="flex h-full flex-col border-border bg-surface shadow-card">
@@ -53,12 +60,16 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
           <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.cashFlowSubtitle')}</p>
         </div>
         <div className="flex shrink-0 gap-0.5 rounded-md bg-muted p-1">
-          {([6, 12] as const).map((months) => (
+          {([1, 6, 12] as const).map((months) => (
             <button
               key={months}
               type="button"
               onClick={() => onRangeChange(months)}
-              title={t('dashboard.lastMonthsRange', { count: months })}
+              title={
+                months === 1
+                  ? t('dashboard.thisMonth')
+                  : t('dashboard.lastMonthsRange', { count: months })
+              }
               className={cn(
                 'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
                 range === months
@@ -93,7 +104,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                     <stop offset="95%" stopColor="rgb(var(--danger))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border))" vertical={false} />
+                <CartesianGrid stroke="rgb(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 11, fill: 'rgb(var(--dim))' }}
@@ -105,8 +116,14 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                   tick={{ fontSize: 11, fill: 'rgb(var(--dim))' }}
                   tickLine={false}
                   axisLine={false}
-                  width={52}
+                  width={68}
                   tickFormatter={(value: number) => axisValue(value, intl)}
+                  label={{
+                    value: 'R$',
+                    angle: -90,
+                    position: 'insideLeft',
+                    style: { fontSize: 11, fill: 'rgb(var(--dim))' },
+                  }}
                 />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
@@ -125,7 +142,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                   stroke="rgb(var(--success))"
                   strokeWidth={2}
                   fill="url(#cashflow-income)"
-                  dot={false}
+                  dot={dotFor('rgb(var(--success))')}
                   activeDot={{ r: 3 }}
                 />
                 <Area
@@ -135,7 +152,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                   stroke="rgb(var(--danger))"
                   strokeWidth={2}
                   fill="url(#cashflow-expense)"
-                  dot={false}
+                  dot={dotFor('rgb(var(--danger))')}
                   activeDot={{ r: 3 }}
                 />
                 <Line
@@ -145,7 +162,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                   stroke="rgb(var(--info))"
                   strokeWidth={2}
                   strokeDasharray="5 4"
-                  dot={false}
+                  dot={dotFor('rgb(var(--info))')}
                   activeDot={{ r: 3 }}
                 />
               </ComposedChart>

@@ -226,7 +226,7 @@ export function OverviewTab({
           />
         </Card>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
           {/* Main column: scanner + latest receipts */}
           <div className="flex flex-col gap-4">
             <ScanReceiptCard scanner={scanner} onParsed={onOpenScan} />
@@ -516,7 +516,7 @@ export function OverviewTab({
               <div className="p-5 pb-3">
                 <h2 className="text-lg font-semibold">{t('dashboard.quickActions')}</h2>
               </div>
-              <div className="grid grid-cols-2 gap-3 px-5 pb-5">
+              <div className="grid grid-cols-2 gap-2.5 px-5 pb-5 sm:grid-cols-4 lg:grid-cols-2">
                 {(
                   [
                     {
@@ -554,12 +554,12 @@ export function OverviewTab({
                     type="button"
                     onClick={tile.onClick}
                     className={cn(
-                      'flex min-h-[72px] flex-col justify-center gap-2 rounded-md px-3.5 py-3 text-left text-sm font-medium ring-1 ring-inset transition-colors',
+                      'flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center text-xs font-medium ring-1 ring-inset transition-colors',
                       tile.tone,
                     )}
                   >
                     <tile.icon className="h-4 w-4" />
-                    <span className="leading-tight">{tile.label}</span>
+                    <span className="text-balance leading-tight">{tile.label}</span>
                   </button>
                 ))}
               </div>

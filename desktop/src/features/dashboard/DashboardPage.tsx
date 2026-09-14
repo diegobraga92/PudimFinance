@@ -13,14 +13,11 @@ import {
 } from '@/lib/api';
 import { DashboardHeader } from './DashboardHeader';
 import { SummaryCards, type SummaryDeltas } from './SummaryCards';
-import { CashFlowCard, type CashFlowPoint } from './CashFlowCard';
+import { CashFlowCard, type CashFlowPoint, type CashFlowRange } from './CashFlowCard';
 import { CategoryBreakdownCard } from './CategoryBreakdownCard';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { BudgetsCard } from './BudgetsCard';
 import { QuickActions } from './QuickActions';
-
-/** Rolling window used by the cash-flow chart. */
-type Range = 6 | 12;
 
 /** Shift a `{ year, month }` pair by `delta` months (month is 1-12). */
 function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
@@ -52,7 +49,7 @@ export function DashboardPage() {
   const now = React.useMemo(() => new Date(), []);
   const [year, setYear] = React.useState(now.getFullYear());
   const [month, setMonth] = React.useState(now.getMonth() + 1);
-  const [range, setRange] = React.useState<Range>(6);
+  const [range, setRange] = React.useState<CashFlowRange>(6);
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 

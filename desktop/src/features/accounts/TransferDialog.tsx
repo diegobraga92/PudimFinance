@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { useI18n } from '@/app/i18n';
+import { DateField } from '@/components/DateField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -185,12 +186,10 @@ export function TransferDialog({ open, onOpenChange, accounts, onSaved }: Props)
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="transfer-date">{t('common.date')}</Label>
-              <Input
+              <DateField
                 id="transfer-date"
-                type="date"
-                className="dark:[color-scheme:dark]"
                 value={date}
-                onChange={(event) => setDate(event.target.value)}
+                onChange={setDate}
                 disabled={!enoughAccounts}
               />
             </div>

@@ -20,6 +20,7 @@ import {
   type CreateCardPurchaseRequest,
   type PayCardBillRequest,
 } from '@/lib/api';
+import { DateField } from '@/components/DateField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -537,12 +538,7 @@ export function CreditCardsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cc-date">{t('common.date')}</Label>
-                <Input
-                  id="cc-date"
-                  type="date"
-                  value={purchaseDate}
-                  onChange={(e) => setPurchaseDate(e.target.value)}
-                />
+                <DateField id="cc-date" value={purchaseDate} onChange={setPurchaseDate} />
               </div>
             </div>
             <div className="space-y-1.5">

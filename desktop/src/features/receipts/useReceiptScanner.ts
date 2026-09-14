@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
-import { saveReceipt, scanReceipt, scanReceiptOcr } from '@/lib/api';
+import { saveReceipt, scanReceipt, scanReceiptOcr, isNetworkError } from '@/lib/api';
 
 /** One line of a parsed receipt, editable before saving. */
 export interface EditableReceiptItem {
@@ -88,7 +88,16 @@ export function useReceiptScanner() {
       applyParsed(result, 'nfce');
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('receipts.failedParseQr'));
+      // Parsing happens server-side, so an unreachable server is not a bad
+      // receipt — say so instead of blaming the QR code (and stay in the
+      // user's language rather than surfacing the transport error).
+      setError(
+        isNetworkError(err)
+          ? t('receipts.connectionHint')
+          : err instanceof Error
+            ? err.message
+            : t('receipts.failedParseQr'),
+      );
       setStatus('idle');
       return false;
     }
@@ -137,7 +146,13 @@ export function useReceiptScanner() {
       applyParsed(parsed, 'ocr');
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('receipts.ocrFailed'));
+      setError(
+        isNetworkError(err)
+          ? t('receipts.connectionHint')
+          : err instanceof Error
+            ? err.message
+            : t('receipts.ocrFailed'),
+      );
       setStatus('idle');
       return false;
     }

@@ -48,34 +48,50 @@ function percent(value: number, locale: string): string {
 }
 
 /**
- * Month-over-month comparison. `invert` marks metrics where a decrease is good
+ * Month-over-month change chip. `invert` marks metrics where a decrease is good
  * (spending), so the color reflects the outcome rather than the direction.
  */
-function DeltaLine({
+function DeltaBadge({
   delta,
-  suffix,
+  suffix = '%',
   invert,
 }: {
   delta: number;
-  suffix: string;
+  suffix?: string;
   invert?: boolean;
 }) {
-  const { t, locale } = useI18n();
+  const { locale } = useI18n();
   const up = delta >= 0;
   const good = invert ? !up : up;
   const Icon = up ? ArrowUpRight : ArrowDownRight;
   return (
-    <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
-      <span
-        className={cn(
-          'inline-flex items-center gap-0.5 font-semibold tabular-nums',
-          good ? 'text-success' : 'text-danger',
-        )}
-      >
-        <Icon className="h-3.5 w-3.5" />
-        {signedNumber(delta, toIntlLocale(locale))}
-        {suffix}
-      </span>
+    <span
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums',
+        good ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger',
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {signedNumber(delta, toIntlLocale(locale))}
+      {suffix}
+    </span>
+  );
+}
+
+/** Comparison chip plus its caption, for cards without a right-hand column. */
+function DeltaNote({
+  delta,
+  suffix = '%',
+  invert,
+}: {
+  delta: number;
+  suffix?: string;
+  invert?: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
+      <DeltaBadge delta={delta} suffix={suffix} invert={invert} />
       <span className="text-dim">{t('dashboard.vsLastMonth')}</span>
     </p>
   );
@@ -87,11 +103,12 @@ interface SummaryCardProps {
   icon: React.ReactNode;
   iconClassName: string;
   valueClassName?: string;
-  delta?: number | null;
-  /** Set when a lower value is the good outcome (expenses). */
-  invertDelta?: boolean;
-  deltaSuffix?: string;
-  caption?: string;
+  /**
+   * Right-hand column: the month-over-month comparison, or a secondary figure
+   * (the balance card shows the month's net there). Keeping it beside the
+   * value removes the wide dead space the caption used to leave below.
+   */
+  aside?: React.ReactNode;
   available?: boolean;
   loading?: boolean;
 }
@@ -102,50 +119,43 @@ function SummaryCard({
   icon,
   iconClassName,
   valueClassName,
-  delta,
-  invertDelta,
-  deltaSuffix = '%',
-  caption,
+  aside,
   available = true,
   loading,
 }: SummaryCardProps) {
   return (
     <Card className="border-border bg-surface shadow-card">
-      <CardContent className="p-5">
-        <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-md',
-              iconClassName,
-            )}
-          >
-            {icon}
-          </span>
-          <span className="text-[13px] font-medium text-muted-foreground">{label}</span>
-        </div>
+      <CardContent className="flex h-full items-start justify-between gap-3 p-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+                iconClassName,
+              )}
+            >
+              {icon}
+            </span>
+            <span className="truncate text-[13px] font-medium text-muted-foreground">
+              {label}
+            </span>
+          </div>
 
-        {loading ? (
-          <>
-            <Skeleton className="mt-4 h-8 w-32" />
-            <Skeleton className="mt-3 h-3 w-24" />
-          </>
-        ) : (
-          <>
+          {loading ? (
+            <Skeleton className="h-7 w-28" />
+          ) : (
             <p
               className={cn(
-                'mt-4 truncate text-[34px] font-bold leading-none tracking-[-0.025em] tabular-nums',
+                'truncate text-2xl font-bold leading-none tracking-[-0.02em] tabular-nums',
                 valueClassName,
               )}
             >
               {available ? value : '—'}
             </p>
-            {available && delta !== null && delta !== undefined ? (
-              <DeltaLine delta={delta} suffix={deltaSuffix} invert={invertDelta} />
-            ) : available && caption ? (
-              <p className="mt-3 truncate text-xs text-dim">{caption}</p>
-            ) : null}
-          </>
-        )}
+          )}
+        </div>
+
+        {aside}
       </CardContent>
     </Card>
   );
@@ -211,8 +221,8 @@ function SavingsRateCard({
           <p className="text-[13px] font-medium text-muted-foreground">
             {t('dashboard.savingsRate')}
           </p>
-          <p className="mt-1 text-xs text-dim">{t('dashboard.ofIncomeSaved')}</p>
-          {!loading && available && delta !== null && <DeltaLine delta={delta} suffix=" pts" />}
+          <p className="mt-1 text-xs text-dim">{t('dashboard.savingsRateHint')}</p>
+          {!loading && available && delta !== null && <DeltaNote delta={delta} suffix=" pts" />}
         </div>
       </CardContent>
     </Card>
@@ -231,17 +241,52 @@ export function SummaryCards({
   deltas,
 }: SummaryCardsProps) {
   const { t, formatMoney } = useI18n();
+
+  /** Right-hand comparison column; omitted when there is no previous month. */
+  const comparison = (delta: number | null, invert?: boolean) =>
+    !loading && available && delta !== null ? (
+      <div className="shrink-0 text-right">
+        <DeltaBadge delta={delta} invert={invert} />
+        <p className="mt-1 text-[10px] leading-tight text-dim">
+          {t('dashboard.vsLastMonth')}
+        </p>
+      </div>
+    ) : null;
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <SummaryCard
         label={t('dashboard.currentBalance')}
         value={formatMoney(balance)}
-        caption={t('dashboard.netThisMonth', { amount: formatMoney(net) })}
         icon={<Wallet className="h-5 w-5" />}
         iconClassName="bg-primary/15 text-primary"
         valueClassName={balance >= 0 ? 'text-success' : 'text-danger'}
         available={available}
         loading={loading}
+        aside={
+          loading ? (
+            <div className="shrink-0 text-right">
+              <Skeleton className="ml-auto h-2.5 w-16" />
+              <Skeleton className="ml-auto mt-2 h-5 w-20" />
+            </div>
+          ) : (
+            /* The month's net sits beside the balance (instead of a caption
+             * below it) so the headline pair is readable at a glance. */
+            <div className="shrink-0 text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('dashboard.netThisMonthLabel')}
+              </p>
+              <p
+                className={cn(
+                  'mt-1 text-lg font-bold leading-tight tabular-nums',
+                  net >= 0 ? 'text-success' : 'text-danger',
+                )}
+              >
+                {available ? formatMoney(net) : '—'}
+              </p>
+            </div>
+          )
+        }
       />
       <SummaryCard
         label={t('common.income')}
@@ -249,7 +294,7 @@ export function SummaryCards({
         icon={<TrendingUp className="h-5 w-5" />}
         iconClassName="bg-success/15 text-success"
         valueClassName="text-success"
-        delta={deltas.income}
+        aside={comparison(deltas.income)}
         available={available}
         loading={loading}
       />
@@ -259,8 +304,7 @@ export function SummaryCards({
         icon={<TrendingDown className="h-5 w-5" />}
         iconClassName="bg-danger/15 text-danger"
         valueClassName="text-danger"
-        delta={deltas.expenses}
-        invertDelta
+        aside={comparison(deltas.expenses, true)}
         available={available}
         loading={loading}
       />

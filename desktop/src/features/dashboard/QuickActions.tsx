@@ -48,18 +48,20 @@ export function QuickActions({ newBudgetLink }: QuickActionsProps) {
       <CardHeader className="p-5 pb-3">
         <CardTitle className="text-lg font-semibold">{t('dashboard.quickActions')}</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3 p-5 pt-0">
+      {/* Compact tiles: two across on phones and in the dashboard sidebar, four
+       * across full-width breakpoints so wide screens never stretch them. */}
+      <CardContent className="grid grid-cols-2 gap-2.5 p-5 pt-0 sm:grid-cols-4 xl:grid-cols-2">
         {actions.map((action) => (
           <Link
             key={action.to}
             to={action.to}
             className={cn(
-              'flex min-h-[64px] flex-col justify-center gap-2 rounded-md px-3.5 py-3 text-sm font-medium ring-1 ring-inset transition-colors',
+              'flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center text-xs font-medium ring-1 ring-inset transition-colors',
               action.tone,
             )}
           >
             <action.icon className="h-4 w-4" />
-            <span className="leading-tight">{action.label}</span>
+            <span className="text-balance leading-tight">{action.label}</span>
           </Link>
         ))}
       </CardContent>

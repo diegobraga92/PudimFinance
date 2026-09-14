@@ -66,14 +66,22 @@ async function storeGet(key: string): Promise<string | null> {
   }
 }
 
-/** Writes to the keyring when possible, and only falls back to localStorage. */
+/**
+ * Writes a secret.
+ *
+ * The keyring is the primary store, but the value is **also** mirrored into
+ * localStorage. That is deliberate: on Linux the Secret Service can accept a
+ * write into a collection that does not survive the session (or the daemon is
+ * absent), which silently loses the session on the next launch — the "why do I
+ * have to log in again?" symptom. Reading still prefers the keyring, and
+ * deleting clears both copies.
+ */
 async function storeSet(key: string, value: string): Promise<void> {
   if (isTauri()) {
     try {
       await invoke('auth_store_set', { key, value });
-      return;
     } catch {
-      // Keyring unavailable, so fall through to localStorage.
+      // Keyring unavailable; the localStorage copy below is the fallback.
     }
   }
   try {

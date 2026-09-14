@@ -14,7 +14,9 @@ import {
   type Transaction,
   type TransactionFilters,
 } from '@/lib/api';
+import { DateRangeField } from '@/components/DateRangeField';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
@@ -32,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TransactionForm } from './TransactionForm';
 import { TransactionListRow } from './TransactionListRow';
+import { TransactionsSidebar } from './TransactionsSidebar';
 import { groupTransactionsByMonth } from './group-by-month';
 import { categoryIcon } from '@shared/category-icons';
 import type { TranslationKey } from '@shared/i18n';
@@ -67,13 +70,15 @@ export function TransactionsPage() {
 
   const [items, setItems] = React.useState<Transaction[]>([]);
   const [page, setPage] = React.useState(0);
-  const [total, setTotal] = React.useState(0);
   const [hasMore, setHasMore] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   /** Phone-only: reveals the date/category controls behind the filter button. */
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
+  /** Rows ticked in the table, for bulk deletion. */
+  const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = React.useState(false);
 
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const accountsQuery = useQuery({
@@ -101,8 +106,9 @@ export function TransactionsPage() {
         const res = await fetchTransactions(filters);
         setItems((prev) => (append ? [...prev, ...res.items] : res.items));
         setPage(res.page);
-        setTotal(res.total);
         setHasMore(res.page * PAGE_SIZE + res.items.length < res.total);
+        // A new search/filter starts a fresh tick selection.
+        if (!append) setSelectedIds(new Set());
       } catch (err) {
         setError(err instanceof Error ? err.message : t('errors.loadTransactions'));
       } finally {
@@ -161,6 +167,46 @@ export function TransactionsPage() {
     setFormOpen(true);
   };
 
+  const toggleRow = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(visible.map((tx) => tx.id)) : new Set());
+  };
+
+  /** The API deletes one transaction at a time, so send them together. */
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setDeleting(true);
+    try {
+      await Promise.all(ids.map((id) => deleteTransaction(id)));
+      // Close first so the dialog's count stays put while it animates out;
+      // the reload below resets the tick selection.
+      setBulkConfirmOpen(false);
+      await refreshAll();
+      toast({
+        title: t(
+          ids.length === 1 ? 'transactions.bulkDeleted_one' : 'transactions.bulkDeleted_other',
+          { count: ids.length },
+        ),
+        variant: 'success',
+      });
+    } catch (err) {
+      toast({
+        title: err instanceof Error ? err.message : t('transactions.failedToDelete'),
+        variant: 'error',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!pendingDelete) return;
@@ -241,31 +287,15 @@ export function TransactionsPage() {
     setEndDate('');
     setFilterCategory('');
   };
+  const clearAll = () => {
+    clearFilters();
+    setQuery('');
+  };
   const searching = query.trim().length > 0;
 
-  // Income / expenses / net for the rows in view. The card labels their scope
-  // (all vs. filtered, and how many of the total are loaded) so a partial page
-  // is never presented as the whole period's figures.
-  const totals = React.useMemo(() => {
-    let income = 0;
-    let expenses = 0;
-    for (const tx of visible) {
-      const amount = parseFloat(tx.amount);
-      if (Number.isNaN(amount)) continue;
-      if (tx.type === 'income') income += amount;
-      else expenses += amount;
-    }
-    return { income, expenses, net: income - expenses };
-  }, [visible]);
-
-  const summaryScope =
-    hasFilters || searching ? t('transactions.summaryFiltered') : t('transactions.summaryAll');
-  const summaryCount = hasMore
-    ? t('transactions.summaryLoadedOf', { count: visible.length, total })
-    : t(
-        visible.length === 1 ? 'transactions.summaryCount_one' : 'transactions.summaryCount_other',
-        { count: visible.length },
-      );
+  // Row ticks for bulk deletion; the header box mirrors the rows in view.
+  const allSelected = visible.length > 0 && visible.every((tx) => selectedIds.has(tx.id));
+  const someSelected = !allSelected && visible.some((tx) => selectedIds.has(tx.id));
 
   // Phones show the list under month headings ("SEPTEMBER 2026").
   const monthGroups = React.useMemo(
@@ -298,356 +328,344 @@ export function TransactionsPage() {
         }
       />
 
-      {/* Headline figures for the rows in view */}
-      <Card className="shadow-card">
-        <div className="flex flex-col gap-6 p-7 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-muted-foreground">
-              {t('common.net')} • {summaryScope}
-            </p>
-            {loading && visible.length === 0 ? (
-              <Skeleton className="mt-3 h-[42px] w-48" />
-            ) : (
-              <p
-                className={cn(
-                  'mt-2 text-[42px] font-bold leading-none tracking-[-0.02em] tabular-nums',
-                  totals.net >= 0 ? 'text-success' : 'text-danger',
-                )}
-              >
-                {formatMoney(totals.net)}
-              </p>
-            )}
-            <p className="mt-2.5 text-xs text-dim">{summaryCount}</p>
-          </div>
-
-          <div className="flex shrink-0 gap-10 sm:mt-1">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">{t('common.income')}</p>
-              {loading && visible.length === 0 ? (
-                <Skeleton className="mt-2 h-6 w-28" />
-              ) : (
-                <p className="mt-1 text-xl font-semibold tabular-nums text-success">
-                  {formatMoney(totals.income)}
-                </p>
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">{t('common.expenses')}</p>
-              {loading && visible.length === 0 ? (
-                <Skeleton className="mt-2 h-6 w-28" />
-              ) : (
-                <p className="mt-1 text-xl font-semibold tabular-nums text-danger">
-                  {formatMoney(totals.expenses)}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Results */}
-      <Card className="overflow-hidden shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-7 py-5">
-          <h2 className="text-lg font-semibold">{t('transactions.title')}</h2>
-          <p className="text-sm text-muted-foreground">{summaryCount}</p>
-        </div>
+      <div className="grid gap-4 md:gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
 
-        {/* Search + server-side filters. Hidden when there is nothing to filter. */}
-        {(items.length > 0 || hasFilters || searching) && (
-          <div className="space-y-3 border-b border-border p-4 md:p-5">
-            <div className="flex items-center gap-2">
-              <div className="relative min-w-0 flex-1 md:max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('transactions.search')}
-                  aria-label={t('transactions.searchAria')}
-                />
-              </div>
-              {/* Phones: filter toggle + clear */}
-              <Button
-                variant={mobileFiltersOpen ? 'default' : 'outline'}
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileFiltersOpen((open) => !open)}
-                aria-expanded={mobileFiltersOpen}
-                aria-label={t('transactions.filters.title')}
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
-              {(hasFilters || searching) && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden"
-                  aria-label={t('transactions.filters.clear')}
-                  onClick={() => {
-                    clearFilters();
-                    setQuery('');
-                  }}
-                >
-                  <Filter className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+          {/* Search + filters: their own box, above the table. */}
+          {(items.length > 0 || hasFilters || searching) && (
+            <Card className="shadow-card">
+              <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-3 md:p-5">
+                {/* Search — on phones the only control until the filter toggle. */}
+                <div className="flex min-w-0 items-center gap-2 md:max-w-xs md:flex-1">
+                  <div className="relative min-w-0 flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="pl-9"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={t('transactions.search')}
+                      aria-label={t('transactions.searchAria')}
+                    />
+                  </div>
+                  <Button
+                    variant={mobileFiltersOpen ? 'default' : 'outline'}
+                    size="icon"
+                    className="md:hidden"
+                    onClick={() => setMobileFiltersOpen((open) => !open)}
+                    aria-expanded={mobileFiltersOpen}
+                    aria-label={t('transactions.filters.title')}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
 
-            {/* Phones: type chips */}
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 md:hidden">
-              {TYPE_CHIPS.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() => setFilterType(chip.key)}
-                  aria-pressed={filterType === chip.key}
+                {/* Type + category share the search's row on desktop. */}
+                <div
                   className={cn(
-                    'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors',
-                    filterType === chip.key
-                      ? 'border-primary bg-primary/15 text-primary'
-                      : 'border-border bg-surface text-muted-foreground',
+                    'flex flex-col gap-2 md:flex-row md:items-center md:gap-2',
+                    !mobileFiltersOpen && 'max-md:hidden',
                   )}
                 >
-                  {t(chip.labelKey)}
-                </button>
-              ))}
-            </div>
-
-            <div
-              className={cn(
-                'flex flex-wrap items-center gap-2 md:gap-3',
-                !mobileFiltersOpen && 'max-md:hidden',
-              )}
-            >
-              <select
-                aria-label={t('transactions.filters.allTypes')}
-                className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] md:h-9 md:w-auto"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
-              >
-                <option value="all">{t('transactions.filters.allTypes')}</option>
-                <option value="income">{t('transactions.filters.income')}</option>
-                <option value="expense">{t('transactions.filters.expense')}</option>
-              </select>
-              <Input
-                type="date"
-                aria-label={t('transactions.filters.from')}
-                className="w-full dark:[color-scheme:dark] md:h-9 md:w-[10.5rem]"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-              <Input
-                type="date"
-                aria-label={t('transactions.filters.to')}
-                className="w-full dark:[color-scheme:dark] md:h-9 md:w-[10.5rem]"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-              <select
-                aria-label={t('transactions.filters.category')}
-                className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] md:h-9 md:max-w-[12rem] md:w-auto"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="">{t('transactions.filters.allCategories')}</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {(hasFilters || searching) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="max-md:hidden"
-                  onClick={() => {
-                    clearFilters();
-                    setQuery('');
-                  }}
-                >
-                  <Filter className="h-4 w-4" />
-                  {t('transactions.filters.clear')}
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-        {loading && items.length === 0 ? (
-          <div className="space-y-2 p-5">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-4 px-2 py-1.5">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-20" />
-              </div>
-            ))}
-          </div>
-        ) : items.length === 0 && !error ? (
-          <div className="p-7">
-            <EmptyState
-              icon={<ReceiptText className="h-8 w-8" />}
-              title={t('transactions.noTitle')}
-              description={t('transactions.noDesc')}
-              action={
-                <Button onClick={() => openCreate('expense')}>
-                  <Plus className="h-4 w-4" />
-                  {t('transactions.newTransaction')}
-                </Button>
-              }
-            />
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="p-7">
-            <EmptyState
-              icon={<SearchX className="h-8 w-8" />}
-              title={t('transactions.noMatches')}
-              description={t('transactions.noMatchesDesc', { query })}
-              action={
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    clearFilters();
-                    setQuery('');
-                  }}
-                >
-                  {t('transactions.filters.clear')}
-                </Button>
-              }
-            />
-          </div>
-        ) : (
-          <>
-            {/* Phones: grouped list with month headings */}
-            <div className="md:hidden">
-              {monthGroups.map((group) => (
-                <section key={group.key}>
-                  <h3 className="bg-muted/60 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-dim">
-                    {group.label}
-                  </h3>
-                  <ul className="divide-y divide-border/60">
-                    {group.items.map((tx) => (
-                      <TransactionListRow
-                        key={tx.id}
-                        tx={tx}
-                        category={tx.category_id ? categoryById.get(tx.category_id) : undefined}
-                        accountName={
-                          tx.account_id
-                            ? accounts.find((a) => a.id === tx.account_id)?.name
-                            : undefined
-                        }
-                        onEdit={() => openEdit(tx)}
-                        onDelete={() => setPendingDelete(tx)}
-                      />
+                  <select
+                    aria-label={t('transactions.filters.allTypes')}
+                    className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] md:h-9 md:w-auto"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
+                  >
+                    <option value="all">{t('transactions.filters.allTypes')}</option>
+                    <option value="income">{t('transactions.filters.income')}</option>
+                    <option value="expense">{t('transactions.filters.expense')}</option>
+                  </select>
+                  <select
+                    aria-label={t('transactions.filters.category')}
+                    className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] md:h-9 md:max-w-[12rem] md:w-auto"
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                  >
+                    <option value="">{t('transactions.filters.allCategories')}</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
+                  </select>
+                  {(hasFilters || searching) && (
+                    <Button variant="ghost" size="sm" className="max-md:hidden" onClick={clearAll}>
+                      <Filter className="h-4 w-4" />
+                      {t('transactions.filters.clear')}
+                    </Button>
+                  )}
+                </div>
 
-            {/* Desktop: table */}
-            <div className="hidden md:block">
-            <Table className="[&_td:first-child]:pl-7 [&_td:last-child]:pr-7 [&_th:first-child]:pl-7 [&_th:last-child]:pr-7">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>{t('common.date')}</TableHead>
-                  <TableHead>{t('common.description')}</TableHead>
-                  <TableHead>{t('common.category')}</TableHead>
-                  <TableHead className="text-right">{t('common.amount')}</TableHead>
-                  <TableHead className="w-24 text-right">{t('transactions.table.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((tx) => {
-                  const cat = tx.category_id ? categoryById.get(tx.category_id) : undefined;
-                  const isIncome = tx.type === 'income';
-                  return (
-                    <TableRow key={tx.id}>
-                      <TableCell className="whitespace-nowrap align-middle">
-                        <span className="block text-muted-foreground">{formatDate(tx.date)}</span>
-                        {tx.card_due_date && tx.card_due_date !== tx.date && (
-                          <span className="block text-xs text-dim">
-                            {t('transactions.billDue', { date: formatDate(tx.card_due_date) })}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{tx.description}</span>
-                        {tx.installment_plan_id && (
-                          <Badge variant="secondary" className="ml-2">
-                            {t('transactions.installment')}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {cat ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="text-base">{categoryIcon(cat.icon)}</span>
-                            <span className="text-sm">{cat.name}</span>
-                          </span>
-                        ) : (
-                          <span className="text-dim">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right font-semibold tabular-nums',
-                          isIncome ? 'text-income' : 'text-expense',
-                        )}
-                      >
-                        {isIncome ? '+' : '-'}
-                        {formatMoney(tx.amount)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEdit(tx)}
-                            aria-label={t('common.edit')}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => setPendingDelete(tx)}
-                            aria-label={t('common.delete')}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            </div>
+                {/* The whole range is one labelled control, last on the right. */}
+                <div className={cn('flex md:ml-auto', !mobileFiltersOpen && 'max-md:hidden')}>
+                  <DateRangeField
+                    startDate={startDate}
+                    endDate={endDate}
+                    onChange={(range) => {
+                      setStartDate(range.startDate);
+                      setEndDate(range.endDate);
+                    }}
+                    className="md:w-[15rem]"
+                  />
+                </div>
+              </div>
 
-            {hasMore && (
-              <div className="flex justify-center border-t border-border p-4">
-                <Button
-                  variant="outline"
-                  onClick={() => void load(page + 1, true)}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? t('common.loading') : t('transactions.loadMore')}
-                </Button>
+              {/* Phones: quick type chips, always available. */}
+              <div className="flex items-center gap-2 px-4 pb-4 md:hidden">
+                <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-0.5">
+                  {TYPE_CHIPS.map((chip) => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={() => setFilterType(chip.key)}
+                      aria-pressed={filterType === chip.key}
+                      className={cn(
+                        'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors',
+                        filterType === chip.key
+                          ? 'border-primary bg-primary/15 text-primary'
+                          : 'border-border bg-surface text-muted-foreground',
+                      )}
+                    >
+                      {t(chip.labelKey)}
+                    </button>
+                  ))}
+                </div>
+                {(hasFilters || searching) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('transactions.filters.clear')}
+                    onClick={clearAll}
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Results */}
+          <Card className="overflow-hidden shadow-card">
+            {selectedIds.size > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-primary/5 px-4 py-2.5 md:px-5">
+                <p className="text-sm font-medium">
+                  {t(
+                    selectedIds.size === 1
+                      ? 'transactions.selectedCount_one'
+                      : 'transactions.selectedCount_other',
+                    { count: selectedIds.size },
+                  )}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                    {t('transactions.clearSelection')}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setBulkConfirmOpen(true)}
+                    disabled={deleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t('transactions.deleteSelected')}
+                  </Button>
+                </div>
               </div>
             )}
-          </>
-        )}
-      </Card>
+
+            {loading && items.length === 0 ? (
+              <div className="space-y-2 p-5">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center gap-4 px-2 py-1.5">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 flex-1" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))}
+              </div>
+            ) : items.length === 0 && !error ? (
+              <div className="p-7">
+                <EmptyState
+                  icon={<ReceiptText className="h-8 w-8" />}
+                  title={t('transactions.noTitle')}
+                  description={t('transactions.noDesc')}
+                  action={
+                    <Button onClick={() => openCreate('expense')}>
+                      <Plus className="h-4 w-4" />
+                      {t('transactions.newTransaction')}
+                    </Button>
+                  }
+                />
+              </div>
+            ) : visible.length === 0 ? (
+              <div className="p-7">
+                <EmptyState
+                  icon={<SearchX className="h-8 w-8" />}
+                  title={t('transactions.noMatches')}
+                  description={t('transactions.noMatchesDesc', { query })}
+                  action={
+                    <Button variant="outline" onClick={clearAll}>
+                      {t('transactions.filters.clear')}
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
+              <>
+                {/* Phones: grouped list with month headings */}
+                <div className="md:hidden">
+                  {monthGroups.map((group) => (
+                    <section key={group.key}>
+                      <h3 className="bg-muted/60 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-dim">
+                        {group.label}
+                      </h3>
+                      <ul className="divide-y divide-border/60">
+                        {group.items.map((tx) => (
+                          <TransactionListRow
+                            key={tx.id}
+                            tx={tx}
+                            category={tx.category_id ? categoryById.get(tx.category_id) : undefined}
+                            accountName={
+                              tx.account_id
+                                ? accounts.find((a) => a.id === tx.account_id)?.name
+                                : undefined
+                            }
+                            onEdit={() => openEdit(tx)}
+                            onDelete={() => setPendingDelete(tx)}
+                          />
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+
+                {/* Desktop: table */}
+                <div className="hidden md:block">
+                  <Table className="[&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-7 [&_th:last-child]:pr-7">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={allSelected}
+                            indeterminate={someSelected}
+                            onChange={(event) => toggleAll(event.target.checked)}
+                            aria-label={t('transactions.selectAll')}
+                          />
+                        </TableHead>
+                        <TableHead>{t('transactions.table.date')}</TableHead>
+                        <TableHead>{t('transactions.table.category')}</TableHead>
+                        <TableHead>{t('transactions.table.description')}</TableHead>
+                        <TableHead className="text-right">{t('transactions.table.amount')}</TableHead>
+                        <TableHead className="w-24 text-right">{t('transactions.table.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {visible.map((tx) => {
+                        const cat = tx.category_id ? categoryById.get(tx.category_id) : undefined;
+                        const isIncome = tx.type === 'income';
+                        const selected = selectedIds.has(tx.id);
+                        return (
+                          <TableRow key={tx.id} data-state={selected ? 'selected' : undefined}>
+                            <TableCell className="w-10">
+                              <Checkbox
+                                checked={selected}
+                                onChange={(event) => toggleRow(tx.id, event.target.checked)}
+                                aria-label={t('transactions.selectRow')}
+                              />
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap align-middle">
+                              <span className="block text-muted-foreground">{formatDate(tx.date)}</span>
+                              {tx.card_due_date && tx.card_due_date !== tx.date && (
+                                <span className="block text-xs text-dim">
+                                  {t('transactions.billDue', { date: formatDate(tx.card_due_date) })}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {cat ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="text-base">{categoryIcon(cat.icon)}</span>
+                                  <span className="text-sm">{cat.name}</span>
+                                </span>
+                              ) : (
+                                <span className="text-dim">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{tx.description}</span>
+                              {tx.installment_plan_id && (
+                                <Badge variant="secondary" className="ml-2">
+                                  {t('transactions.installment')}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                'text-right font-semibold tabular-nums',
+                                isIncome ? 'text-income' : 'text-expense',
+                              )}
+                            >
+                              {isIncome ? '+' : '-'}
+                              {formatMoney(tx.amount)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => openEdit(tx)}
+                                  aria-label={t('common.edit')}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setPendingDelete(tx)}
+                                  aria-label={t('common.delete')}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {hasMore && (
+                  <div className="flex justify-center border-t border-border p-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => void load(page + 1, true)}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? t('common.loading') : t('transactions.loadMore')}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </Card>
+        </div>
+
+        {/* Month summary + where the money went, beside the table. */}
+        <div className="min-w-0">
+          <TransactionsSidebar />
+        </div>
+      </div>
 
       {/* Add / edit dialog */}
       <TransactionForm
@@ -681,6 +699,17 @@ export function TransactionsPage() {
         destructive
         onConfirm={() => void handleDelete()}
         onCancel={() => setPendingDelete(null)}
+      />
+
+      {/* Bulk delete confirmation */}
+      <ConfirmDialog
+        open={bulkConfirmOpen}
+        title={t('transactions.bulkDeleteTitle')}
+        description={t('transactions.bulkDeleteMessage', { count: selectedIds.size })}
+        busy={deleting}
+        destructive
+        onConfirm={() => void handleBulkDelete()}
+        onCancel={() => setBulkConfirmOpen(false)}
       />
     </div>
   );

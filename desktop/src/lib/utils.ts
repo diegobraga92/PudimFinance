@@ -10,10 +10,12 @@ export function cn(...inputs: ClassValue[]): string {
 export function formatBRL(value: string | number): string {
   const n = typeof value === 'string' ? parseFloat(value) : value;
   if (Number.isNaN(n)) return 'R$ 0,00';
-  return n.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
+  // Keep the symbol spaced from the digits, regardless of the active locale.
+  const amount = Math.abs(n).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
+  return `${n < 0 ? '-' : ''}R$ ${amount}`;
 }
 
 /** Clamp a number between two bounds. */

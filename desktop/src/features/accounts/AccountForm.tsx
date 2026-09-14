@@ -169,21 +169,21 @@ function dayValue(value: string): number | null {
 
           <div className="space-y-1.5">
             <Label>{t('accounts.form.type')}</Label>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
               {KIND_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
                   type="button"
                   onClick={() => setKind(opt.key)}
                   className={cn(
-                    'flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-xs font-medium transition-colors',
+                    'flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-center text-xs font-medium leading-tight transition-colors',
                     kind === opt.key
                       ? 'border-primary bg-accent text-accent-foreground'
                       : 'border-border bg-surface text-muted-foreground hover:bg-surface-hover',
                   )}
                 >
                   <span className="text-base">{opt.icon}</span>
-                  {t(opt.labelKey)}
+                  <span className="text-balance">{t(opt.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -194,7 +194,7 @@ function dayValue(value: string): number | null {
               <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
                 {t('accounts.form.cardHint')}
               </p>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid items-end gap-4 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="acc-closing">{t('accounts.form.closingDay')}</Label>
                   <Input

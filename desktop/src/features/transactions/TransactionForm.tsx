@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { DateField } from '@/components/DateField';
 import {
   Dialog,
   DialogContent,
@@ -237,7 +238,7 @@ export function TransactionForm({
               <Label htmlFor="tx-category">{t('common.category')}</Label>
               <select
                 id="tx-category"
-                className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
               >
@@ -252,12 +253,7 @@ export function TransactionForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="tx-date">{t('common.date')}</Label>
-              <Input
-                id="tx-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <DateField id="tx-date" value={date} onChange={setDate} />
             </div>
           </div>
 
@@ -266,7 +262,7 @@ export function TransactionForm({
               <Label htmlFor="tx-account">{t('transactions.form.account')}</Label>
               <select
                 id="tx-account"
-                className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]"
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
               >

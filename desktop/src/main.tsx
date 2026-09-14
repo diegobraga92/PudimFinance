@@ -1,4 +1,5 @@
 import ReactDOM from 'react-dom/client';
+import '@fontsource-variable/plus-jakarta-sans';
 import { Providers } from '@/app/providers';
 import { App } from '@/App';
 import '@/index.css';

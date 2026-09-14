@@ -13,6 +13,8 @@
  * uses 16px between cards and 20px of internal card padding.
  * ------------------------------------------------------------------------- */
 :root {
+  /* Native controls (select, date pickers, scrollbars) follow the light theme. */
+  color-scheme: light;
   --background: 246 249 253; /* soft blue-tinted paper */
   --foreground: 15 23 42; /* slate-900 ink */
   --surface: 255 255 255;
@@ -45,6 +47,9 @@
 }
 
 .dark {
+  /* Without this, native `<select>`/date controls keep the light UA look and
+   * render as white boxes inside dialogs even though `bg-surface` is dark. */
+  color-scheme: dark;
   --background: 11 14 20; /* #0B0E14 */
   --foreground: 226 232 240; /* #E2E8F0 */
   --surface: 21 26 34; /* #151A22 */
@@ -90,7 +95,8 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    /* Inter's character variants (`cv02`…) no longer apply now that the UI uses
+     * Plus Jakarta Sans; amount columns opt into `tnum` via `.tabular-nums`. */
   }
 
   /* Android/iOS: 16px inputs stop the browser from zooming on focus. */

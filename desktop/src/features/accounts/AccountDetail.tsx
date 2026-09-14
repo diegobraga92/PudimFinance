@@ -15,6 +15,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
+/** Number of months shown in the per-account monthly summary. */
+const SUMMARY_MONTHS = 12;
+
 /** Minimal account shape that works for both `AccountWithBalance` and `CardOverview`. */
 export interface AccountLike {
   id: string;
@@ -72,9 +75,6 @@ export function AccountDetail({ account, categories, open, onClose }: Props) {
   const hasActivity = monthsDesc.some(
     (m) => parseFloat(m.income_total) !== 0 || parseFloat(m.expense_total) !== 0,
   );
-
-/** Number of months shown in the per-account monthly summary. */
-const SUMMARY_MONTHS = 12;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>

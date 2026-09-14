@@ -128,28 +128,31 @@ export function ReceiptsPage() {
         </DropdownMenu>
       </div>
 
-      {/* Local navigation (scrollable on narrow screens) */}
+      {/* Local navigation: only as wide as its tabs (it ends at "Stores"), with
+          a divider between each one so they read as separate, clickable tabs. */}
       <div
-        className="flex gap-1 overflow-x-auto rounded-md bg-muted p-1"
+        className="flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-surface p-1"
         role="tablist"
         aria-label={t('receipts.pageTitle')}
       >
-        {TABS.map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => goToTab(key)}
-            className={cn(
-              'shrink-0 rounded-sm px-3.5 py-1.5 text-sm font-medium transition-colors',
-              tab === key
-                ? 'bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {t(TAB_LABEL[key] as 'receipts.tabOverview')}
-          </button>
+        {TABS.map((key, index) => (
+          <React.Fragment key={key}>
+            {index > 0 && <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => goToTab(key)}
+              className={cn(
+                'shrink-0 rounded-sm px-3.5 py-1.5 text-sm font-medium transition-colors',
+                tab === key
+                  ? 'bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40'
+                  : 'text-muted-foreground hover:bg-surface-hover hover:text-foreground',
+              )}
+            >
+              {t(TAB_LABEL[key] as 'receipts.tabOverview')}
+            </button>
+          </React.Fragment>
         ))}
       </div>
 

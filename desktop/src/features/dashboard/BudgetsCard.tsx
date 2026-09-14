@@ -5,6 +5,14 @@ import { useI18n } from '@/app/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { categoryIcon } from '@shared/category-icons';
 import { cn } from '@/lib/utils';
 import type { BudgetSummaryItem } from '@/lib/api';
@@ -70,45 +78,64 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
             <p className="mt-1 text-xs text-dim">{t('dashboard.noBudgetsDesc')}</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {rows.map((item) => {
-              const pct = Math.round(parseFloat(item.percentage));
-              const over = pct >= 100;
-              return (
-                <div key={item.budget.id} className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-base">{categoryIcon(item.budget.icon)}</span>
-                    <span className="min-w-0 flex-1 truncate font-medium">
-                      {item.budget.category_name ?? t('common.uncategorised')}
-                    </span>
-                    <span
+          <Table className="[&_td:first-child]:pl-0 [&_th:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:last-child]:pr-0">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[34%]">{t('common.category')}</TableHead>
+                <TableHead className="w-[18%]">{t('dashboard.budgetUsed')}</TableHead>
+                <TableHead className="text-right">
+                  {t('dashboard.budgetSpentOfLimit')}
+                </TableHead>
+                <TableHead className="w-10 text-right">{t('dashboard.budgetPercent')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((item) => {
+                const pct = Math.round(parseFloat(item.percentage));
+                const over = pct >= 100;
+                return (
+                  <TableRow key={item.budget.id}>
+                    <TableCell className="py-3">
+                      <span className="flex items-center gap-2">
+                        <span className="text-base">{categoryIcon(item.budget.icon)}</span>
+                        <span className="min-w-0 truncate text-sm font-medium">
+                          {item.budget.category_name ?? t('common.uncategorised')}
+                        </span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <Progress
+                        value={Math.min(pct, 100)}
+                        className="h-1.5"
+                        indicatorClassName={barColor(pct)}
+                      />
+                    </TableCell>
+                    <TableCell
                       className={cn(
-                        'shrink-0 text-xs font-semibold tabular-nums',
+                        'py-3 text-right text-xs tabular-nums',
+                        over ? 'text-danger' : 'text-muted-foreground',
+                      )}
+                    >
+                      {formatMoney(item.actual_spent)} / {formatMoney(item.budget.amount_limit)}
+                      {over && (
+                        <span className="block text-[11px] font-medium text-danger">
+                          {t('common.overBudget')}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'py-3 text-right text-xs font-semibold tabular-nums',
                         over ? 'text-danger' : 'text-muted-foreground',
                       )}
                     >
                       {pct}%
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.min(pct, 100)}
-                    className="h-1.5"
-                    indicatorClassName={barColor(pct)}
-                  />
-                  <p className="flex items-center justify-between gap-2 text-xs">
-                    <span className={cn('tabular-nums', over ? 'text-danger' : 'text-dim')}>
-                      {formatMoney(item.actual_spent)} / {formatMoney(item.budget.amount_limit)}
-                    </span>
-                    {over && (
-                      <span className="shrink-0 font-medium text-danger">
-                        {t('common.overBudget')}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>

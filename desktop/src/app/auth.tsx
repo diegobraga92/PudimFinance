@@ -7,7 +7,7 @@ import {
   setAuthSession,
   type AuthUser,
 } from '@/lib/auth';
-import { fetchMe, isNetworkError, loginUser, registerUser } from '@/lib/api';
+import { fetchMe, loginUser, registerUser } from '@/lib/api';
 
 interface AuthContextValue {
   /** Currently signed-in user, or `null` when signed out. */
@@ -53,10 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const me = await fetchMe(accessToken);
         if (mounted) setUser(me);
-      } catch (err) {
-        // Only a genuine auth failure logs out. A network error keeps the
-        // cached session (offline-first).
-        if (mounted && !isNetworkError(err)) setUser(null);
+      } catch {
+        // Failing to validate must not sign the user out. The request layer
+        // clears the session only when the refresh token is genuinely
+        // rejected, and an offline start should keep the cached user — so the
+        // session is only dropped when it is really gone.
+        if (mounted && !getCachedAccessToken()) setUser(null);
       } finally {
         if (mounted) setIsLoading(false);
       }
