@@ -5,8 +5,13 @@
 //! ledger entries), pays bills as transfers (never as expenses), and anticipates
 //! future installments onto the current bill ("antecipar parcelas").
 //!
-//! Monthly expense totals come from `transactions.date`, so a card purchase
-//! counts in the purchase month and bill payments create no transaction.
+//! Monthly expense totals come from each transaction's *reporting* date
+//! (`effective_transaction_date`): by default that is `transactions.date`, so a
+//! card purchase counts in the month it was made. When the app is configured
+//! with `card_expense_dating = 'due_date'` (see migration 012 and the
+//! `/api/settings` endpoint) a card purchase counts in the month its bill is
+//! due instead. Either way, paying a bill creates no transaction — it moves
+//! ledger entries between the card and the paying account.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

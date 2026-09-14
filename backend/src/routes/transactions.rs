@@ -14,6 +14,7 @@ use crate::models::{
     CreateTransactionRequest, Transaction, TransactionListParams, TransactionListResponse,
     UpdateTransactionRequest,
 };
+use crate::routes::settings;
 use crate::state::AppState;
 use crate::transaction_ledger;
 use sqlx::PgPool;
@@ -78,19 +79,31 @@ pub async fn list_transactions(
 
     // Use the nullable bind pattern `$1::uuid IS NULL OR category_id = $1`
     // allows a single static SQL query with optional filters.
+    //
+    // Date filters compare the *reporting* date
+    // (`effective_transaction_date`), so the list matches the dashboard,
+    // budgets and reports: with the `due_date` preference a card purchase made
+    // shortly before the closing date is listed in the month its bill is due.
+    // The extra `t.date` predicates are exact pre-filters (a reporting date is
+    // never earlier than its transaction, nor more than a cycle later) that
+    // keep the date index usable.
+    let dating = settings::card_expense_dating(&state.pg_pool).await;
     let total: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM transactions
-         WHERE ($1::uuid IS NULL OR category_id = $1)
-           AND ($2::text IS NULL OR type = $2)
-           AND ($3::date IS NULL OR date >= $3)
-           AND ($4::date IS NULL OR date <= $4)
-           AND ($5::uuid IS NULL OR account_id = $5)",
+        "SELECT COUNT(*) FROM transactions t
+         WHERE ($1::uuid IS NULL OR t.category_id = $1)
+           AND ($2::text IS NULL OR t.type = $2)
+           AND ($3::date IS NULL OR t.date >= $3 - INTERVAL '3 months')
+           AND ($4::date IS NULL OR t.date <= $4)
+           AND ($5::uuid IS NULL OR t.account_id = $5)
+           AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6) >= $3)
+           AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6) <= $4)",
     )
     .bind(params.category_id)
     .bind(&params.r#type)
     .bind(params.start_date)
     .bind(params.end_date)
     .bind(params.account_id)
+    .bind(&dating)
     .fetch_one(&state.pg_pool)
     .await
     .map_err(|e| {
@@ -102,15 +115,18 @@ pub async fn list_transactions(
     })?;
 
     let items: Vec<Transaction> = sqlx::query_as(
-        "SELECT id, description, amount, type, category_id, date, notes,
-                installment_plan_id, account_id, created_at, updated_at
-         FROM transactions
-         WHERE ($1::uuid IS NULL OR category_id = $1)
-           AND ($2::text IS NULL OR type = $2)
-           AND ($3::date IS NULL OR date >= $3)
-           AND ($4::date IS NULL OR date <= $4)
-           AND ($5::uuid IS NULL OR account_id = $5)
-         ORDER BY date DESC, created_at DESC
+        "SELECT t.id, t.description, t.amount, t.type, t.category_id, t.date, t.notes,
+                t.installment_plan_id, t.account_id, t.created_at, t.updated_at,
+                card_bill_due_date(t.account_id, t.date) AS card_due_date
+         FROM transactions t
+         WHERE ($1::uuid IS NULL OR t.category_id = $1)
+           AND ($2::text IS NULL OR t.type = $2)
+           AND ($3::date IS NULL OR t.date >= $3 - INTERVAL '3 months')
+           AND ($4::date IS NULL OR t.date <= $4)
+           AND ($5::uuid IS NULL OR t.account_id = $5)
+           AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8) >= $3)
+           AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8) <= $4)
+         ORDER BY t.date DESC, t.created_at DESC
          LIMIT $6 OFFSET $7",
     )
     .bind(params.category_id)
@@ -120,6 +136,7 @@ pub async fn list_transactions(
     .bind(params.account_id)
     .bind(page_size as i64)
     .bind(offset as i64)
+    .bind(&dating)
     .fetch_all(&state.pg_pool)
     .await
     .map_err(|e| {

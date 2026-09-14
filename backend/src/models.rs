@@ -82,6 +82,14 @@ pub struct Transaction {
     /// Source account (payment method, e.g. a credit card) used for this
     /// transaction (NULL when unlinked).
     pub account_id: Option<Uuid>,
+    /// Due date ("vencimento") of the credit-card bill that contains this
+    /// purchase (NULL for non-card transactions or cards without a billing
+    /// cycle).
+    ///
+    /// Derived on read for the transaction list so the UI can show which bill a
+    /// purchase lands on; queries that do not select it leave it `null`.
+    #[sqlx(default)]
+    pub card_due_date: Option<NaiveDate>,
     /// Created at.
     pub created_at: DateTime<Utc>,
     /// Updated at.
@@ -211,7 +219,8 @@ pub struct SummaryResponse {
     /// Balance = income − expense.
     #[schema(value_type = String)]
     pub balance: Decimal,
-    /// Per-category breakdown for the month.
+    /// Per-category *expense* breakdown for the month (income accounts are
+    /// reported through `income_total`).
     pub by_category: Vec<CategorySummary>,
     /// Year used for the query.
     pub year: i32,
@@ -246,10 +255,11 @@ pub struct Budget {
 pub struct BudgetWithCategory {
     /// Budget ID.
     pub id: Uuid,
-    /// Category id this budget applies to.
-    pub category_id: Uuid,
-    /// Category name.
-    pub category_name: String,
+    /// Category id this budget applies to. `null` means the overall monthly
+    /// budget (a single spending limit for the whole month).
+    pub category_id: Option<Uuid>,
+    /// Category name (`null` for the overall budget).
+    pub category_name: Option<String>,
     /// Category icon identifier.
     pub icon: Option<String>,
     /// Category hex color.
@@ -266,8 +276,9 @@ pub struct BudgetWithCategory {
 /// Payload for creating or updating a budget (upsert).
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateBudgetRequest {
-    /// Category this budget applies to (expense categories only).
-    pub category_id: Uuid,
+    /// Category this budget applies to (expense categories only). Omit `null`
+    /// to set the overall monthly budget instead.
+    pub category_id: Option<Uuid>,
     /// Month (1-12).
     #[schema(minimum = 1, maximum = 12)]
     pub month: i32,
@@ -308,8 +319,11 @@ pub struct BudgetSummaryItem {
 /// Response for the budget summary endpoint.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct BudgetSummaryResponse {
-    /// Per-budget spend vs limit.
+    /// Per-budget spend vs limit (category budgets only).
     pub items: Vec<BudgetSummaryItem>,
+    /// The overall monthly budget, when one is set. Its `actual_spent` is the
+    /// month's total spending, not just the budgeted categories.
+    pub overall: Option<BudgetSummaryItem>,
     /// Sum of all budget limits for the period.
     #[schema(value_type = String)]
     pub total_budgeted: Decimal,
@@ -1068,4 +1082,379 @@ pub struct SyncOpResult {
 pub struct SyncPushResponse {
     /// Per-operation results (same order as the request).
     pub results: Vec<SyncOpResult>,
+}
+
+/// Application-wide preferences (the single row of `app_settings`).
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct AppSettings {
+    /// How credit-card purchases are dated in the dashboard, budgets and
+    /// reports: `purchase_date` counts a purchase in the month it was made,
+    /// `due_date` counts it in the month the bill ("fatura") is due.
+    pub card_expense_dating: String,
+}
+
+/// Request payload for updating application settings.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateAppSettingsRequest {
+    /// `purchase_date` or `due_date`.
+    #[schema(example = "due_date")]
+    pub card_expense_dating: String,
+}
+
+/// Request payload for saving a reviewed receipt (NFC-e or OCR).
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SaveReceiptBody {
+    /// Store name (from the scan, or typed by the user).
+    pub store_name: String,
+    /// Store CNPJ when the source provides one.
+    pub cnpj: Option<String>,
+    /// Receipt date.
+    pub date: NaiveDate,
+    /// Receipt total.
+    #[schema(value_type = String, example = "287.43")]
+    pub total: Decimal,
+    /// Where the data came from: `nfce` (QR code) or `ocr` (photo).
+    pub source: Option<String>,
+    /// Line items (at least one).
+    pub items: Vec<NewReceiptItem>,
+}
+
+/// A line item sent when saving a receipt.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NewReceiptItem {
+    /// Item description (also the normalized product name).
+    pub description: String,
+    /// Quantity purchased (default 1).
+    #[schema(value_type = Option<String>)]
+    pub quantity: Option<Decimal>,
+    /// Unit price.
+    #[schema(value_type = Option<String>)]
+    pub unit_price: Option<Decimal>,
+    /// Line total (defaults to the unit price).
+    #[schema(value_type = Option<String>)]
+    pub total_price: Option<Decimal>,
+}
+
+/// A saved receipt with its store and item count.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct ReceiptSummary {
+    /// Receipt ID.
+    pub id: Uuid,
+    /// Store ID (null when the receipt has no store).
+    pub store_id: Option<Uuid>,
+    /// Store name.
+    pub store_name: Option<String>,
+    /// Purchase date printed on the receipt.
+    pub receipt_date: Option<NaiveDate>,
+    /// When the receipt was scanned/saved (carries the time of day).
+    pub scanned_at: DateTime<Utc>,
+    /// Receipt total as stored by the backend.
+    #[schema(value_type = Option<String>)]
+    pub total_amount: Option<Decimal>,
+    /// Number of line items.
+    pub item_count: i64,
+    /// `nfce`, `ocr`, or null for receipts saved before sources were tracked.
+    pub source: Option<String>,
+}
+
+/// Paginated receipt list.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ReceiptListResponse {
+    /// Receipts for this page (newest first).
+    pub items: Vec<ReceiptSummary>,
+    /// Total receipts matching the filters.
+    pub total_count: i64,
+    /// Page offset used.
+    pub page: u32,
+    /// Page size used.
+    pub page_size: u32,
+    /// Item rows for the receipts in `items`, so the UI can resolve products.
+    pub items_by_receipt: Vec<ReceiptItemDetail>,
+}
+
+/// One line item of a saved receipt.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct ReceiptItemDetail {
+    /// Item ID.
+    pub id: Uuid,
+    /// Receipt this item belongs to.
+    pub receipt_id: Uuid,
+    /// Description as printed on the receipt.
+    pub description: String,
+    /// How many were bought.
+    #[schema(value_type = String)]
+    pub quantity: Decimal,
+    /// Price for one unit.
+    #[schema(value_type = Option<String>)]
+    pub unit_price: Option<Decimal>,
+    /// Line total.
+    #[schema(value_type = Option<String>)]
+    pub total_price: Option<Decimal>,
+    /// Normalized product id (price history is keyed by this).
+    pub normalized_product_id: Option<Uuid>,
+    /// Normalized product name, when the item is linked to a product.
+    pub product_name: Option<String>,
+}
+
+/// A receipt with its items.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ReceiptDetail {
+    /// Receipt header.
+    pub receipt: ReceiptSummary,
+    /// Store CNPJ, when known.
+    pub cnpj: Option<String>,
+    /// Line items.
+    pub items: Vec<ReceiptItemDetail>,
+}
+
+/// Request payload for updating a receipt item.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateReceiptItemRequest {
+    /// New description (re-normalized as a product).
+    pub description: String,
+    /// New quantity.
+    #[schema(value_type = Option<String>)]
+    pub quantity: Option<Decimal>,
+    /// New unit price.
+    #[schema(value_type = Option<String>)]
+    pub unit_price: Option<Decimal>,
+    /// New line total (defaults to quantity × unit price).
+    #[schema(value_type = Option<String>)]
+    pub total_price: Option<Decimal>,
+}
+
+/// Headline receipt/price-tracking numbers for the Overview tab.
+#[derive(Debug, Serialize, FromRow, ToSchema)]
+pub struct ReceiptStats {
+    /// Receipts on record.
+    pub total_receipts: i64,
+    /// Receipts dated in the requested month.
+    pub receipts_this_month: i64,
+    /// Sum of all receipt totals.
+    #[schema(value_type = String)]
+    pub total_spent: Decimal,
+    /// Sum of receipt totals dated in the requested month.
+    #[schema(value_type = String)]
+    pub spent_this_month: Decimal,
+    /// Distinct normalized products seen on receipts.
+    pub items_tracked: i64,
+    /// Recorded unit prices (the raw material of price history).
+    pub price_records: i64,
+    /// Distinct stores that issued receipts.
+    pub store_count: i64,
+    /// Oldest receipt date.
+    pub first_receipt_date: Option<NaiveDate>,
+    /// Newest receipt date.
+    pub last_receipt_date: Option<NaiveDate>,
+    /// First day of the month the month-scoped numbers refer to.
+    pub month: NaiveDate,
+}
+
+/// A normalized product with its price statistics.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct ProductSummary {
+    /// Normalized product ID.
+    pub id: Uuid,
+    /// Product name (the backend's normalized identity).
+    pub name: String,
+    /// Optional category label.
+    pub category: Option<String>,
+    /// Number of recorded prices.
+    pub record_count: i64,
+    /// Number of stores that sold it.
+    pub store_count: i64,
+    /// Most recent recorded unit price.
+    #[schema(value_type = Option<String>)]
+    pub latest_price: Option<Decimal>,
+    /// The record before the latest one.
+    #[schema(value_type = Option<String>)]
+    pub previous_price: Option<Decimal>,
+    /// Change from the previous record to the latest (null when there is no
+    /// previous record to compare against).
+    #[schema(value_type = Option<String>)]
+    pub change_percentage: Option<Decimal>,
+    /// Average of all recorded prices.
+    #[schema(value_type = Option<String>)]
+    pub average_price: Option<Decimal>,
+    /// Cheapest recorded price.
+    #[schema(value_type = Option<String>)]
+    pub lowest_price: Option<Decimal>,
+    /// Most expensive recorded price.
+    #[schema(value_type = Option<String>)]
+    pub highest_price: Option<Decimal>,
+    /// Date of the latest record.
+    pub last_seen: Option<NaiveDate>,
+    /// Date of the first record.
+    pub first_seen: Option<NaiveDate>,
+}
+
+/// Paginated product list.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductListResponse {
+    /// Products for this page.
+    pub items: Vec<ProductSummary>,
+    /// Total products matching the filters.
+    pub total_count: i64,
+    /// Page offset used.
+    pub page: u32,
+    /// Page size used.
+    pub page_size: u32,
+}
+
+/// One recorded price for a product.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct ProductPriceRecord {
+    /// Receipt the price came from.
+    pub receipt_id: Uuid,
+    /// Purchase date.
+    pub date: Option<NaiveDate>,
+    /// Store name.
+    pub store_name: Option<String>,
+    /// Store ID.
+    pub store_id: Option<Uuid>,
+    /// Unit price paid.
+    #[schema(value_type = Option<String>)]
+    pub price: Option<Decimal>,
+    /// Quantity bought at that price.
+    #[schema(value_type = String)]
+    pub quantity: Decimal,
+    /// Description as printed on the receipt.
+    pub description: String,
+}
+
+/// Latest/average price for one product at one store.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct ProductStorePrice {
+    /// Store ID.
+    pub store_id: Option<Uuid>,
+    /// Store name.
+    pub store_name: Option<String>,
+    /// Most recent price at this store.
+    #[schema(value_type = Option<String>)]
+    pub latest_price: Option<Decimal>,
+    /// Previous price at this store.
+    #[schema(value_type = Option<String>)]
+    pub previous_price: Option<Decimal>,
+    /// Change between the last two prices at this store.
+    #[schema(value_type = Option<String>)]
+    pub change_percentage: Option<Decimal>,
+    /// Average price at this store.
+    #[schema(value_type = Option<String>)]
+    pub average_price: Option<Decimal>,
+    /// Prices recorded at this store.
+    pub record_count: i64,
+    /// Date of the latest price at this store.
+    pub last_date: Option<NaiveDate>,
+}
+
+/// Product price history: statistics, records and per-store comparison.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductDetail {
+    /// Product with its statistics.
+    pub product: ProductSummary,
+    /// Every recorded price, newest first.
+    pub records: Vec<ProductPriceRecord>,
+    /// Where the product was bought, cheapest latest price first.
+    pub by_store: Vec<ProductStorePrice>,
+}
+
+/// A store with its receipt aggregates.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct StoreSummary {
+    /// Store ID.
+    pub id: Uuid,
+    /// Store name.
+    pub name: String,
+    /// Store CNPJ, when known.
+    pub cnpj: Option<String>,
+    /// Receipts in the selected period.
+    pub receipt_count: i64,
+    /// Items in those receipts.
+    pub item_count: i64,
+    /// Spend in the selected period.
+    #[schema(value_type = String)]
+    pub total_spent: Decimal,
+    /// First visit (all time).
+    pub first_visit: Option<NaiveDate>,
+    /// Latest visit (all time).
+    pub last_visit: Option<NaiveDate>,
+}
+
+/// Paginated store list.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct StoreListResponse {
+    /// Stores for this page.
+    pub items: Vec<StoreSummary>,
+    /// Total stores matching the filters.
+    pub total_count: i64,
+    /// Page offset used.
+    pub page: u32,
+    /// Page size used.
+    pub page_size: u32,
+}
+
+/// Spend per month at one store.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct StoreMonthlySpend {
+    /// First day of the month.
+    pub month: NaiveDate,
+    /// Receipts that month.
+    pub receipt_count: i64,
+    /// Spend that month.
+    #[schema(value_type = String)]
+    pub total: Decimal,
+}
+
+/// Most purchased item at one store.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct StoreTopItem {
+    /// Normalized product ID.
+    pub product_id: Option<Uuid>,
+    /// Item description.
+    pub description: String,
+    /// Total quantity bought.
+    #[schema(value_type = String)]
+    pub quantity: Decimal,
+    /// How many times it was bought.
+    pub purchase_count: i64,
+    /// Total spent on it.
+    #[schema(value_type = String)]
+    pub total: Decimal,
+}
+
+/// Latest price of an item at one store.
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct StoreItemPrice {
+    /// Item description.
+    pub description: String,
+    /// Normalized product ID.
+    pub normalized_product_id: Option<Uuid>,
+    /// Most recent price at this store.
+    #[schema(value_type = Option<String>)]
+    pub latest_price: Option<Decimal>,
+    /// Previous price at this store.
+    #[schema(value_type = Option<String>)]
+    pub previous_price: Option<Decimal>,
+    /// Change between the last two prices.
+    #[schema(value_type = Option<String>)]
+    pub change_percentage: Option<Decimal>,
+    /// Prices recorded for this item at this store.
+    pub record_count: i64,
+    /// Date of the latest price.
+    pub last_date: Option<NaiveDate>,
+}
+
+/// Everything the store detail screen shows.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct StoreDetail {
+    /// Store with its all-time aggregates.
+    pub store: StoreSummary,
+    /// Spend per month (oldest first) for the chart.
+    pub monthly_spend: Vec<StoreMonthlySpend>,
+    /// Most purchased items.
+    pub top_items: Vec<StoreTopItem>,
+    /// Items with their latest price and change at this store.
+    pub items: Vec<StoreItemPrice>,
+    /// Latest receipts.
+    pub recent_receipts: Vec<ReceiptSummary>,
 }

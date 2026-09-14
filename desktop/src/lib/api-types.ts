@@ -513,6 +513,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists normalized products with their price statistics.
+         * @description Products without a recorded price are omitted: they have nothing to show in
+         *     a price-tracking screen.
+         */
+        get: operations["list_products"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Returns one product with its statistics, every recorded price and where it
+         *     was bought (cheapest latest price first).
+         */
+        get: operations["get_product"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/receipts": {
         parameters: {
             query?: never;
@@ -520,7 +561,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lists saved receipts (paginated). */
+        /**
+         * Lists saved receipts with optional filters.
+         * @description Every filter is bound as text and cast in SQL, so the same builder serves
+         *     names, dates, amounts, ids and pagination.
+         */
         get: operations["list_receipts"];
         put?: never;
         /** Saves a reviewed receipt (and upserts its store), creating normalized products. */
@@ -599,6 +644,63 @@ export interface paths {
         /** Scans a raw NFC-e QR code and returns the parsed receipt preview. */
         post: operations["scan"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/receipts/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Headline numbers for the Overview tab.
+         * @description One query with scalar subqueries: cheap enough to call on every visit, and
+         *     it never loads receipt rows just to count them.
+         */
+        get: operations["receipt_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/receipts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns one receipt with its items. */
+        get: operations["get_receipt"];
+        put?: never;
+        post?: never;
+        /** Deletes a receipt and everything that only existed because of it. */
+        delete: operations["delete_receipt"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/receipts/{id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Updates one receipt item and recomputes the receipt total. */
+        put: operations["update_receipt_item"];
+        post?: never;
+        /** Deletes one receipt item and recomputes the receipt total. */
+        delete: operations["delete_receipt_item"];
         options?: never;
         head?: never;
         patch?: never;
@@ -698,6 +800,61 @@ export interface paths {
         };
         /** Monthly trends (income, expense, net) over the last N months. */
         get: operations["trends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns the current application settings. */
+        get: operations["get_settings"];
+        /** Updates the application settings and returns the stored values. */
+        put: operations["update_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists stores with their receipt aggregates. */
+        get: operations["list_stores"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stores/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Returns one store: aggregates, spend per month, most purchased items, item
+         *     prices recorded there and the latest receipts.
+         */
+        get: operations["get_store"];
         put?: never;
         post?: never;
         delete?: never;
@@ -969,6 +1126,15 @@ export interface components {
             /** @description Amount actually charged on the card (gross − discount). */
             net_amount: string;
         };
+        /** @description Application-wide preferences (the single row of `app_settings`). */
+        AppSettings: {
+            /**
+             * @description How credit-card purchases are dated in the dashboard, budgets and
+             *     reports: `purchase_date` counts a purchase in the month it was made,
+             *     `due_date` counts it in the month the bill ("fatura") is due.
+             */
+            card_expense_dating: string;
+        };
         /** @description A monthly budget limit for a category. */
         Budget: {
             /** @description Maximum spend limit for the month. */
@@ -1089,13 +1255,14 @@ export interface components {
         };
         /** @description Response for the budget summary endpoint. */
         BudgetSummaryResponse: {
-            /** @description Per-budget spend vs limit. */
+            /** @description Per-budget spend vs limit (category budgets only). */
             items: components["schemas"]["BudgetSummaryItem"][];
             /**
              * Format: int32
              * @description Month used for the query.
              */
             month: number;
+            overall?: null | components["schemas"]["BudgetSummaryItem"];
             /** @description Sum of all budget limits for the period. */
             total_budgeted: string;
             /** @description Sum of all actual spending for budgeted categories. */
@@ -1112,11 +1279,12 @@ export interface components {
             amount_limit: string;
             /**
              * Format: uuid
-             * @description Category id this budget applies to.
+             * @description Category id this budget applies to. `null` means the overall monthly
+             *     budget (a single spending limit for the whole month).
              */
-            category_id: string;
-            /** @description Category name. */
-            category_name: string;
+            category_id?: string | null;
+            /** @description Category name (`null` for the overall budget). */
+            category_name?: string | null;
             /** @description Category hex color. */
             color?: string | null;
             /** @description Category icon identifier. */
@@ -1297,7 +1465,7 @@ export interface components {
         CreateAccountRequest: {
             /**
              * @description User-facing kind. When set, the accounting `type` is derived from it
-             *     (`bank`/`cash`/`investment` → asset, `card`/`loan` → liability).
+             *     (`bank`, `cash`, and `investment` map to asset, `card` and `loan` to liability).
              * @example card
              */
             account_kind?: string | null;
@@ -1336,9 +1504,10 @@ export interface components {
             amount_limit: string;
             /**
              * Format: uuid
-             * @description Category this budget applies to (expense categories only).
+             * @description Category this budget applies to (expense categories only). Omit `null`
+             *     to set the overall monthly budget instead.
              */
-            category_id: string;
+            category_id?: string | null;
             /**
              * Format: int32
              * @description Month (1-12).
@@ -1787,6 +1956,17 @@ export interface components {
             /** @description One entry per month in the requested range (chronological order). */
             months: components["schemas"]["MonthlyReportItem"][];
         };
+        /** @description A line item sent when saving a receipt. */
+        NewReceiptItem: {
+            /** @description Item description (also the normalized product name). */
+            description: string;
+            /** @description Quantity purchased (default 1). */
+            quantity?: string | null;
+            /** @description Line total (defaults to the unit price). */
+            total_price?: string | null;
+            /** @description Unit price. */
+            unit_price?: string | null;
+        };
         /** @description Request payload for parsing raw OCR text from a receipt photo. */
         OcrRequest: {
             /** @description Raw text extracted by the OCR engine (ML Kit / tesseract.js). */
@@ -1839,16 +2019,338 @@ export interface components {
              */
             product_id: string;
         };
-        /** @description Line item for saving a receipt. */
-        ReceiptItemInput: {
-            /** @description Item description (also becomes a normalized product). */
+        /** @description Product price history: statistics, records and per-store comparison. */
+        ProductDetail: {
+            /** @description Where the product was bought, cheapest latest price first. */
+            by_store: components["schemas"]["ProductStorePrice"][];
+            /** @description Product with its statistics. */
+            product: components["schemas"]["ProductSummary"];
+            /** @description Every recorded price, newest first. */
+            records: components["schemas"]["ProductPriceRecord"][];
+        };
+        /** @description Query params for the product list. */
+        ProductListParams: {
+            /**
+             * @description `all` (default), `recent` (changed in the last 30 days), `increased`,
+             *     `decreased`.
+             */
+            change?: string | null;
+            /**
+             * Format: int32
+             * @description Page offset (default 0).
+             */
+            page?: number | null;
+            /**
+             * Format: int32
+             * @description Page size (default 50, max 200).
+             */
+            page_size?: number | null;
+            /** @description Case-insensitive substring match on the product name. */
+            search?: string | null;
+            /** @description `name` (default), `recent`, `change_desc`, `change_asc`, `records`. */
+            sort?: string | null;
+        };
+        /** @description Paginated product list. */
+        ProductListResponse: {
+            /** @description Products for this page. */
+            items: components["schemas"]["ProductSummary"][];
+            /**
+             * Format: int32
+             * @description Page offset used.
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Page size used.
+             */
+            page_size: number;
+            /**
+             * Format: int64
+             * @description Total products matching the filters.
+             */
+            total_count: number;
+        };
+        /** @description One recorded price for a product. */
+        ProductPriceRecord: {
+            /**
+             * Format: date
+             * @description Purchase date.
+             */
+            date?: string | null;
+            /** @description Description as printed on the receipt. */
             description: string;
-            /** @description Quantity purchased (default 1). */
-            quantity?: string | null;
-            /** @description Total price for the line. */
+            /** @description Unit price paid. */
+            price?: string | null;
+            /** @description Quantity bought at that price. */
+            quantity: string;
+            /**
+             * Format: uuid
+             * @description Receipt the price came from.
+             */
+            receipt_id: string;
+            /**
+             * Format: uuid
+             * @description Store ID.
+             */
+            store_id?: string | null;
+            /** @description Store name. */
+            store_name?: string | null;
+        };
+        /** @description Latest/average price for one product at one store. */
+        ProductStorePrice: {
+            /** @description Average price at this store. */
+            average_price?: string | null;
+            /** @description Change between the last two prices at this store. */
+            change_percentage?: string | null;
+            /**
+             * Format: date
+             * @description Date of the latest price at this store.
+             */
+            last_date?: string | null;
+            /** @description Most recent price at this store. */
+            latest_price?: string | null;
+            /** @description Previous price at this store. */
+            previous_price?: string | null;
+            /**
+             * Format: int64
+             * @description Prices recorded at this store.
+             */
+            record_count: number;
+            /**
+             * Format: uuid
+             * @description Store ID.
+             */
+            store_id?: string | null;
+            /** @description Store name. */
+            store_name?: string | null;
+        };
+        /** @description A normalized product with its price statistics. */
+        ProductSummary: {
+            /** @description Average of all recorded prices. */
+            average_price?: string | null;
+            /** @description Optional category label. */
+            category?: string | null;
+            /**
+             * @description Change from the previous record to the latest (null when there is no
+             *     previous record to compare against).
+             */
+            change_percentage?: string | null;
+            /**
+             * Format: date
+             * @description Date of the first record.
+             */
+            first_seen?: string | null;
+            /** @description Most expensive recorded price. */
+            highest_price?: string | null;
+            /**
+             * Format: uuid
+             * @description Normalized product ID.
+             */
+            id: string;
+            /**
+             * Format: date
+             * @description Date of the latest record.
+             */
+            last_seen?: string | null;
+            /** @description Most recent recorded unit price. */
+            latest_price?: string | null;
+            /** @description Cheapest recorded price. */
+            lowest_price?: string | null;
+            /** @description Product name (the backend's normalized identity). */
+            name: string;
+            /** @description The record before the latest one. */
+            previous_price?: string | null;
+            /**
+             * Format: int64
+             * @description Number of recorded prices.
+             */
+            record_count: number;
+            /**
+             * Format: int64
+             * @description Number of stores that sold it.
+             */
+            store_count: number;
+        };
+        /** @description A receipt with its items. */
+        ReceiptDetail: {
+            /** @description Store CNPJ, when known. */
+            cnpj?: string | null;
+            /** @description Line items. */
+            items: components["schemas"]["ReceiptItemDetail"][];
+            /** @description Receipt header. */
+            receipt: components["schemas"]["ReceiptSummary"];
+        };
+        /** @description One line item of a saved receipt. */
+        ReceiptItemDetail: {
+            /** @description Description as printed on the receipt. */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Item ID.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Normalized product id (price history is keyed by this).
+             */
+            normalized_product_id?: string | null;
+            /** @description Normalized product name, when the item is linked to a product. */
+            product_name?: string | null;
+            /** @description How many were bought. */
+            quantity: string;
+            /**
+             * Format: uuid
+             * @description Receipt this item belongs to.
+             */
+            receipt_id: string;
+            /** @description Line total. */
             total_price?: string | null;
-            /** @description Unit price. */
+            /** @description Price for one unit. */
             unit_price?: string | null;
+        };
+        /** @description Query params for the receipt list. */
+        ReceiptListParams: {
+            /**
+             * Format: date
+             * @description Inclusive lower bound on the receipt date (`YYYY-MM-DD`).
+             */
+            from?: string | null;
+            /** @description Maximum receipt total. */
+            max_total?: string | null;
+            /** @description Minimum receipt total. */
+            min_total?: string | null;
+            /**
+             * Format: int32
+             * @description Page offset (default 0).
+             */
+            page?: number | null;
+            /**
+             * Format: int32
+             * @description Page size (default 50, max 200).
+             */
+            page_size?: number | null;
+            /** @description Matches the store name or any item description. */
+            search?: string | null;
+            /** @description `nfce` or `ocr`. */
+            source?: string | null;
+            /**
+             * Format: uuid
+             * @description Restrict to one store.
+             */
+            store_id?: string | null;
+            /**
+             * Format: date
+             * @description Exclusive upper bound on the receipt date (`YYYY-MM-DD`).
+             */
+            to?: string | null;
+        };
+        /** @description Paginated receipt list. */
+        ReceiptListResponse: {
+            /** @description Receipts for this page (newest first). */
+            items: components["schemas"]["ReceiptSummary"][];
+            /** @description Item rows for the receipts in `items`, so the UI can resolve products. */
+            items_by_receipt: components["schemas"]["ReceiptItemDetail"][];
+            /**
+             * Format: int32
+             * @description Page offset used.
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Page size used.
+             */
+            page_size: number;
+            /**
+             * Format: int64
+             * @description Total receipts matching the filters.
+             */
+            total_count: number;
+        };
+        /** @description Headline receipt/price-tracking numbers for the Overview tab. */
+        ReceiptStats: {
+            /**
+             * Format: date
+             * @description Oldest receipt date.
+             */
+            first_receipt_date?: string | null;
+            /**
+             * Format: int64
+             * @description Distinct normalized products seen on receipts.
+             */
+            items_tracked: number;
+            /**
+             * Format: date
+             * @description Newest receipt date.
+             */
+            last_receipt_date?: string | null;
+            /**
+             * Format: date
+             * @description First day of the month the month-scoped numbers refer to.
+             */
+            month: string;
+            /**
+             * Format: int64
+             * @description Recorded unit prices (the raw material of price history).
+             */
+            price_records: number;
+            /**
+             * Format: int64
+             * @description Receipts dated in the requested month.
+             */
+            receipts_this_month: number;
+            /** @description Sum of receipt totals dated in the requested month. */
+            spent_this_month: string;
+            /**
+             * Format: int64
+             * @description Distinct stores that issued receipts.
+             */
+            store_count: number;
+            /**
+             * Format: int64
+             * @description Receipts on record.
+             */
+            total_receipts: number;
+            /** @description Sum of all receipt totals. */
+            total_spent: string;
+        };
+        /** @description Query params for the overview statistics. */
+        ReceiptStatsParams: {
+            /** @description Month to report on, `YYYY-MM` (default: the current month). */
+            month?: string | null;
+        };
+        /** @description A saved receipt with its store and item count. */
+        ReceiptSummary: {
+            /**
+             * Format: uuid
+             * @description Receipt ID.
+             */
+            id: string;
+            /**
+             * Format: int64
+             * @description Number of line items.
+             */
+            item_count: number;
+            /**
+             * Format: date
+             * @description Purchase date printed on the receipt.
+             */
+            receipt_date?: string | null;
+            /**
+             * Format: date-time
+             * @description When the receipt was scanned/saved (carries the time of day).
+             */
+            scanned_at: string;
+            /** @description `nfce`, `ocr`, or null for receipts saved before sources were tracked. */
+            source?: string | null;
+            /**
+             * Format: uuid
+             * @description Store ID (null when the receipt has no store).
+             */
+            store_id?: string | null;
+            /** @description Store name. */
+            store_name?: string | null;
+            /** @description Receipt total as stored by the backend. */
+            total_amount?: string | null;
         };
         /** @description A reconciliation item result (matched or unmatched). */
         ReconciliationItem: {
@@ -1932,9 +2434,9 @@ export interface components {
             /** @description Plaintext password (hashed with Argon2id). */
             password: string;
         };
-        /** @description Request payload for saving a fully parsed/reviewed receipt. */
-        SaveReceiptRequest: {
-            /** @description Store CNPJ (optional). */
+        /** @description Request payload for saving a reviewed receipt (NFC-e or OCR). */
+        SaveReceiptBody: {
+            /** @description Store CNPJ when the source provides one. */
             cnpj?: string | null;
             /**
              * Format: date
@@ -1942,10 +2444,15 @@ export interface components {
              */
             date: string;
             /** @description Line items (at least one). */
-            items: components["schemas"]["ReceiptItemInput"][];
-            /** @description Store name (or from scan). */
+            items: components["schemas"]["NewReceiptItem"][];
+            /** @description Where the data came from: `nfce` (QR code) or `ocr` (photo). */
+            source?: string | null;
+            /** @description Store name (from the scan, or typed by the user). */
             store_name: string;
-            /** @description Total amount. */
+            /**
+             * @description Receipt total.
+             * @example 287.43
+             */
             total: string;
         };
         /** @description Request payload for scanning a raw NFC-e QR code. */
@@ -1965,6 +2472,152 @@ export interface components {
             /** @description Description from the bank statement. */
             description: string;
         };
+        /** @description Everything the store detail screen shows. */
+        StoreDetail: {
+            /** @description Items with their latest price and change at this store. */
+            items: components["schemas"]["StoreItemPrice"][];
+            /** @description Spend per month (oldest first) for the chart. */
+            monthly_spend: components["schemas"]["StoreMonthlySpend"][];
+            /** @description Latest receipts. */
+            recent_receipts: components["schemas"]["ReceiptSummary"][];
+            /** @description Store with its all-time aggregates. */
+            store: components["schemas"]["StoreSummary"];
+            /** @description Most purchased items. */
+            top_items: components["schemas"]["StoreTopItem"][];
+        };
+        /** @description Latest price of an item at one store. */
+        StoreItemPrice: {
+            /** @description Change between the last two prices. */
+            change_percentage?: string | null;
+            /** @description Item description. */
+            description: string;
+            /**
+             * Format: date
+             * @description Date of the latest price.
+             */
+            last_date?: string | null;
+            /** @description Most recent price at this store. */
+            latest_price?: string | null;
+            /**
+             * Format: uuid
+             * @description Normalized product ID.
+             */
+            normalized_product_id?: string | null;
+            /** @description Previous price at this store. */
+            previous_price?: string | null;
+            /**
+             * Format: int64
+             * @description Prices recorded for this item at this store.
+             */
+            record_count: number;
+        };
+        /** @description Query params for the store list. */
+        StoreListParams: {
+            /**
+             * Format: int32
+             * @description Page offset (default 0).
+             */
+            page?: number | null;
+            /**
+             * Format: int32
+             * @description Page size (default 50, max 200).
+             */
+            page_size?: number | null;
+            /** @description `all` (default), `month`, `last_month`, `3m`, `6m`, `year`. */
+            period?: string | null;
+            /** @description Case-insensitive substring match on the store name. */
+            search?: string | null;
+            /** @description `spend` (default), `name`, `recent`. */
+            sort?: string | null;
+        };
+        /** @description Paginated store list. */
+        StoreListResponse: {
+            /** @description Stores for this page. */
+            items: components["schemas"]["StoreSummary"][];
+            /**
+             * Format: int32
+             * @description Page offset used.
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Page size used.
+             */
+            page_size: number;
+            /**
+             * Format: int64
+             * @description Total stores matching the filters.
+             */
+            total_count: number;
+        };
+        /** @description Spend per month at one store. */
+        StoreMonthlySpend: {
+            /**
+             * Format: date
+             * @description First day of the month.
+             */
+            month: string;
+            /**
+             * Format: int64
+             * @description Receipts that month.
+             */
+            receipt_count: number;
+            /** @description Spend that month. */
+            total: string;
+        };
+        /** @description A store with its receipt aggregates. */
+        StoreSummary: {
+            /** @description Store CNPJ, when known. */
+            cnpj?: string | null;
+            /**
+             * Format: date
+             * @description First visit (all time).
+             */
+            first_visit?: string | null;
+            /**
+             * Format: uuid
+             * @description Store ID.
+             */
+            id: string;
+            /**
+             * Format: int64
+             * @description Items in those receipts.
+             */
+            item_count: number;
+            /**
+             * Format: date
+             * @description Latest visit (all time).
+             */
+            last_visit?: string | null;
+            /** @description Store name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Receipts in the selected period.
+             */
+            receipt_count: number;
+            /** @description Spend in the selected period. */
+            total_spent: string;
+        };
+        /** @description Most purchased item at one store. */
+        StoreTopItem: {
+            /** @description Item description. */
+            description: string;
+            /**
+             * Format: uuid
+             * @description Normalized product ID.
+             */
+            product_id?: string | null;
+            /**
+             * Format: int64
+             * @description How many times it was bought.
+             */
+            purchase_count: number;
+            /** @description Total quantity bought. */
+            quantity: string;
+            /** @description Total spent on it. */
+            total: string;
+        };
         /** @description Query parameters for the summary endpoint. */
         SummaryParams: {
             /**
@@ -1982,7 +2635,10 @@ export interface components {
         SummaryResponse: {
             /** @description Balance = income − expense. */
             balance: string;
-            /** @description Per-category breakdown for the month. */
+            /**
+             * @description Per-category *expense* breakdown for the month (income accounts are
+             *     reported through `income_total`).
+             */
             by_category: components["schemas"]["CategorySummary"][];
             /** @description Total expenses for the selected month (positive value). */
             expense_total: string;
@@ -2074,6 +2730,16 @@ export interface components {
             account_id?: string | null;
             /** @description Monetary amount, always positive. `type` determines direction. */
             amount: string;
+            /**
+             * Format: date
+             * @description Due date ("vencimento") of the credit-card bill that contains this
+             *     purchase (NULL for non-card transactions or cards without a billing
+             *     cycle).
+             *
+             *     Derived on read for the transaction list so the UI can show which bill a
+             *     purchase lands on; queries that do not select it leave it `null`.
+             */
+            card_due_date?: string | null;
             /**
              * Format: uuid
              * @description Category this transaction belongs to (nullable if category deleted).
@@ -2227,6 +2893,14 @@ export interface components {
              */
             type: string;
         };
+        /** @description Request payload for updating application settings. */
+        UpdateAppSettingsRequest: {
+            /**
+             * @description `purchase_date` or `due_date`.
+             * @example due_date
+             */
+            card_expense_dating: string;
+        };
         /** @description Payload for updating an existing category. */
         UpdateCategoryRequest: {
             /** @description Hex color code (e.g., `#ef4444`). */
@@ -2245,6 +2919,17 @@ export interface components {
              * @example expense
              */
             type: string;
+        };
+        /** @description Request payload for updating a receipt item. */
+        UpdateReceiptItemRequest: {
+            /** @description New description (re-normalized as a product). */
+            description: string;
+            /** @description New quantity. */
+            quantity?: string | null;
+            /** @description New line total (defaults to quantity × unit price). */
+            total_price?: string | null;
+            /** @description New unit price. */
+            unit_price?: string | null;
         };
         /** @description Payload for updating an existing transaction. */
         UpdateTransactionRequest: {
@@ -3431,21 +4116,103 @@ export interface operations {
             };
         };
     };
-    list_receipts: {
+    list_products: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Substring match on the product name */
+                search?: string;
+                /** @description all | recent | increased | decreased */
+                change?: string;
+                /** @description name | recent | change_desc | change_asc | records */
+                sort?: string;
+                /** @description Page offset (default 0) */
+                page?: number;
+                /** @description Page size (default 50, max 200) */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description List of receipts */
+            /** @description Products with price statistics */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
+                content: {
+                    "application/json": components["schemas"]["ProductListResponse"];
+                };
+            };
+        };
+    };
+    get_product: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Normalized product UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Product price history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetail"];
+                };
+            };
+            /** @description Product not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content?: never;
+            };
+        };
+    };
+    list_receipts: {
+        parameters: {
+            query?: {
+                /** @description Matches the store name or an item description */
+                search?: string;
+                /** @description Restrict to one store */
+                store_id?: string;
+                /** @description Inclusive lower bound on the receipt date */
+                from?: string;
+                /** @description Exclusive upper bound on the receipt date */
+                to?: string;
+                /** @description Minimum receipt total */
+                min_total?: string;
+                /** @description Maximum receipt total */
+                max_total?: string;
+                /** @description nfce | ocr */
+                source?: string;
+                /** @description Page offset (default 0) */
+                page?: number;
+                /** @description Page size (default 50, max 200) */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated receipts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptListResponse"];
+                };
             };
         };
     };
@@ -3458,7 +4225,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SaveReceiptRequest"];
+                "application/json": components["schemas"]["SaveReceiptBody"];
             };
         };
         responses: {
@@ -3576,6 +4343,162 @@ export interface operations {
             };
             /** @description Invalid QR data */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    receipt_stats: {
+        parameters: {
+            query?: {
+                /** @description Month to report on, YYYY-MM (default: current month) */
+                month?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Receipt statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptStats"];
+                };
+            };
+        };
+    };
+    get_receipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Receipt UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Receipt detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Receipt not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_receipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Receipt UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Receipt deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Receipt not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_receipt_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Receipt UUID */
+                id: string;
+                /** @description Receipt item UUID */
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateReceiptItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Receipt after the edit */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Invalid item payload */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Receipt or item not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_receipt_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Receipt UUID */
+                id: string;
+                /** @description Receipt item UUID */
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Receipt after the delete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptDetail"];
+                };
+            };
+            /** @description Receipt or item not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3757,6 +4680,118 @@ export interface operations {
             };
             /** @description Invalid months parameter */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppSettings"];
+                };
+            };
+        };
+    };
+    update_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAppSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppSettings"];
+                };
+            };
+            /** @description Invalid setting value */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_stores: {
+        parameters: {
+            query?: {
+                /** @description Substring match on the store name */
+                search?: string;
+                /** @description all | month | last_month | 3m | 6m | year */
+                period?: string;
+                /** @description spend | name | recent */
+                sort?: string;
+                /** @description Page offset (default 0) */
+                page?: number;
+                /** @description Page size (default 50, max 200) */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stores with receipt aggregates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreListResponse"];
+                };
+            };
+        };
+    };
+    get_store: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Store UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Store detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreDetail"];
+                };
+            };
+            /** @description Store not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -3,7 +3,7 @@ use utoipa::OpenApi;
 use crate::health;
 use crate::models::{
     Account, AccountWithBalance, AcknowledgeAlertsResponse, AnticipateInstallmentsRequest,
-    AnticipateInstallmentsResponse, Budget, BudgetAlert, BudgetAlertListResponse,
+    AnticipateInstallmentsResponse, AppSettings, Budget, BudgetAlert, BudgetAlertListResponse,
     BudgetListResponse, BudgetSummaryItem, BudgetSummaryResponse, BudgetWithCategory, CardBill,
     CardOverview, Category, CategoryBreakdownItem, CategoryBreakdownResponse, CategorySummary,
     CreateAccountRequest, CreateBudgetRequest, CreateCardPurchaseRequest, CreateCategoryRequest,
@@ -15,7 +15,15 @@ use crate::models::{
     ReconciliationUploadRequest, ReconciliationUploadResponse, StatementLine, SummaryResponse,
     SyncOpResult, SyncOperation, SyncPullRequest, SyncPullResponse, SyncPushRequest,
     SyncPushResponse, Transaction, TransactionListParams, TransactionListResponse, TrendPoint,
-    TrendsResponse, UpdateAccountRequest, UpdateCategoryRequest, UpdateTransactionRequest,
+    TrendsResponse, UpdateAccountRequest, UpdateAppSettingsRequest, UpdateCategoryRequest,
+    UpdateTransactionRequest,
+};
+
+use crate::models::{
+    NewReceiptItem, ProductDetail, ProductListResponse, ProductPriceRecord, ProductStorePrice,
+    ProductSummary, ReceiptDetail, ReceiptItemDetail, ReceiptListResponse, ReceiptStats,
+    ReceiptSummary, SaveReceiptBody, StoreDetail, StoreItemPrice, StoreListResponse,
+    StoreMonthlySpend, StoreSummary, StoreTopItem, UpdateReceiptItemRequest,
 };
 use crate::routes::accounts;
 use crate::routes::audit;
@@ -25,11 +33,14 @@ use crate::routes::categories::{self, CategoryListParams};
 use crate::routes::credit_cards;
 use crate::routes::installments;
 use crate::routes::ledger;
+use crate::routes::products::{self, ProductListParams};
 use crate::routes::receipts::{
-    self, MergeProductsRequest, OcrRequest, PriceHistoryParams, ReceiptItemInput,
-    SaveReceiptRequest, ScanRequest,
+    self, MergeProductsRequest, OcrRequest, PriceHistoryParams, ReceiptListParams,
+    ReceiptStatsParams, ScanRequest,
 };
 use crate::routes::reports;
+use crate::routes::settings;
+use crate::routes::stores::{self, StoreListParams};
 use crate::routes::summary::{self, SummaryParams};
 use crate::routes::sync;
 use crate::routes::transactions;
@@ -90,14 +101,25 @@ use crate::routes::transactions;
         receipts::ocr,
         receipts::save_receipt,
         receipts::list_receipts,
+        receipts::get_receipt,
+        receipts::delete_receipt,
+        receipts::update_receipt_item,
+        receipts::delete_receipt_item,
+        receipts::receipt_stats,
         receipts::price_history,
         receipts::merge_products,
+        products::list_products,
+        products::get_product,
+        stores::list_stores,
+        stores::get_store,
         installments::list_installment_plans,
         installments::create_installment_plan,
         installments::get_installment_plan,
         installments::delete_installment_plan,
         installments::generate_installments,
         installments::pay_installment,
+        settings::get_settings,
+        settings::update_settings,
         sync::pull,
         sync::push,
     ),
@@ -109,10 +131,12 @@ use crate::routes::transactions;
         RefreshRequest,
         ScanRequest,
         OcrRequest,
-        SaveReceiptRequest,
-        ReceiptItemInput,
+        ReceiptListParams,
+        ReceiptStatsParams,
         MergeProductsRequest,
         PriceHistoryParams,
+        ProductListParams,
+        StoreListParams,
         Account,
         AccountWithBalance,
         CreateAccountRequest,
@@ -174,6 +198,27 @@ use crate::routes::transactions;
         SyncPushRequest,
         SyncOpResult,
         SyncPushResponse,
+        SaveReceiptBody,
+        NewReceiptItem,
+        ReceiptSummary,
+        ReceiptListResponse,
+        ReceiptItemDetail,
+        ReceiptDetail,
+        UpdateReceiptItemRequest,
+        ReceiptStats,
+        ProductSummary,
+        ProductListResponse,
+        ProductPriceRecord,
+        ProductStorePrice,
+        ProductDetail,
+        StoreSummary,
+        StoreListResponse,
+        StoreMonthlySpend,
+        StoreTopItem,
+        StoreItemPrice,
+        StoreDetail,
+        AppSettings,
+        UpdateAppSettingsRequest,
     )),
     info(
         title = "PudimFinance API",
@@ -196,6 +241,7 @@ use crate::routes::transactions;
         (name = "Auth", description = "User registration, login, token refresh, and profile"),
         (name = "Audit", description = "Admin-only audit event search"),
         (name = "Receipts", description = "Receipt scanning (NFC-e QR), price history, and product normalization"),
+        (name = "Settings", description = "Application preferences such as credit-card expense dating"),
     ),
     // Empty security requirement documents the public API (satisfies `security-defined`).
     security(

@@ -6,10 +6,10 @@ import { RootLayout } from '@/app/RootLayout';
 import { LoginPage } from '@/app/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { TransactionsPage } from '@/features/transactions/TransactionsPage';
-import { CategoriesPage } from '@/features/categories/CategoriesPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
 import { CreditCardsPage } from '@/features/creditCards/CreditCardsPage';
-import { BudgetsPage } from '@/features/budgets/BudgetsPage';
+import { BudgetsCategoriesPage } from '@/features/budgets/BudgetsCategoriesPage';
+import { MorePage } from '@/features/more/MorePage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { LedgerPage } from '@/features/ledger/LedgerPage';
 import { ReconciliationPage } from '@/features/reconciliation/ReconciliationPage';
@@ -46,12 +46,14 @@ export function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/accounts" element={<AccountsPage />} />
-            <Route path="/budgets" element={<BudgetsPage />} />
+            <Route path="/budgets" element={<BudgetsCategoriesPage />} />
+            <Route path="/more" element={<MorePage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/ledger" element={<LedgerPage />} />
             <Route path="/reconciliation" element={<ReconciliationPage />} />
             <Route path="/receipts" element={<ReceiptsPage />} />
-            <Route path="/categories" element={<CategoriesPage />} />
+            {/* Categories now live in the Budgets tab switcher. */}
+            <Route path="/categories" element={<Navigate to="/budgets?tab=categories" replace />} />
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/credit-cards" element={<CreditCardsPage />} />
             <Route path="/notifications" element={<NotificationSettingsPage />} />

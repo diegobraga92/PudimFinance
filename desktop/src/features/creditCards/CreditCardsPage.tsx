@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, CheckSquare, Plus, Wallet } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
@@ -12,8 +12,11 @@ import {
   fetchCreditCards,
   fetchInstallmentPlan,
   fetchInstallmentPlans,
+  fetchSettings,
   payCardBill,
+  updateSettings,
   type CardBill,
+  type CardExpenseDating,
   type CreateCardPurchaseRequest,
   type PayCardBillRequest,
 } from '@/lib/api';
@@ -41,6 +44,31 @@ interface AnticipatableItem {
   amount: string;
   dueDate: string;
 }
+
+/** Options of the card-expense dating preference, shown as a segmented control. */
+const DATING_OPTIONS: {
+  value: CardExpenseDating;
+  labelKey: 'creditCards.dating.purchase' | 'creditCards.dating.due';
+  hintKey: 'creditCards.dating.purchaseHint' | 'creditCards.dating.dueHint';
+}[] = [
+  {
+    value: 'purchase_date',
+    labelKey: 'creditCards.dating.purchase',
+    hintKey: 'creditCards.dating.purchaseHint',
+  },
+  { value: 'due_date', labelKey: 'creditCards.dating.due', hintKey: 'creditCards.dating.dueHint' },
+];
+
+/** Query keys whose data depends on the card-expense dating preference. */
+const DATING_DEPENDENT_QUERIES = [
+  'summary',
+  'transactions',
+  'budget-summary',
+  'dashboard-cash-flow',
+  'report-overview',
+  'report-breakdown',
+  'report-trends',
+];
 
 export function CreditCardsPage() {
   const { t, formatMoney, formatDate } = useI18n();
@@ -73,11 +101,38 @@ export function CreditCardsPage() {
 
   const cardsQuery = useQuery({ queryKey: ['credit-cards'], queryFn: () => fetchCreditCards() });
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
-  const cards = cardsQuery.data ?? [];
-  const categories = categoriesQuery.data ?? [];
+  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: () => fetchSettings() });
+  const queryClient = useQueryClient();
+  const cards = React.useMemo(() => cardsQuery.data ?? [], [cardsQuery.data]);
+  const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const expenseCategories = categories.filter((c) => c.type === 'expense');
   const selected = cards.find((c) => c.id === selectedId) ?? null;
   const currentBill = selected?.current_bill ?? null;
+  const dating: CardExpenseDating =
+    settingsQuery.data?.card_expense_dating === 'due_date' ? 'due_date' : 'purchase_date';
+  const [savingDating, setSavingDating] = React.useState(false);
+
+  /** Persists the dating preference and refreshes every view it affects. */
+  const changeDating = async (value: CardExpenseDating) => {
+    if (value === dating) return;
+    setSavingDating(true);
+    try {
+      const saved = await updateSettings({ card_expense_dating: value });
+      queryClient.setQueryData(['settings'], saved);
+      for (const key of DATING_DEPENDENT_QUERIES) {
+        void queryClient.invalidateQueries({ queryKey: [key] });
+      }
+      toast({ title: t('creditCards.dating.saved'), variant: 'success' });
+    } catch (err) {
+      toast({
+        title: t('creditCards.dating.failed'),
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      });
+    } finally {
+      setSavingDating(false);
+    }
+  };
 
   const loadBills = React.useCallback(async (cardId: string) => {
     setBillsLoading(true);
@@ -281,6 +336,51 @@ export function CreditCardsPage() {
           </div>
         )}
       </div>
+
+      {/* How card expenses are dated in the dashboard, budgets and reports */}
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <CalendarClock className="h-4 w-4 text-primary" />
+              {t('creditCards.dating.title')}
+            </p>
+            <p className="mt-1 text-xs text-dim">
+              {settingsQuery.isError
+                ? t('creditCards.dating.unavailable')
+                : t('creditCards.dating.desc')}
+            </p>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label={t('creditCards.dating.title')}
+            className="flex shrink-0 gap-1 rounded-md bg-muted p-1"
+          >
+            {DATING_OPTIONS.map((option) => {
+              const active = dating === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  disabled={settingsQuery.isLoading || settingsQuery.isError || savingDating}
+                  onClick={() => void changeDating(option.value)}
+                  title={t(option.hintKey)}
+                  className={cn(
+                    'rounded-sm px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                    active
+                      ? 'bg-surface text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {t(option.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {cardsQuery.isLoading ? (
         <div className="grid gap-4 lg:grid-cols-3">

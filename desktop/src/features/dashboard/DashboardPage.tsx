@@ -1,124 +1,81 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { ArrowDownRight, ArrowUpRight, ArrowRight, ChevronLeft, ChevronRight, Wallet } from 'lucide-react';
 
+import { useAuth } from '@/app/auth';
 import { useI18n } from '@/app/i18n';
 import {
   fetchAccountsWithBalance,
+  fetchBudgetSummary,
   fetchCategories,
+  fetchMonthlyReport,
   fetchSummary,
   fetchTransactions,
-  type CategorySummary,
 } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { categoryIcon } from '@shared/category-icons';
-import { cn } from '@/lib/utils';
+import { DashboardHeader } from './DashboardHeader';
+import { SummaryCards, type SummaryDeltas } from './SummaryCards';
+import { CashFlowCard, type CashFlowPoint } from './CashFlowCard';
+import { CategoryBreakdownCard } from './CategoryBreakdownCard';
+import { RecentTransactionsCard } from './RecentTransactionsCard';
+import { BudgetsCard } from './BudgetsCard';
+import { QuickActions } from './QuickActions';
 
-function StatCard({
-  label,
-  value,
-  icon,
-  accent,
-  loading,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  accent: 'income' | 'expense' | 'default';
-  loading?: boolean;
-}) {
-  const color =
-    accent === 'income' ? 'text-income' : accent === 'expense' ? 'text-expense' : 'text-foreground';
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-5">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-          {loading ? (
-            <Skeleton className="mt-2 h-8 w-28" />
-          ) : (
-            <p className={cn('mt-1 text-2xl font-bold tabular-nums', color)}>{value}</p>
-          )}
-        </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-          {icon}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+/** Rolling window used by the cash-flow chart. */
+type Range = 6 | 12;
 
-function CategoryBreakdown({ items, total }: { items: CategorySummary[]; total: number }) {
-  const { t, formatMoney } = useI18n();
-  const sorted = [...items].sort((a, b) => parseFloat(b.total) - parseFloat(a.total));
-
-  if (sorted.length === 0) {
-    return <p className="py-6 text-center text-sm text-dim">{t('common.none')}</p>;
+/** Shift a `{ year, month }` pair by `delta` months (month is 1-12). */
+function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
+  let m = month + delta;
+  let y = year;
+  while (m <= 0) {
+    m += 12;
+    y -= 1;
   }
-
-  return (
-    <div className="space-y-3">
-      {sorted.map((item) => {
-        const amount = parseFloat(item.total);
-        const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
-        return (
-          <div key={item.category_id ?? 'uncategorised'} className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2">
-                <span className="text-base">{categoryIcon(item.icon)}</span>
-                <span className="font-medium">{item.category_name ?? t('common.uncategorised')}</span>
-              </span>
-              <span className="tabular-nums text-muted-foreground">
-                {formatMoney(item.total)}
-                <span className="ml-2 text-xs text-dim">{pct}%</span>
-              </span>
-            </div>
-            <Progress
-              value={pct}
-              className="h-1.5"
-              indicatorClassName="bg-gradient-to-r from-primary/70 to-primary"
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
+  while (m > 12) {
+    m -= 12;
+    y += 1;
+  }
+  return { year: y, month: m };
 }
 
-/** Dashboard with month net, category breakdown, and recent activity. */
+/**
+ * Personal-finance dashboard: the month's headline numbers, cash-flow trend,
+ * category breakdown, recent activity, budgets and shortcuts into real flows.
+ *
+ * Every value comes from the existing APIs — the selected month drives the
+ * summary, budgets, categories and activity; the cash-flow window ends on the
+ * selected month and reaches back one extra month for the comparisons.
+ */
 export function DashboardPage() {
-  const { t, formatMoney, formatDate, monthNames } = useI18n();
+  const { t, shortMonthNames } = useI18n();
+  const { user } = useAuth();
 
-  const now = new Date();
+  const now = React.useMemo(() => new Date(), []);
   const [year, setYear] = React.useState(now.getFullYear());
   const [month, setMonth] = React.useState(now.getMonth() + 1);
+  const [range, setRange] = React.useState<Range>(6);
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+
   const prevMonth = () => {
-    if (month === 1) {
-      setMonth(12);
-      setYear((y) => y - 1);
-    } else {
-      setMonth((m) => m - 1);
-    }
+    const next = shiftMonth(year, month, -1);
+    setYear(next.year);
+    setMonth(next.month);
   };
   const nextMonth = () => {
-    if (month === 12) {
-      setMonth(1);
-      setYear((y) => y + 1);
-    } else {
-      setMonth((m) => m + 1);
-    }
+    if (isCurrentMonth) return;
+    const next = shiftMonth(year, month, 1);
+    setYear(next.year);
+    setMonth(next.month);
   };
   const goCurrentMonth = () => {
     setYear(now.getFullYear());
     setMonth(now.getMonth() + 1);
   };
+
+
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
   const summaryQuery = useQuery({
     queryKey: ['summary', year, month],
@@ -129,8 +86,10 @@ export function DashboardPage() {
     queryKey: ['accounts'],
     queryFn: () => fetchAccountsWithBalance(),
   });
-  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
-  const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+  const budgetsQuery = useQuery({
+    queryKey: ['budget-summary', year, month],
+    queryFn: () => fetchBudgetSummary(year, month),
+  });
   const recentQuery = useQuery({
     queryKey: ['transactions', 'recent', year, month],
     queryFn: () =>
@@ -142,181 +101,170 @@ export function DashboardPage() {
       }),
   });
 
-  const loading = summaryQuery.isLoading || categoriesQuery.isLoading;
+  // One extra month of history so the summary cards can compare with the
+  // previous month without an additional request.
+  const flowStart = React.useMemo(
+    () => shiftMonth(year, month, -(range + 1)),
+    [year, month, range],
+  );
+  const cashFlowQuery = useQuery({
+    queryKey: ['dashboard-cash-flow', flowStart.year, flowStart.month, year, month],
+    queryFn: () => fetchMonthlyReport(flowStart.year, flowStart.month, year, month),
+  });
+
   const summary = summaryQuery.data;
-  const categories = categoriesQuery.data ?? [];
-  const accounts = accountsQuery.data ?? [];
-  const recent = recentQuery.data?.items ?? [];
+  // Memoized so the derived maps/arrays below keep stable identities.
+  const accounts = React.useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
+  const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
+  const cashFlowMonths = React.useMemo(
+    () => cashFlowQuery.data?.months ?? [],
+    [cashFlowQuery.data],
+  );
 
-  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const income = parseFloat(summary?.income_total ?? '0');
+  const expenses = parseFloat(summary?.expense_total ?? '0');
+  const net = income - expenses;
+  const savingsRate = income > 0 ? (net / income) * 100 : null;
+
   const totalAssets = accounts
-    .filter((a) => a.type === 'asset')
-    .reduce((sum, a) => sum + parseFloat(a.balance), 0);
+    .filter((account) => account.type === 'asset')
+    .reduce((sum, account) => sum + parseFloat(account.balance), 0);
 
-  const hasTransactions = recent.length > 0;
+  const accountById = React.useMemo(
+    () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
+  );
+  const categoryById = React.useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
+
+  const cardsLoading = summaryQuery.isLoading || accountsQuery.isLoading;
+  const recentLoading =
+    recentQuery.isLoading || categoriesQuery.isLoading || accountsQuery.isLoading;
+
+  // Real month-over-month comparisons derived from the monthly report. A missing
+  // previous month (or a zero baseline) yields `null`, and the card then shows
+  // its caption instead of a made-up percentage.
+  const previousPeriod = React.useMemo(() => shiftMonth(year, month, -1), [year, month]);
+  const deltas: SummaryDeltas = React.useMemo(() => {
+    const previous = cashFlowMonths.find(
+      (entry) => entry.year === previousPeriod.year && entry.month === previousPeriod.month,
+    );
+    if (!previous) return { income: null, expenses: null, savings: null };
+
+    const change = (current: number, base: number): number | null =>
+      base === 0 ? null : ((current - base) / Math.abs(base)) * 100;
+
+    const previousIncome = parseFloat(previous.income_total);
+    const previousExpenses = parseFloat(previous.expense_total);
+    const previousRate =
+      previousIncome > 0 ? ((previousIncome - previousExpenses) / previousIncome) * 100 : null;
+
+    return {
+      income: change(income, previousIncome),
+      expenses: change(expenses, previousExpenses),
+      savings: savingsRate !== null && previousRate !== null ? savingsRate - previousRate : null,
+    };
+  }, [cashFlowMonths, previousPeriod, income, expenses, savingsRate]);
+
+  // Exactly `range` points ending on the selected month; months the report omits
+  // are rendered as zero so the x axis stays continuous.
+  const cashFlowSeries: CashFlowPoint[] = React.useMemo(() => {
+    const byPeriod = new Map(cashFlowMonths.map((entry) => [`${entry.year}-${entry.month}`, entry]));
+    const points: CashFlowPoint[] = [];
+    for (let offset = range - 1; offset >= 0; offset -= 1) {
+      const period = shiftMonth(year, month, -offset);
+      const entry = byPeriod.get(`${period.year}-${period.month}`);
+      points.push({
+        label: `${shortMonthNames[period.month - 1]} '${String(period.year).slice(2)}`,
+        income: entry ? parseFloat(entry.income_total) : 0,
+        expenses: entry ? parseFloat(entry.expense_total) : 0,
+        net: entry ? parseFloat(entry.balance) : 0,
+      });
+    }
+    return points;
+  }, [cashFlowMonths, year, month, range, shortMonthNames]);
+
+  const greeting = React.useMemo(() => {
+    const handle = user?.email?.split('@')[0] ?? '';
+    const name = handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : t('nav.dashboard');
+    const hour = now.getHours();
+    const key =
+      hour < 12
+        ? 'dashboard.greetingMorning'
+        : hour < 18
+          ? 'dashboard.greetingAfternoon'
+          : 'dashboard.greetingEvening';
+    return t(key, { name });
+  }, [user?.email, now, t]);
+
+  const periodQuery = `month=${month}&year=${year}`;
+  const viewAllBudgets = `/budgets?${periodQuery}`;
+  const newBudgetLink = `/budgets?${periodQuery}&add=1`;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('nav.dashboard')}</h1>
-          {/* Month navigation — the summary/breakdown cards follow this period */}
-          <div className="mt-2 flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={prevMonth}
-              aria-label={t('dashboard.prevMonth')}
-              title={t('dashboard.prevMonth')}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <button
-              type="button"
-              onClick={goCurrentMonth}
-              disabled={isCurrentMonth}
-              className="min-w-36 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-surface-hover disabled:cursor-default disabled:opacity-80"
-              title={t('dashboard.thisMonth')}
-            >
-              {monthNames[month - 1]} {year}
-            </button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={nextMonth}
-              disabled={isCurrentMonth}
-              aria-label={t('dashboard.nextMonth')}
-              title={t('dashboard.nextMonth')}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
-          <Wallet className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">{t('common.balance')}:</span>
-          <span className="font-semibold tabular-nums">{formatMoney(totalAssets)}</span>
-        </div>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          label={t('dashboard.currentBalance')}
-          value={summary ? formatMoney(summary.balance) : '—'}
-          icon={<ArrowUpRight className="h-5 w-5" />}
-          accent={summary && parseFloat(summary.balance) >= 0 ? 'income' : 'expense'}
-          loading={loading}
-        />
-        <StatCard
-          label={t('common.income')}
-          value={summary ? formatMoney(summary.income_total) : '—'}
-          icon={<ArrowUpRight className="h-5 w-5" />}
-          accent="income"
-          loading={loading}
-        />
-        <StatCard
-          label={t('common.expenses')}
-          value={summary ? formatMoney(summary.expense_total) : '—'}
-          icon={<ArrowDownRight className="h-5 w-5" />}
-          accent="expense"
-          loading={loading}
+    <div className="flex flex-col gap-4">
+      {/* Extra 8px so the header sits 24px above the summary row. */}
+      <div className="order-1 pb-2">
+        <DashboardHeader
+          year={year}
+          month={month}
+          isCurrentMonth={isCurrentMonth}
+          greeting={greeting}
+          onPrev={prevMonth}
+          onNext={nextMonth}
+          onCurrentMonth={goCurrentMonth}
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        {/* Category breakdown */}
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>{t('dashboard.categoryBreakdown')}</CardTitle>
-            <CardDescription>
-              {summary ? `${monthNames[summary.month - 1]} ${summary.year}` : ''}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-4/5" />
-                <Skeleton className="h-4 w-3/5" />
-              </div>
-            ) : (
-              <CategoryBreakdown
-                items={summary?.by_category ?? []}
-                total={parseFloat(summary?.expense_total ?? '0')}
-              />
-            )}
-          </CardContent>
-        </Card>
+      <div className="order-2">
+        <SummaryCards
+          loading={cardsLoading}
+          available={summary !== undefined}
+          balance={totalAssets}
+          net={net}
+          income={income}
+          expenses={expenses}
+          savingsRate={savingsRate}
+          deltas={deltas}
+        />
+      </div>
 
-        {/* Recent transactions */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>{t('dashboard.recentTransactions')}</CardTitle>
-            <Link
-              to="/transactions"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-            >
-              {t('dashboard.viewAll')}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {!hasTransactions && !recentQuery.isLoading ? (
-              <div className="py-6 text-center">
-                <p className="text-sm font-medium">{t('dashboard.noTransactionsTitle')}</p>
-                <p className="mt-1 text-sm text-dim">{t('dashboard.noTransactionsDesc')}</p>
-              </div>
-            ) : recentQuery.isLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : (
-              <ul className="divide-y divide-border">
-                {recent.map((tx) => {
-                  const cat = tx.category_id ? categoryById.get(tx.category_id) : undefined;
-                  const isIncome = tx.type === 'income';
-                  return (
-                    <li key={tx.id} className="flex items-center gap-3 py-2.5">
-                      <div
-                        className={cn(
-                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base',
-                          isIncome ? 'bg-income/10' : 'bg-expense/10',
-                        )}
-                      >
-                        {cat?.icon ? categoryIcon(cat.icon) : '•'}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{tx.description}</p>
-                        <p className="text-xs text-dim">
-                          {formatDate(tx.date)}
-                          {cat && <span className="ml-1.5">· {cat.name}</span>}
-                          {tx.installment_plan_id && (
-                            <Badge variant="secondary" className="ml-1.5">
-                              {t('transactions.installment')}
-                            </Badge>
-                          )}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          'shrink-0 text-sm font-semibold tabular-nums',
-                          isIncome ? 'text-income' : 'text-expense',
-                        )}
-                      >
-                        {isIncome ? '+' : '-'}
-                        {formatMoney(tx.amount)}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+      {/* Phones surface activity and budgets before the charts. */}
+      <div className="order-3 grid gap-4 md:order-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <RecentTransactionsCard
+          transactions={recentQuery.data?.items ?? []}
+          categoryById={categoryById}
+          accountById={accountById}
+          loading={recentLoading}
+        />
+        <div className="flex flex-col gap-4">
+          <BudgetsCard
+            items={budgetsQuery.data?.items ?? []}
+            loading={budgetsQuery.isLoading}
+            month={month}
+            year={year}
+            viewAllLink={viewAllBudgets}
+          />
+          <QuickActions newBudgetLink={newBudgetLink} />
+        </div>
+      </div>
+
+      <div className="order-4 grid gap-4 md:order-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <CashFlowCard
+          data={cashFlowSeries}
+          loading={cashFlowQuery.isLoading}
+          range={range}
+          onRangeChange={setRange}
+        />
+        <CategoryBreakdownCard
+          items={summary?.by_category ?? []}
+          total={expenses}
+          loading={summaryQuery.isLoading}
+        />
       </div>
     </div>
   );
 }
+

@@ -16,6 +16,7 @@ use crate::models::{
     AcknowledgeAlertsResponse, BudgetAlert, BudgetAlertListResponse, BudgetListResponse,
     BudgetSummaryItem, BudgetSummaryResponse, BudgetWithCategory, CreateBudgetRequest,
 };
+use crate::routes::settings;
 use crate::state::AppState;
 
 /// Query parameters for the budget list and summary.
@@ -98,12 +99,13 @@ pub async fn list_budgets(
     let (year, month) = resolve_period(&params)?;
 
     let items: Vec<BudgetWithCategory> = sqlx::query_as(
+        // LEFT JOIN so the overall budget (category_id IS NULL) is included.
         "SELECT b.id, b.category_id, c.name AS category_name,
                 c.icon, c.color, b.month::int, b.year::int, b.amount_limit
          FROM budgets b
-         JOIN categories c ON c.id = b.category_id
+         LEFT JOIN categories c ON c.id = b.category_id
          WHERE b.year = $1 AND b.month = $2
-         ORDER BY c.name",
+         ORDER BY b.category_id IS NULL DESC, c.name",
     )
     .bind(year)
     .bind(month)
@@ -149,93 +151,157 @@ pub async fn create_budget(
         ));
     }
 
-    let category_type: Option<String> =
-        sqlx::query_scalar("SELECT type FROM categories WHERE id = $1")
-            .bind(payload.category_id)
+    // `category_id = None` sets the overall monthly budget; otherwise the budget
+    // belongs to an expense category (and covers its descendants).
+    let category: Option<(Uuid, String, Option<String>, Option<String>)> = match payload.category_id
+    {
+        None => None,
+        Some(category_id) => {
+            let row = sqlx::query_as::<_, (Uuid, String, Option<String>, Option<String>)>(
+                "SELECT id, name, icon, color FROM categories WHERE id = $1",
+            )
+            .bind(category_id)
             .fetch_optional(&state.pg_pool)
             .await
             .map_err(|e| {
-                error!("Failed to check category: {}", e);
+                error!("Failed to fetch category info: {}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "Failed to validate category" })),
+                    Json(json!({ "error": "Failed to fetch category info" })),
                 )
             })?;
 
-    let cat_type = match category_type {
-        Some(t) => t,
-        None => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": "category_id does not reference an existing category" })),
-            ))
+            let row = match row {
+                Some(row) => row,
+                None => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({
+                            "error": "category_id does not reference an existing category"
+                        })),
+                    ))
+                }
+            };
+
+            let cat_type: String = sqlx::query_scalar("SELECT type FROM categories WHERE id = $1")
+                .bind(category_id)
+                .fetch_one(&state.pg_pool)
+                .await
+                .map_err(|e| {
+                    error!("Failed to check category: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "error": "Failed to validate category" })),
+                    )
+                })?;
+
+            if cat_type != "expense" {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "budgets can only be created for expense categories" })),
+                ));
+            }
+
+            // A limit applies to a category *or* its descendants, never both:
+            // reject a budget whose ancestors or subcategories already have
+            // one for the same month.
+            let conflicts: i64 = sqlx::query_scalar(
+                "WITH RECURSIVE ancestors AS (
+                         SELECT id, parent_id FROM categories WHERE id = $1
+                         UNION
+                         SELECT c.id, c.parent_id
+                         FROM categories c JOIN ancestors a ON c.id = a.parent_id
+                     ),
+                     descendants AS (
+                         SELECT id FROM categories WHERE parent_id = $1
+                         UNION
+                         SELECT c.id
+                         FROM categories c JOIN descendants d ON c.parent_id = d.id
+                     )
+                     SELECT COUNT(*)::bigint FROM budgets b
+                     WHERE b.year = $2 AND b.month = $3
+                       AND b.category_id IN (
+                           SELECT id FROM ancestors UNION SELECT id FROM descendants
+                       )",
+            )
+            .bind(category_id)
+            .bind(payload.year)
+            .bind(payload.month)
+            .fetch_one(&state.pg_pool)
+            .await
+            .map_err(|e| {
+                error!("Failed to check overlapping budgets: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to validate budget" })),
+                )
+            })?;
+
+            if conflicts > 0 {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": "this category already has a budget, or one of its parent \
+                                  categories does. A limit applies to a category or its \
+                                  subcategories, not both."
+                    })),
+                ));
+            }
+
+            Some(row)
         }
     };
-    if cat_type != "expense" {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "budgets can only be created for expense categories" })),
-        ));
-    }
 
-    let category = sqlx::query_as::<_, (Uuid, String, Option<String>, Option<String>)>(
-        "SELECT id, name, icon, color FROM categories WHERE id = $1",
-    )
-    .bind(payload.category_id)
-    .fetch_one(&state.pg_pool)
-    .await
-    .map_err(|e| {
-        error!("Failed to fetch category info: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Failed to fetch category info" })),
+    // Upsert: category budgets key on (category_id, month, year); the overall
+    // budget is unique per month through its partial index.
+    let (inserted, id): (bool, Uuid) = match payload.category_id {
+        Some(_) => sqlx::query_as(
+            "INSERT INTO budgets (category_id, month, year, amount_limit)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (category_id, month, year) DO UPDATE
+                 SET amount_limit = EXCLUDED.amount_limit, updated_at = NOW()
+             RETURNING (xmax = 0) AS inserted, id",
         )
-    })?;
-
-    // Upsert on (category_id, month, year). Creates when missing, updates otherwise.
-    let inserted = sqlx::query_scalar::<_, bool>(
-        "INSERT INTO budgets (category_id, month, year, amount_limit)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (category_id, month, year) DO UPDATE
-         SET amount_limit = EXCLUDED.amount_limit, updated_at = NOW()
-         RETURNING (xmax = 0) AS inserted",
-    )
-    .bind(payload.category_id)
-    .bind(payload.month)
-    .bind(payload.year)
-    .bind(payload.amount_limit)
-    .fetch_one(&state.pg_pool)
-    .await
-    .map_err(|e| {
-        error!("Failed to upsert budget: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Failed to create/update budget" })),
+        .bind(payload.category_id)
+        .bind(payload.month)
+        .bind(payload.year)
+        .bind(payload.amount_limit)
+        .fetch_one(&state.pg_pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to upsert budget: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to create/update budget" })),
+            )
+        })?,
+        None => sqlx::query_as(
+            "INSERT INTO budgets (category_id, month, year, amount_limit)
+             VALUES (NULL, $1, $2, $3)
+             ON CONFLICT (year, month) WHERE category_id IS NULL DO UPDATE
+                 SET amount_limit = EXCLUDED.amount_limit, updated_at = NOW()
+             RETURNING (xmax = 0) AS inserted, id",
         )
-    })?;
-
-    let id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM budgets WHERE category_id = $1 AND month = $2 AND year = $3",
-    )
-    .bind(payload.category_id)
-    .bind(payload.month)
-    .bind(payload.year)
-    .fetch_one(&state.pg_pool)
-    .await
-    .map_err(|e| {
-        error!("Failed to fetch budget id: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Failed to fetch budget" })),
-        )
-    })?;
+        .bind(payload.month)
+        .bind(payload.year)
+        .bind(payload.amount_limit)
+        .fetch_one(&state.pg_pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to upsert overall budget: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to create/update budget" })),
+            )
+        })?,
+    };
 
     let budget = BudgetWithCategory {
         id,
-        category_id: category.0,
-        category_name: category.1,
-        icon: category.2,
-        color: category.3,
+        category_id: payload.category_id,
+        category_name: category.as_ref().map(|c| c.1.clone()),
+        icon: category.as_ref().and_then(|c| c.2.clone()),
+        color: category.as_ref().and_then(|c| c.3.clone()),
         month: payload.month,
         year: payload.year,
         amount_limit: payload.amount_limit,
@@ -440,6 +506,9 @@ pub async fn budget_summary(
     Query(params): Query<BudgetParams>,
 ) -> Result<Json<BudgetSummaryResponse>, (StatusCode, Json<serde_json::Value>)> {
     let (year, month) = resolve_period(&params)?;
+    // Cards can be reported on their purchase date or their bill's due date; the
+    // same convention drives every spend figure here.
+    let dating = settings::card_expense_dating(&state.pg_pool).await;
 
     // Fetch each budget joined with category, plus actual spending for the month.
     #[derive(sqlx::FromRow)]
@@ -456,21 +525,34 @@ pub async fn budget_summary(
     }
 
     let rows: Vec<BudgetRow> = sqlx::query_as(
-        "SELECT b.id, b.category_id, c.name AS category_name,
+        // Spend is evaluated on the reporting date (card-expense dating
+        // preference) and includes the category's descendants, so a budget on a
+        // parent category covers its subcategories exactly once.
+        "WITH RECURSIVE category_tree AS (
+             SELECT id AS root_id, id AS node_id FROM categories
+             UNION
+             SELECT ct.root_id, c.id
+             FROM category_tree ct JOIN categories c ON c.parent_id = ct.node_id
+         )
+         SELECT b.id, b.category_id, c.name AS category_name,
                 c.icon, c.color, b.month::int, b.year::int, b.amount_limit,
                 (SELECT COALESCE(SUM(t.amount), 0)::numeric
                  FROM transactions t
-                 WHERE t.category_id = b.category_id
-                   AND t.type = 'expense'
-                   AND EXTRACT(YEAR FROM t.date)::int = b.year
-                   AND EXTRACT(MONTH FROM t.date)::int = b.month) AS actual_spent
+                 WHERE t.type = 'expense'
+                   AND t.category_id IN (
+                       SELECT node_id FROM category_tree WHERE root_id = b.category_id
+                   )
+                   AND t.date >= make_date(b.year, b.month, 1) - INTERVAL '3 months'
+                   AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3))
+                       = make_date(b.year, b.month, 1)) AS actual_spent
          FROM budgets b
-         JOIN categories c ON c.id = b.category_id
-         WHERE b.year = $1 AND b.month = $2
+         LEFT JOIN categories c ON c.id = b.category_id
+         WHERE b.year = $1 AND b.month = $2 AND b.category_id IS NOT NULL
          ORDER BY c.name",
     )
     .bind(year)
     .bind(month)
+    .bind(&dating)
     .fetch_all(&state.pg_pool)
     .await
     .map_err(|e| {
@@ -500,8 +582,9 @@ pub async fn budget_summary(
         items.push(BudgetSummaryItem {
             budget: BudgetWithCategory {
                 id: row.id,
-                category_id: row.category_id,
-                category_name: row.category_name,
+                // The query filters out the overall row, so these are set.
+                category_id: Some(row.category_id),
+                category_name: Some(row.category_name),
                 icon: row.icon,
                 color: row.color,
                 month: row.month,
@@ -514,8 +597,66 @@ pub async fn budget_summary(
         });
     }
 
+    // The overall monthly budget, when one is set. Unlike a category budget its
+    // spend is the month's *total* spending — that is the question it answers.
+    #[derive(sqlx::FromRow)]
+    struct OverallRow {
+        id: Uuid,
+        amount_limit: Decimal,
+        actual_spent: Option<Decimal>,
+    }
+
+    let overall_row: Option<OverallRow> = sqlx::query_as::<_, OverallRow>(
+        "SELECT b.id, b.amount_limit,
+                (SELECT COALESCE(SUM(t.amount), 0)::numeric
+                 FROM transactions t
+                 WHERE t.type = 'expense'
+                   AND t.date >= make_date(b.year, b.month, 1) - INTERVAL '3 months'
+                   AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3))
+                       = make_date(b.year, b.month, 1)) AS actual_spent
+         FROM budgets b
+         WHERE b.category_id IS NULL AND b.year = $1 AND b.month = $2",
+    )
+    .bind(year)
+    .bind(month)
+    .bind(&dating)
+    .fetch_optional(&state.pg_pool)
+    .await
+    .map_err(|e| {
+        error!("Failed to fetch overall budget: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to fetch budget summary" })),
+        )
+    })?;
+
+    let overall = overall_row.map(|row| {
+        let actual = row.actual_spent.unwrap_or_default();
+        let percentage = if row.amount_limit > Decimal::ZERO {
+            (actual / row.amount_limit) * Decimal::from(100)
+        } else {
+            Decimal::ZERO
+        };
+        BudgetSummaryItem {
+            budget: BudgetWithCategory {
+                id: row.id,
+                category_id: None,
+                category_name: None,
+                icon: None,
+                color: None,
+                month,
+                year,
+                amount_limit: row.amount_limit,
+            },
+            actual_spent: actual,
+            percentage,
+            remaining: row.amount_limit - actual,
+        }
+    });
+
     // Generate budget alerts for budgets that crossed the 80% threshold and
     // don't already have an unacknowledged alert for this period.
+    // (The overall budget is a headline limit, not a category alert source.)
     for item in &items {
         if item.percentage >= Decimal::from(80) {
             let budget_id = item.budget.id;
@@ -553,6 +694,7 @@ pub async fn budget_summary(
 
     Ok(Json(BudgetSummaryResponse {
         items,
+        overall,
         total_budgeted,
         total_spent,
         month,

@@ -36,6 +36,31 @@ pub fn router() -> Router<AppState> {
         )
 }
 
+/// `true` when `candidate` is a descendant of `category_id`.
+///
+/// Used to keep the category tree acyclic: moving a category under one of its
+/// own subcategories would otherwise create a loop that no descendant query
+/// could terminate on.
+async fn is_category_descendant(
+    pool: &sqlx::PgPool,
+    category_id: Uuid,
+    candidate: Uuid,
+) -> Result<bool, sqlx::Error> {
+    let found: Option<Uuid> = sqlx::query_scalar(
+        "WITH RECURSIVE descendants AS (
+             SELECT id FROM categories WHERE parent_id = $1
+             UNION
+             SELECT c.id FROM categories c JOIN descendants d ON c.parent_id = d.id
+         )
+         SELECT id FROM descendants WHERE id = $2 LIMIT 1",
+    )
+    .bind(category_id)
+    .bind(candidate)
+    .fetch_optional(pool)
+    .await?;
+    Ok(found.is_some())
+}
+
 /// Lists categories, optionally filtered by type.
 ///
 /// Returns `400` if an invalid `type` filter is provided.
@@ -130,8 +155,8 @@ pub async fn create_category(
     }
 
     if let Some(pid) = payload.parent_id {
-        let exists: Option<uuid::Uuid> =
-            sqlx::query_scalar("SELECT id FROM categories WHERE id = $1")
+        let parent_type: Option<String> =
+            sqlx::query_scalar("SELECT type FROM categories WHERE id = $1")
                 .bind(pid)
                 .fetch_optional(&state.pg_pool)
                 .await
@@ -143,11 +168,23 @@ pub async fn create_category(
                     )
                 })?;
 
-        if exists.is_none() {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": "parent_id does not reference an existing category" })),
-            ));
+        match parent_type {
+            None => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "parent_id does not reference an existing category" })),
+                ))
+            }
+            // Income and expense branches must stay separate.
+            Some(parent) if parent != payload.r#type => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": "parent category must have the same type (income or expense)"
+                    })),
+                ))
+            }
+            Some(_) => {}
         }
     }
 
@@ -259,22 +296,92 @@ pub async fn update_category(
                 Json(json!({ "error": "parent_id cannot reference the category itself" })),
             ));
         }
-        let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM categories WHERE id = $1")
-            .bind(pid)
-            .fetch_optional(&state.pg_pool)
+
+        let parent_type: Option<String> =
+            sqlx::query_scalar("SELECT type FROM categories WHERE id = $1")
+                .bind(pid)
+                .fetch_optional(&state.pg_pool)
+                .await
+                .map_err(|e| {
+                    error!("Failed to check parent category: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "error": "Failed to validate parent category" })),
+                    )
+                })?;
+
+        match parent_type {
+            None => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "parent_id does not reference an existing category" })),
+                ))
+            }
+            Some(parent) if parent != payload.r#type => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": "parent category must have the same type (income or expense)"
+                    })),
+                ))
+            }
+            Some(_) => {}
+        }
+
+        // Moving a category under one of its own descendants would create a cycle.
+        let would_cycle = is_category_descendant(&state.pg_pool, id, pid)
             .await
             .map_err(|e| {
-                error!("Failed to check parent category: {}", e);
+                error!("Failed to check category ancestry: {}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({ "error": "Failed to validate parent category" })),
                 )
             })?;
 
-        if exists.is_none() {
+        if would_cycle {
             return Err((
                 StatusCode::BAD_REQUEST,
-                Json(json!({ "error": "parent_id does not reference an existing category" })),
+                Json(json!({ "error": "a category cannot be moved under its own subcategory" })),
+            ));
+        }
+    }
+
+    // Changing the type of a category that has subcategories would leave the
+    // tree with mixed income/expense branches.
+    let child_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM categories WHERE parent_id = $1")
+            .bind(id)
+            .fetch_one(&state.pg_pool)
+            .await
+            .map_err(|e| {
+                error!("Failed to check subcategories: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to validate category" })),
+                )
+            })?;
+
+    if child_count.0 > 0 {
+        let current_type: Option<String> =
+            sqlx::query_scalar("SELECT type FROM categories WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&state.pg_pool)
+                .await
+                .map_err(|e| {
+                    error!("Failed to fetch category type: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "error": "Failed to validate category" })),
+                    )
+                })?;
+
+        if current_type.as_deref() != Some(payload.r#type.as_str()) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": "remove the subcategories before changing this category's type"
+                })),
             ));
         }
     }

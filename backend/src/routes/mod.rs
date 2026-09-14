@@ -6,8 +6,11 @@ pub mod categories;
 pub mod credit_cards;
 pub mod installments;
 pub mod ledger;
+pub mod products;
 pub mod receipts;
 pub mod reports;
+pub mod settings;
+pub mod stores;
 pub mod summary;
 pub mod sync;
 pub mod transactions;
@@ -30,6 +33,9 @@ pub fn api_router() -> Router<AppState> {
         .merge(auth::router())
         .merge(audit::router())
         .merge(receipts::router())
+        .merge(products::router())
+        .merge(stores::router())
         .merge(installments::router())
+        .merge(settings::router())
         .merge(sync::router())
 }

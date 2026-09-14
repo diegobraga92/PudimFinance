@@ -23,14 +23,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CHART_COLORS } from '@/lib/chart-colors';
 import { categoryIcon } from '@shared/category-icons';
 import { cn } from '@/lib/utils';
-
-const CHART_COLORS = [
-  '#22c55e', '#ef4444', '#3b82f6', '#eab308', '#8b5cf6',
-  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#14b8a6',
-  '#6366f1', '#a3e635',
-];
 
 type ReportTab = 'overview' | 'breakdown' | 'trends';
 
@@ -164,16 +159,16 @@ export function ReportsPage() {
                       <YAxis tick={{ fontSize: 12 }} />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: 'var(--color-surface)',
-                          border: '1px solid var(--color-border)',
+                          backgroundColor: 'rgb(var(--surface-elevated))',
+                          border: '1px solid rgb(var(--border))',
                           borderRadius: '0.5rem',
                           fontSize: '0.875rem',
                         }}
                         formatter={(value) => formatMoney(Number(value))}
                       />
                       <Legend />
-                      <Line type="monotone" dataKey="income_total" name={t('reports.income')} stroke="var(--color-income)" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="expense_total" name={t('reports.expenses')} stroke="var(--color-expense)" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="income_total" name={t('reports.income')} stroke="rgb(var(--income))" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="expense_total" name={t('reports.expenses')} stroke="rgb(var(--expense))" strokeWidth={2} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -215,8 +210,8 @@ export function ReportsPage() {
                       <Tooltip
                         formatter={(value, name) => [formatMoney(Number(value)), String(name)]}
                         contentStyle={{
-                          backgroundColor: 'var(--color-surface)',
-                          border: '1px solid var(--color-border)',
+                          backgroundColor: 'rgb(var(--surface-elevated))',
+                          border: '1px solid rgb(var(--border))',
                           borderRadius: '0.5rem',
                           fontSize: '0.875rem',
                         }}
@@ -301,16 +296,16 @@ export function ReportsPage() {
                     <Tooltip
                       formatter={(value) => formatMoney(Number(value))}
                       contentStyle={{
-                        backgroundColor: 'var(--color-surface)',
-                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'rgb(var(--surface-elevated))',
+                        border: '1px solid rgb(var(--border))',
                         borderRadius: '0.5rem',
                         fontSize: '0.875rem',
                       }}
                     />
                     <Legend />
-                    <Line type="monotone" dataKey="income_total" name={t('reports.income')} stroke="var(--color-income)" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="expense_total" name={t('reports.expenses')} stroke="var(--color-expense)" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="net" name={t('reports.net')} stroke="var(--color-primary)" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="income_total" name={t('reports.income')} stroke="rgb(var(--income))" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="expense_total" name={t('reports.expenses')} stroke="rgb(var(--expense))" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="net" name={t('reports.net')} stroke="rgb(var(--info))" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

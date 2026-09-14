@@ -30,6 +30,7 @@ export default {
         primary: {
           DEFAULT: 'rgb(var(--primary) / <alpha-value>)',
           foreground: 'rgb(var(--primary-foreground) / <alpha-value>)',
+          hover: 'rgb(var(--primary-hover) / <alpha-value>)',
         },
         accent: {
           DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
@@ -42,18 +43,35 @@ export default {
         income: 'rgb(var(--income) / <alpha-value>)',
         expense: 'rgb(var(--expense) / <alpha-value>)',
         warning: 'rgb(var(--warning) / <alpha-value>)',
+        success: {
+          DEFAULT: 'rgb(var(--success) / <alpha-value>)',
+          foreground: 'rgb(var(--success-foreground) / <alpha-value>)',
+        },
+        danger: {
+          DEFAULT: 'rgb(var(--danger) / <alpha-value>)',
+          foreground: 'rgb(var(--danger-foreground) / <alpha-value>)',
+        },
+        purple: 'rgb(var(--purple) / <alpha-value>)',
+        info: 'rgb(var(--info) / <alpha-value>)',
+        'surface-elevated': 'rgb(var(--surface-elevated) / <alpha-value>)',
       },
+      /**
+       * Radius scale: cards sit at 16px (`rounded-lg`), controls/buttons at 8px
+       * (`rounded-md`), chips/nav pills at 6px (`rounded-sm`). Inner panels such
+       * as the dashed empty state use an explicit `rounded-[12px]`.
+       */
       borderRadius: {
+        xl: 'calc(var(--radius) + 4px)',
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'calc(var(--radius) - 8px)',
+        sm: 'calc(var(--radius) - 10px)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
       },
       boxShadow: {
-        card: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.05)',
+        card: 'var(--shadow-card)',
         popover: '0 10px 38px -10px rgb(0 0 0 / 0.12), 0 8px 20px -15px rgb(0 0 0 / 0.18)',
       },
       keyframes: {

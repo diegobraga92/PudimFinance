@@ -38,10 +38,20 @@ interface Props {
   categories: Category[];
   editing: Category | null;
   initialType: 'income' | 'expense';
+  /** Pre-selected parent when adding a subcategory from the tree. */
+  initialParentId?: string;
   onSaved: (name: string) => void;
 }
 
-export function CategoryForm({ open, onOpenChange, categories, editing, initialType, onSaved }: Props) {
+export function CategoryForm({
+  open,
+  onOpenChange,
+  categories,
+  editing,
+  initialType,
+  initialParentId,
+  onSaved,
+}: Props) {
   const { t } = useI18n();
   const isEditing = editing !== null;
 
@@ -59,10 +69,10 @@ export function CategoryForm({ open, onOpenChange, categories, editing, initialT
     setType(editing?.type === 'income' ? 'income' : initialType);
     setIcon(editing?.icon || (editing?.type === 'income' ? DEFAULT_INCOME_ICON : DEFAULT_EXPENSE_ICON));
     setColor(editing?.color || DEFAULT_COLOR);
-    setParentId(editing?.parent_id ?? '');
+    setParentId(editing?.parent_id ?? initialParentId ?? '');
     setError(null);
     setSaving(false);
-  }, [open, editing, initialType]);
+  }, [open, editing, initialType, initialParentId]);
 
   // Only top-level categories of the same type can be parents.
   const parentOptions = categories.filter(

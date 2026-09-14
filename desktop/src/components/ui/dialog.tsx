@@ -33,7 +33,11 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-surface p-6 shadow-popover duration-200 data-[state=open]:animate-in sm:rounded-lg',
+        // Phone: a bottom sheet, full width, clearing the Android insets.
+        'fixed inset-x-0 bottom-0 top-auto z-50 mx-auto grid w-full max-w-lg gap-4 border border-border bg-surface shadow-popover duration-200 data-[state=open]:animate-in',
+        'max-h-[92vh] overflow-y-auto rounded-t-2xl border-b-0 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]',
+        // Tablet and up: the centred desktop dialog (per-page max widths apply).
+        'md:inset-auto md:left-[50%] md:top-[50%] md:mx-0 md:max-h-[90vh] md:translate-x-[-50%] md:translate-y-[-50%] md:rounded-lg md:border-b md:p-6 md:pb-6',
         className,
       )}
       {...props}

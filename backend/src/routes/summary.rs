@@ -12,6 +12,7 @@ use tracing::error;
 use utoipa::ToSchema;
 
 use crate::models::{CategorySummary, SummaryResponse};
+use crate::routes::settings;
 use crate::state::AppState;
 
 /// Query parameters for the summary endpoint.
@@ -69,6 +70,11 @@ pub async fn get_summary(
     }
 
     let rows: Vec<SummaryRow> = sqlx::query_as(
+        // `effective_transaction_date` honours the card-expense dating
+        // preference (purchase date vs. bill due date). The extra `date`
+        // predicate keeps the scan index-friendly: the effective date is never
+        // earlier than the transaction date, and never more than a billing
+        // cycle later.
         "SELECT
             t.category_id,
             c.name AS category_name,
@@ -78,13 +84,15 @@ pub async fn get_summary(
             COALESCE(SUM(t.amount), 0)::numeric AS total
          FROM transactions t
          LEFT JOIN categories c ON c.id = t.category_id
-         WHERE EXTRACT(YEAR FROM t.date)::int = $1
-           AND EXTRACT(MONTH FROM t.date)::int = $2
+         WHERE t.date >= make_date($1, $2, 1) - INTERVAL '3 months'
+           AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3))
+               = make_date($1, $2, 1)
          GROUP BY t.category_id, c.name, c.color, c.icon, t.type
          ORDER BY total DESC",
     )
     .bind(year)
     .bind(month as i32)
+    .bind(settings::card_expense_dating(&state.pg_pool).await)
     .fetch_all(&state.pg_pool)
     .await
     .map_err(|e| {
@@ -100,11 +108,13 @@ pub async fn get_summary(
     let mut by_category: Vec<CategorySummary> = Vec::new();
 
     for row in rows {
-        match row.r#type.as_str() {
-            "income" => income_total += row.total,
-            _ => expense_total += row.total,
+        if row.r#type == "income" {
+            income_total += row.total;
+            continue;
         }
-
+        expense_total += row.total;
+        // `by_category` is the *expense* breakdown (the per-category totals the
+        // dashboards chart); income accounts are reported through `income_total`.
         by_category.push(CategorySummary {
             category_id: row.category_id,
             category_name: row.category_name,

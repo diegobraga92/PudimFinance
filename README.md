@@ -160,8 +160,15 @@ Boleto pago R$ 85,75                     → expense 85.75
 
 Credit cards are `liability` accounts with a **closing day** (fatura fecha) and a
 **due day** (vencimento). Card purchases are recorded as expenses dated at
-purchase time — so they count in the month they're made — and post double-entry
-ledger entries (debit expense, credit card), growing the card balance.
+purchase time and post double-entry ledger entries (debit expense, credit
+card), growing the card balance.
+
+Reporting is configurable: **Credit Cards → Card expense dating** decides whether
+a card purchase counts in the month it was made (`purchase_date`, the default)
+or in the month its bill is due (`due_date`; the `card_expense_dating` setting
+behind `/api/settings`). The ledger always keeps the real purchase date — only
+the dashboard, budgets, reports and the transaction list's date filters follow
+the preference (see `012_card_expense_dating.sql`).
 
 Each purchase is attached to the billing cycle it falls into, producing monthly
 **bills** with computed totals and a payment deadline:
@@ -177,6 +184,182 @@ Each purchase is attached to the billing cycle it falls into, producing monthly
 Installment plans accept an optional `account_id`, so their generated installments
 land on the right card and become anticipatable.
 
+
+---
+
+### Budgets & Categories
+
+The desktop client keeps **planning** and **organisation** on one screen
+(`/budgets`), with two tabs — *Budgets* and *Categories* — plus a month selector
+that deep-links (`/budgets?month=&year=`; the dashboard's "New budget" shortcut
+adds `&add=1`). `/categories` redirects to `/budgets?tab=categories`.
+
+**Category hierarchy.** `categories.parent_id` (migration `001`) gives every
+category an optional parent. The API keeps the tree valid
+(`backend/src/routes/categories.rs`):
+
+- a child must share its parent's type — income and expense branches never mix;
+- a category cannot be moved under one of its own subcategories (cycles);
+- changing the type of a category that still has subcategories is rejected;
+- deleting a category is refused (`409`) while transactions reference it or
+  subcategories depend on it.
+
+**Budgets.** A budget row is either a *category budget* (`category_id` set) or the
+*overall monthly budget* (`category_id IS NULL`, one per month via a partial
+unique index — migration `013`). The overall limit is an independent "how much
+can I spend this month?" figure; it does not need to match the sum of the
+category limits, and the UI says so when it falls back to that sum.
+
+A category's budget covers its **descendants**, so a parent limit counts
+subcategory spending exactly once. To keep that unambiguous, a month cannot hold
+overlapping limits: creating a budget for a category whose parent, child (or any
+other ancestor/descendant) already has one returns `400`. Because limits are
+resolved at read time, a category budget with no transactions still reports
+`R$ 0,00 spent`, and moving a purchase between subcategories is reflected
+immediately with no backfill.
+
+`GET /api/budgets/summary` returns the category budgets in `items` (each with
+`actual_spent`, `percentage` and `remaining`) plus the optional `overall` row,
+whose `actual_spent` is the month's total spending. Percentages decide how the UI
+colours each row: `< 80%` healthy, `80–99%` approaching the limit, `≥ 100%` over
+budget — the same `80%` threshold the backend uses to raise alerts. Every figure
+on the screen comes from the API; the client never re-derives spend.
+
+---
+
+### Tools — Reconciliation, Ledger & Audit Log
+
+The accounting screens are one workspace, not three unrelated pages. **Tools** in
+the header is a grouped menu (*Accounting & data* → Reconciliation, Ledger, Audit
+Log; *Other tools* → Credit Cards; *Settings* → Server) and the three accounting
+screens share a header plus three large tabs. The active tab is the route
+(`/reconciliation`, `/ledger`, `/audit`), so every tool stays directly linkable and
+the workspace never keeps a tab state that disagrees with the URL
+(`desktop/src/features/tools/ToolsWorkspace.tsx`). No API behaviour changed.
+
+**Reconciliation** (`/reconciliation`) answers one question: what matched? A
+drag-and-drop zone accepts a CSV or OFX file (with the manual CSV paste kept
+behind a toggle), the statement name is optional and "auto-create transactions for
+unmatched rows" explains that unmatched rows become uncategorized expenses. The
+result card shows *Imported / Matched / Need review / Created*, a matched
+percentage bar, and the statement rows with their match badge, confidence and an
+action per row — *View* opens the matched transaction (`GET /api/transactions/{id}`),
+and an unmatched row links to the add-transaction form. The **Recent
+reconciliations** card lists the stored history with a `Completed` / `N to
+review` badge; row-level results exist only for the import in memory, so opening a
+history entry shows the stored summary and says so.
+
+**Ledger** (`/ledger`) is a read-only double-entry inspection surface for advanced
+users — day-to-day money stays on Transactions. It lists Date, Description, Debit
+account, Credit account, Amount and a per-entry balance mark, with a header
+indicator ("Double-entry accounting · Balanced") computed from the rows on screen;
+clicking a row opens the full entry list, both IDs and the recorded timestamp.
+Search, account and date filters run client-side over the ledger payload. *New
+Ledger Entry* records both sides at once (so an entry always balances), and
+*Migrate single → double* is a secondary action behind a confirmation dialog that
+reports the migration counts when it finishes.
+
+**Audit Log** (`/audit`) is administrative. Non-admins get a single "Admin access
+required" card instead of an empty table that looks like there was no activity.
+Admins can filter by event type and date range — the filters the API supports
+(`event_type`, `start_date`, `end_date`, `page`, `page_size`) — page through the
+trail, and open any event's payload. Actor is shown only when the event carries
+one; the event model has no actor column.
+
+---
+
+### Receipts, Items & Prices
+
+Receipts are more than a scanner: every saved receipt feeds a personal price
+database. The screen (`/receipts`) has five local tabs —
+*Overview*, *Scan*, *Receipts*, *Items & Prices* and *Stores* — with the tab in
+the URL (`?tab=scan`). Receipts now sits in the **primary** navigation, next to
+Reports: it became a daily surface, so it left the Tools menu.
+
+**Scanning.** An NFC-e QR code is parsed by the backend; a photo is read by
+tesseract.js **in the client** and the extracted text is parsed by
+`POST /api/receipts/ocr`, so both paths produce the same structure. Nothing is
+stored until the review step: the parsed store, date, total and every line item
+are editable, and `source` (`nfce` / `ocr`) is stored with the receipt — the
+price-tracking screens badge it. Saving keeps the receipt's printed total; only
+*item* edits recompute it (see below).
+
+**Products and prices.** Items become normalized products (`normalized_products`)
+and every item with a unit price is one price record. A product's history is its
+records ordered by receipt date, so "latest" and "previous" are real purchases,
+never interpolated values. The API returns `latest_price`, `previous_price`,
+`change_percentage` (null when there is only one record — the UI then shows the
+record count instead of "0%"), average, lowest, highest and the per-store
+comparison (`GET /api/products/{id}`), including each store's own previous price
+so the change is per store rather than global. Duplicate products are repaired
+with `POST /api/receipts/product/merge` from the *Items & Prices* tab; the
+backend stays the owner of product identity.
+
+**Stores.** Stores are derived from receipts — never created by hand. Migration
+`014` deduplicated the legacy rows (the old save path inserted a fresh store per
+receipt) and added partial unique indexes so a store is matched by CNPJ, or by
+name when no CNPJ is known. A store disappears when its last receipt is deleted.
+`GET /api/stores` accepts a period (`month`, `last_month`, `3m`, `6m`, `year`,
+`all`) that scopes the aggregates; `GET /api/stores/{id}` returns the monthly
+spend buckets, the most purchased items, the item prices recorded there and the
+latest receipts.
+
+**Receipt history vs price history.** The *Receipts* tab answers "what did I
+buy?" (store, date, items, total, source, paging and filters) and the *Items &
+Prices* tab answers "how much has this cost?" (latest, previous, change, then a
+chart of actual prices, the purchases and where to buy it cheapest). The
+two-way navigation is wired: a receipt item opens its product's history, and a
+product's history lists the stores that sold it.
+
+**Offline.** Receipts, products and price history are **not** in the offline
+mirror: scanning, OCR parsing and price queries need the server. The screens show
+an explicit "this feature needs a connection" message and a retry instead of
+silently failing.
+
+---
+
+### Android shell & mobile layout
+
+The client is one responsive React app; there is no separate Android build of the
+UI. At the `md` breakpoint (768px — `useIsMobile` is not needed, everything is
+CSS-driven) the composition switches:
+
+| | Desktop (`≥ md`) | Phone (`< md`, Android) |
+| --- | --- | --- |
+| Navigation | top bar + grouped **Tools** menu | bottom tab bar: **Home · Transactions · Accounts · Budgets · More** |
+| Screen header | page title + subtitle + actions | compact app bar (brand on tabs, back arrow + title elsewhere) |
+| Primary action | header buttons | floating **+** on Home and Transactions |
+| Dialogs | centred modal | bottom sheet, full width, safe-area padded |
+| Tables | real tables | cards/lists under month headings |
+| Touch targets | 32–36px controls | 44–48px buttons, inputs and select items |
+
+`src/app/MobileTabBar.tsx` holds the five destinations, `src/app/MobileTopBar.tsx`
+the app bar (brand on tabs, back arrow plus the screen title elsewhere, bell only
+where notification capture exists), `src/app/QuickAddFab.tsx` the FAB (it reuses
+the `?add=1` deep link) and `src/features/more/MorePage.tsx` the **More** tab,
+which is where receipts, the accounting tools and settings moved so the bottom bar
+stays at five entries. `src/app/navigation.ts` owns `MOBILE_TABS`, plus
+`screenTitleKey()`/`isMobileRoot()` so the app bar title always matches the route.
+
+Layout rules that apply everywhere: safe-area insets (`env(safe-area-inset-*)`)
+on both the app bar and the tab bar, `viewport-fit=cover` in `index.html`, 16px
+inputs so Android never zooms on focus, `overscroll-behavior` so the page does not
+bounce behind the fixed tab bar, no tap highlight, and no horizontal scrolling
+(tables become cards or scroll inside their own container).
+
+Phone-specific compositions: the dashboard puts activity and budgets above the
+charts and starts with a compact greeting instead of a 28px title; Transactions
+gets type chips, a collapsible filter panel and a month-grouped list
+(`features/transactions/group-by-month.ts`); Accounts gets full-width scrollable
+chips; Receipts gets two large capture shortcuts (QR / photo); Reconciliation
+becomes a three-step wizard (**Upload → Match → Review**, each step a tappable
+chip, with per-row cards); Audit Log uses expandable event cards with the raw
+payload inline; and the Ledger shows the same table data as stacked rows with its
+filters wrapping.
+
+`npm run test:android` server-side renders the shell, the More tab, the primary
+screens and the accounting tools, then asserts the navigation model and the month
+grouping — no backend or browser needed.
 
 ---
 
@@ -240,9 +423,9 @@ Internal container-to-container communication (`postgres:5432`, `backend:3000`,
 |--------|------|-------------|
 | `GET` | `/health` | Health check (API + database status) |
 | `GET` | `/api/categories` | List categories (filter by `?type=income\|expense`) |
-| `POST` | `/api/categories` | Create category |
+| `POST` | `/api/categories` | Create category (parent must share the type) |
 | `GET` | `/api/categories/{id}` | Get single category |
-| `PUT` | `/api/categories/{id}` | Update category |
+| `PUT` | `/api/categories/{id}` | Update category (`400` on cycles or mixed-type branches) |
 | `DELETE` | `/api/categories/{id}` | Delete category (409 if in use) |
 | `GET` | `/api/accounts` | List chart-of-accounts with computed balances |
 | `POST` | `/api/accounts` | Create account (asset/liability/equity/income/expense; liability = credit card when `closing_day`/`due_day` set) |
@@ -264,20 +447,29 @@ Internal container-to-container communication (`postgres:5432`, `backend:3000`,
 | `PUT` | `/api/transactions/{id}` | Update transaction (re-posts its ledger entries) |
 | `DELETE` | `/api/transactions/{id}` | Delete transaction (removes its ledger entries) |
 | `GET` | `/api/summary` | Current month totals (income, expense, balance), grouped by category |
-| `GET` | `/api/receipts` | List saved receipts (includes items + normalized product ids) |
-| `POST` | `/api/receipts` | Save a parsed receipt |
+| `GET` | `/api/receipts` | List receipts (search, store, date range, min/max total, source, paging) |
+| `POST` | `/api/receipts` | Save a reviewed receipt (`source`: `nfce` \| `ocr`) |
+| `GET` | `/api/receipts/{id}` | Receipt with its items |
+| `DELETE` | `/api/receipts/{id}` | Delete a receipt (plus any store/product left without records) |
+| `PUT` | `/api/receipts/{id}/items/{item_id}` | Edit an item; the receipt total is recomputed |
+| `DELETE` | `/api/receipts/{id}/items/{item_id}` | Delete an item; the receipt total is recomputed |
 | `POST` | `/api/receipts/scan` | Parse an NFC-e QR code into receipt data |
 | `POST` | `/api/receipts/ocr` | Parse raw receipt text (OCR helper) |
-| `GET` | `/api/receipts/price-history` | Price history for a normalized product |
+| `GET` | `/api/receipts/stats` | Overview numbers (receipts, spend, items tracked, stores) |
+| `GET` | `/api/receipts/price-history` | Price history for a normalized product (legacy shape) |
 | `POST` | `/api/receipts/product/merge` | Merge duplicate normalized products |
+| `GET` | `/api/products` | Products with price statistics (`change`, `sort`, paging) |
+| `GET` | `/api/products/{id}` | Price history, every record and the per-store comparison |
+| `GET` | `/api/stores` | Stores with receipt aggregates (`period`, `sort`, paging) |
+| `GET` | `/api/stores/{id}` | Store detail (monthly spend, top items, item prices, receipts) |
 | `POST` | `/api/reconciliation` | Upload bank statement CSV for reconciliation |
 | `POST` | `/api/reconciliation/upload` | Upload a bank statement file |
 | `GET` | `/api/reconciliation/history` | List previous reconciliation runs |
 | `GET` | `/api/audit/events` | List immutable audit events (admin-only) |
-| `GET` | `/api/budgets` | List budgets for the current month |
-| `POST` | `/api/budgets` | Create budget |
+| `GET` | `/api/budgets` | List budgets for a month (includes the overall budget) |
+| `POST` | `/api/budgets` | Create/update a budget (omit `category_id` for the overall budget; `400` on overlapping parent/child limits) |
 | `DELETE` | `/api/budgets/{id}` | Delete budget |
-| `GET` | `/api/budgets/summary` | Budget spend vs limit for a month |
+| `GET` | `/api/budgets/summary` | Budget spend vs limit for a month (category `items` + optional `overall`; parent budgets include descendant spend) |
 | `GET` | `/api/budgets/alerts` | List budget alerts (threshold crossings) |
 | `POST` | `/api/budgets/alerts/{id}/acknowledge` | Acknowledge a single alert |
 | `POST` | `/api/budgets/alerts/acknowledge-all` | Acknowledge all alerts |
@@ -292,6 +484,8 @@ Internal container-to-container communication (`postgres:5432`, `backend:3000`,
 | `POST` | `/api/installments/{id}/generate` | Lazily generate the plan's transactions |
 | `POST` | `/api/installments/{id}/installment/{number}/pay` | Pay a single installment |
 | `DELETE` | `/api/installments/{id}` | Delete an installment plan |
+| `GET` | `/api/settings` | Read application preferences (`card_expense_dating`) |
+| `PUT` | `/api/settings` | Update application preferences |
 
 The full OpenAPI 3.1 spec is available at `http://localhost:3000/api-docs/openapi.json` and served via Swagger UI at `http://localhost:3000/swagger-ui`.
 

@@ -59,6 +59,31 @@ export type AnticipateInstallmentsResponse = components['schemas']['AnticipateIn
 export type CreateInstallmentPlanRequest = components['schemas']['CreateInstallmentPlanRequest'];
 export type GenerateInstallmentsResponse = components['schemas']['GenerateInstallmentsResponse'];
 export type InstallmentPlan = components['schemas']['InstallmentPlan'];
+export type AppSettings = components['schemas']['AppSettings'];
+export type UpdateAppSettingsRequest = components['schemas']['UpdateAppSettingsRequest'];
+
+// Receipts, products and stores (price tracking)
+export type SaveReceiptBody = components['schemas']['SaveReceiptBody'];
+export type NewReceiptItem = components['schemas']['NewReceiptItem'];
+export type ReceiptSummary = components['schemas']['ReceiptSummary'];
+export type ReceiptListResponse = components['schemas']['ReceiptListResponse'];
+export type ReceiptItemDetail = components['schemas']['ReceiptItemDetail'];
+export type ReceiptDetail = components['schemas']['ReceiptDetail'];
+export type ReceiptStats = components['schemas']['ReceiptStats'];
+export type ProductSummary = components['schemas']['ProductSummary'];
+export type ProductListResponse = components['schemas']['ProductListResponse'];
+export type ProductPriceRecord = components['schemas']['ProductPriceRecord'];
+export type ProductStorePrice = components['schemas']['ProductStorePrice'];
+export type ProductDetail = components['schemas']['ProductDetail'];
+export type StoreSummary = components['schemas']['StoreSummary'];
+export type StoreListResponse = components['schemas']['StoreListResponse'];
+export type StoreMonthlySpend = components['schemas']['StoreMonthlySpend'];
+export type StoreTopItem = components['schemas']['StoreTopItem'];
+export type StoreItemPrice = components['schemas']['StoreItemPrice'];
+export type StoreDetail = components['schemas']['StoreDetail'];
+
+/** How credit-card purchases are dated in the dashboard, budgets and reports. */
+export type CardExpenseDating = 'purchase_date' | 'due_date';
 export type InstallmentPlanDetail = components['schemas']['InstallmentPlanDetail'];
 export type PayInstallmentResponse = components['schemas']['PayInstallmentResponse'];
 export type CreateLedgerTransactionRequest = components['schemas']['CreateLedgerTransactionRequest'];
@@ -68,7 +93,6 @@ export type LedgerTransaction = components['schemas']['LedgerTransaction'];
 export type MigrationResponse = components['schemas']['MigrationResponse'];
 export type ReconciliationUploadRequest = components['schemas']['ReconciliationUploadRequest'];
 export type ReconciliationUploadResponse = components['schemas']['ReconciliationUploadResponse'];
-export type SaveReceiptRequest = components['schemas']['SaveReceiptRequest'];
 export type ScanRequest = components['schemas']['ScanRequest'];
 export type OcrRequest = components['schemas']['OcrRequest'];
 export type MergeProductsRequest = components['schemas']['MergeProductsRequest'];
@@ -580,6 +604,26 @@ export async function fetchTrends(months = 6): Promise<TrendsResponse> {
   return request<TrendsResponse>(`/api/reports/trends${qs({ months })}`);
 }
 
+// Settings
+
+/** Reads the application preferences (currently the card-expense dating). */
+export async function fetchSettings(): Promise<AppSettings> {
+  return request<AppSettings>('/api/settings');
+}
+
+/**
+ * Updates the application preferences.
+ *
+ * Server-side setting: it changes how every report dates card expenses, so it
+ * requires a reachable server (no offline queue).
+ */
+export async function updateSettings(payload: UpdateAppSettingsRequest): Promise<AppSettings> {
+  return request<AppSettings>('/api/settings', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
 // Accounts
 
 export async function fetchAccountsWithBalance(): Promise<AccountWithBalance[]> {
@@ -889,7 +933,11 @@ export async function fetchReconciliationHistory(): Promise<{ items: Reconciliat
   return request<{ items: ReconciliationHistoryItem[] }>('/api/reconciliation/history');
 }
 
-// Receipts
+// Receipts, products and stores.
+//
+// Receipts are not part of the offline mirror: scanning, OCR parsing and price
+// history all need the server, so these calls fail loudly when it is down
+// instead of pretending to work.
 
 export async function scanReceipt(qrData: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('/api/receipts/scan', {
@@ -906,21 +954,100 @@ export async function scanReceiptOcr(rawText: string): Promise<Record<string, un
   });
 }
 
-export async function saveReceipt(payload: SaveReceiptRequest): Promise<{ id: string; store_id: string }> {
+export async function saveReceipt(
+  payload: SaveReceiptBody,
+): Promise<{ id: string; store_id: string }> {
   return request<{ id: string; store_id: string }>('/api/receipts', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
-export async function fetchReceipts(
-  page = 0,
-  pageSize = 50,
-): Promise<{ items: unknown[]; page: number; page_size: number; items_by_receipt?: unknown[] }> {
-  const query = qs({ page, page_size: pageSize });
-  return request<{ items: unknown[]; page: number; page_size: number; items_by_receipt?: unknown[] }>(
-    `/api/receipts${query}`,
-  );
+/** Filters for the receipt list. */
+export interface ReceiptListQuery {
+  search?: string;
+  store_id?: string;
+  from?: string;
+  to?: string;
+  min_total?: string;
+  max_total?: string;
+  source?: 'nfce' | 'ocr';
+  page?: number;
+  page_size?: number;
+}
+
+export async function fetchReceipts(params: ReceiptListQuery = {}): Promise<ReceiptListResponse> {
+  return request<ReceiptListResponse>(`/api/receipts${qs(params as Record<string, unknown>)}`);
+}
+
+export async function fetchReceiptStats(month?: string): Promise<ReceiptStats> {
+  return request<ReceiptStats>(`/api/receipts/stats${qs({ month })}`);
+}
+
+export async function fetchReceipt(id: string): Promise<ReceiptDetail> {
+  return request<ReceiptDetail>(`/api/receipts/${id}`);
+}
+
+export async function deleteReceipt(id: string): Promise<void> {
+  return request<void>(`/api/receipts/${id}`, { method: 'DELETE' });
+}
+
+/** Updates one line item; the response is the receipt with its total refreshed. */
+export async function updateReceiptItem(
+  receiptId: string,
+  itemId: string,
+  payload: { description: string; quantity?: string; unit_price?: string; total_price?: string },
+): Promise<ReceiptDetail> {
+  return request<ReceiptDetail>(`/api/receipts/${receiptId}/items/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Deletes one line item; the response is the receipt with its total refreshed. */
+export async function deleteReceiptItem(
+  receiptId: string,
+  itemId: string,
+): Promise<ReceiptDetail> {
+  return request<ReceiptDetail>(`/api/receipts/${receiptId}/items/${itemId}`, {
+    method: 'DELETE',
+  });
+}
+
+/** Filters for the product (price tracking) list. */
+export interface ProductListQuery {
+  search?: string;
+  change?: 'all' | 'recent' | 'increased' | 'decreased';
+  sort?: 'name' | 'recent' | 'change_desc' | 'change_asc' | 'records';
+  page?: number;
+  page_size?: number;
+}
+
+export async function fetchProducts(params: ProductListQuery = {}): Promise<ProductListResponse> {
+  return request<ProductListResponse>(`/api/products${qs(params as Record<string, unknown>)}`);
+}
+
+export async function fetchProduct(id: string): Promise<ProductDetail> {
+  return request<ProductDetail>(`/api/products/${id}`);
+}
+
+/** Period filter accepted by the store endpoints. */
+export type StorePeriod = 'all' | 'month' | 'last_month' | '3m' | '6m' | 'year';
+
+export interface StoreListQuery {
+  search?: string;
+  period?: StorePeriod;
+  sort?: 'spend' | 'name' | 'recent';
+  page?: number;
+  page_size?: number;
+}
+
+export async function fetchStores(params: StoreListQuery = {}): Promise<StoreListResponse> {
+  return request<StoreListResponse>(`/api/stores${qs(params as Record<string, unknown>)}`);
+}
+
+export async function fetchStore(id: string): Promise<StoreDetail> {
+  return request<StoreDetail>(`/api/stores/${id}`);
 }
 
 export async function fetchPriceHistory(
@@ -956,7 +1083,14 @@ export interface AuditEvent {
 
 export async function fetchAuditEvents(
   token: string | null,
-  params?: { event_type?: string; page?: number; page_size?: number },
+  params?: {
+    event_type?: string;
+    aggregate_id?: string;
+    start_date?: string;
+    end_date?: string;
+    page?: number;
+    page_size?: number;
+  },
 ): Promise<{ items: AuditEvent[]; page: number; page_size: number }> {
   const query = qs(params as Record<string, unknown>);
   return request<{ items: AuditEvent[]; page: number; page_size: number }>(

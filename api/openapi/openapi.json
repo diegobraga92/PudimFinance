@@ -1312,16 +1312,221 @@
         }
       }
     },
+    "/api/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Lists normalized products with their price statistics.",
+        "description": "Products without a recorded price are omitted: they have nothing to show in\na price-tracking screen.",
+        "operationId": "list_products",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Substring match on the product name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "change",
+            "in": "query",
+            "description": "all | recent | increased | decreased",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "name | recent | change_desc | change_asc | records",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page offset (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Page size (default 50, max 200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Products with price statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Returns one product with its statistics, every recorded price and where it\nwas bought (cheapest latest price first).",
+        "operationId": "get_product",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Normalized product UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product price history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      }
+    },
     "/api/receipts": {
       "get": {
         "tags": [
           "Receipts"
         ],
-        "summary": "Lists saved receipts (paginated).",
+        "summary": "Lists saved receipts with optional filters.",
+        "description": "Every filter is bound as text and cast in SQL, so the same builder serves\nnames, dates, amounts, ids and pagination.",
         "operationId": "list_receipts",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Matches the store name or an item description",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "store_id",
+            "in": "query",
+            "description": "Restrict to one store",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Inclusive lower bound on the receipt date",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Exclusive upper bound on the receipt date",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min_total",
+            "in": "query",
+            "description": "Minimum receipt total",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "max_total",
+            "in": "query",
+            "description": "Maximum receipt total",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "description": "nfce | ocr",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page offset (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Page size (default 50, max 200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of receipts"
+            "description": "Paginated receipts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptListResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -1335,7 +1540,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SaveReceiptRequest"
+                "$ref": "#/components/schemas/SaveReceiptBody"
               }
             }
           },
@@ -1443,6 +1648,205 @@
           },
           "400": {
             "description": "Invalid QR data"
+          }
+        }
+      }
+    },
+    "/api/receipts/stats": {
+      "get": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Headline numbers for the Overview tab.",
+        "description": "One query with scalar subqueries: cheap enough to call on every visit, and\nit never loads receipt rows just to count them.",
+        "operationId": "receipt_stats",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "description": "Month to report on, YYYY-MM (default: current month)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptStats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/receipts/{id}": {
+      "get": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Returns one receipt with its items.",
+        "operationId": "get_receipt",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Receipt UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receipt not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Deletes a receipt and everything that only existed because of it.",
+        "operationId": "delete_receipt",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Receipt UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Receipt deleted"
+          },
+          "404": {
+            "description": "Receipt not found"
+          }
+        }
+      }
+    },
+    "/api/receipts/{id}/items/{item_id}": {
+      "put": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Updates one receipt item and recomputes the receipt total.",
+        "operationId": "update_receipt_item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Receipt UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "description": "Receipt item UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReceiptItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt after the edit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid item payload"
+          },
+          "404": {
+            "description": "Receipt or item not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Receipts"
+        ],
+        "summary": "Deletes one receipt item and recomputes the receipt total.",
+        "operationId": "delete_receipt_item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Receipt UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "description": "Receipt item UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt after the delete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receipt or item not found"
           }
         }
       }
@@ -1684,6 +2088,167 @@
           },
           "400": {
             "description": "Invalid months parameter"
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Returns the current application settings.",
+        "operationId": "get_settings",
+        "responses": {
+          "200": {
+            "description": "Current settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Updates the application settings and returns the stored values.",
+        "operationId": "update_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAppSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid setting value"
+          }
+        }
+      }
+    },
+    "/api/stores": {
+      "get": {
+        "tags": [
+          "Stores"
+        ],
+        "summary": "Lists stores with their receipt aggregates.",
+        "operationId": "list_stores",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Substring match on the store name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "description": "all | month | last_month | 3m | 6m | year",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "spend | name | recent",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page offset (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Page size (default 50, max 200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stores with receipt aggregates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stores/{id}": {
+      "get": {
+        "tags": [
+          "Stores"
+        ],
+        "summary": "Returns one store: aggregates, spend per month, most purchased items, item\nprices recorded there and the latest receipts.",
+        "operationId": "get_store",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Store UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Store detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Store not found"
           }
         }
       }
@@ -2299,6 +2864,19 @@
           }
         }
       },
+      "AppSettings": {
+        "type": "object",
+        "description": "Application-wide preferences (the single row of `app_settings`).",
+        "required": [
+          "card_expense_dating"
+        ],
+        "properties": {
+          "card_expense_dating": {
+            "type": "string",
+            "description": "How credit-card purchases are dated in the dashboard, budgets and\nreports: `purchase_date` counts a purchase in the month it was made,\n`due_date` counts it in the month the bill (\"fatura\") is due."
+          }
+        }
+      },
       "Budget": {
         "type": "object",
         "description": "A monthly budget limit for a category.",
@@ -2527,12 +3105,23 @@
             "items": {
               "$ref": "#/components/schemas/BudgetSummaryItem"
             },
-            "description": "Per-budget spend vs limit."
+            "description": "Per-budget spend vs limit (category budgets only)."
           },
           "month": {
             "type": "integer",
             "format": "int32",
             "description": "Month used for the query."
+          },
+          "overall": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BudgetSummaryItem",
+                "description": "The overall monthly budget, when one is set. Its `actual_spent` is the\nmonth's total spending, not just the budgeted categories."
+              }
+            ]
           },
           "total_budgeted": {
             "type": "string",
@@ -2554,8 +3143,6 @@
         "description": "Budget joined with its category display info.",
         "required": [
           "id",
-          "category_id",
-          "category_name",
           "month",
           "year",
           "amount_limit"
@@ -2566,13 +3153,19 @@
             "description": "Maximum spend limit for the month."
           },
           "category_id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "description": "Category id this budget applies to."
+            "description": "Category id this budget applies to. `null` means the overall monthly\nbudget (a single spending limit for the whole month)."
           },
           "category_name": {
-            "type": "string",
-            "description": "Category name."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Category name (`null` for the overall budget)."
           },
           "color": {
             "type": [
@@ -2985,7 +3578,6 @@
         "type": "object",
         "description": "Payload for creating or updating a budget (upsert).",
         "required": [
-          "category_id",
           "month",
           "year",
           "amount_limit"
@@ -2997,9 +3589,12 @@
             "example": "500.00"
           },
           "category_id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "description": "Category this budget applies to (expense categories only)."
+            "description": "Category this budget applies to (expense categories only). Omit `null`\nto set the overall monthly budget instead."
           },
           "month": {
             "type": "integer",
@@ -3815,6 +4410,40 @@
           }
         }
       },
+      "NewReceiptItem": {
+        "type": "object",
+        "description": "A line item sent when saving a receipt.",
+        "required": [
+          "description"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Item description (also the normalized product name)."
+          },
+          "quantity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Quantity purchased (default 1)."
+          },
+          "total_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Line total (defaults to the unit price)."
+          },
+          "unit_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Unit price."
+          }
+        }
+      },
       "OcrRequest": {
         "type": "object",
         "description": "Request payload for parsing raw OCR text from a receipt photo.",
@@ -3921,37 +4550,681 @@
           }
         }
       },
-      "ReceiptItemInput": {
+      "ProductDetail": {
         "type": "object",
-        "description": "Line item for saving a receipt.",
+        "description": "Product price history: statistics, records and per-store comparison.",
         "required": [
-          "description"
+          "product",
+          "records",
+          "by_store"
         ],
         "properties": {
-          "description": {
-            "type": "string",
-            "description": "Item description (also becomes a normalized product)."
+          "by_store": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductStorePrice"
+            },
+            "description": "Where the product was bought, cheapest latest price first."
           },
-          "quantity": {
+          "product": {
+            "$ref": "#/components/schemas/ProductSummary",
+            "description": "Product with its statistics."
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPriceRecord"
+            },
+            "description": "Every recorded price, newest first."
+          }
+        }
+      },
+      "ProductListParams": {
+        "type": "object",
+        "description": "Query params for the product list.",
+        "properties": {
+          "change": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Quantity purchased (default 1)."
+            "description": "`all` (default), `recent` (changed in the last 30 days), `increased`,\n`decreased`."
+          },
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Page offset (default 0).",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Page size (default 50, max 200).",
+            "minimum": 0
+          },
+          "search": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Case-insensitive substring match on the product name."
+          },
+          "sort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`name` (default), `recent`, `change_desc`, `change_asc`, `records`."
+          }
+        }
+      },
+      "ProductListResponse": {
+        "type": "object",
+        "description": "Paginated product list.",
+        "required": [
+          "items",
+          "total_count",
+          "page",
+          "page_size"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductSummary"
+            },
+            "description": "Products for this page."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page offset used.",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size used.",
+            "minimum": 0
+          },
+          "total_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total products matching the filters."
+          }
+        }
+      },
+      "ProductPriceRecord": {
+        "type": "object",
+        "description": "One recorded price for a product.",
+        "required": [
+          "receipt_id",
+          "quantity",
+          "description"
+        ],
+        "properties": {
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Purchase date."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description as printed on the receipt."
+          },
+          "price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Unit price paid."
+          },
+          "quantity": {
+            "type": "string",
+            "description": "Quantity bought at that price."
+          },
+          "receipt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Receipt the price came from."
+          },
+          "store_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Store ID."
+          },
+          "store_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Store name."
+          }
+        }
+      },
+      "ProductStorePrice": {
+        "type": "object",
+        "description": "Latest/average price for one product at one store.",
+        "required": [
+          "record_count"
+        ],
+        "properties": {
+          "average_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Average price at this store."
+          },
+          "change_percentage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Change between the last two prices at this store."
+          },
+          "last_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Date of the latest price at this store."
+          },
+          "latest_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Most recent price at this store."
+          },
+          "previous_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Previous price at this store."
+          },
+          "record_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Prices recorded at this store."
+          },
+          "store_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Store ID."
+          },
+          "store_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Store name."
+          }
+        }
+      },
+      "ProductSummary": {
+        "type": "object",
+        "description": "A normalized product with its price statistics.",
+        "required": [
+          "id",
+          "name",
+          "record_count",
+          "store_count"
+        ],
+        "properties": {
+          "average_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Average of all recorded prices."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional category label."
+          },
+          "change_percentage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Change from the previous record to the latest (null when there is no\nprevious record to compare against)."
+          },
+          "first_seen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Date of the first record."
+          },
+          "highest_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Most expensive recorded price."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Normalized product ID."
+          },
+          "last_seen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Date of the latest record."
+          },
+          "latest_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Most recent recorded unit price."
+          },
+          "lowest_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Cheapest recorded price."
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name (the backend's normalized identity)."
+          },
+          "previous_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The record before the latest one."
+          },
+          "record_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of recorded prices."
+          },
+          "store_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of stores that sold it."
+          }
+        }
+      },
+      "ReceiptDetail": {
+        "type": "object",
+        "description": "A receipt with its items.",
+        "required": [
+          "receipt",
+          "items"
+        ],
+        "properties": {
+          "cnpj": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Store CNPJ, when known."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptItemDetail"
+            },
+            "description": "Line items."
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/ReceiptSummary",
+            "description": "Receipt header."
+          }
+        }
+      },
+      "ReceiptItemDetail": {
+        "type": "object",
+        "description": "One line item of a saved receipt.",
+        "required": [
+          "id",
+          "receipt_id",
+          "description",
+          "quantity"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description as printed on the receipt."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Item ID."
+          },
+          "normalized_product_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Normalized product id (price history is keyed by this)."
+          },
+          "product_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Normalized product name, when the item is linked to a product."
+          },
+          "quantity": {
+            "type": "string",
+            "description": "How many were bought."
+          },
+          "receipt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Receipt this item belongs to."
           },
           "total_price": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Total price for the line."
+            "description": "Line total."
           },
           "unit_price": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Unit price."
+            "description": "Price for one unit."
+          }
+        }
+      },
+      "ReceiptListParams": {
+        "type": "object",
+        "description": "Query params for the receipt list.",
+        "properties": {
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Inclusive lower bound on the receipt date (`YYYY-MM-DD`)."
+          },
+          "max_total": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Maximum receipt total."
+          },
+          "min_total": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Minimum receipt total."
+          },
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Page offset (default 0).",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Page size (default 50, max 200).",
+            "minimum": 0
+          },
+          "search": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Matches the store name or any item description."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`nfce` or `ocr`."
+          },
+          "store_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Restrict to one store."
+          },
+          "to": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Exclusive upper bound on the receipt date (`YYYY-MM-DD`)."
+          }
+        }
+      },
+      "ReceiptListResponse": {
+        "type": "object",
+        "description": "Paginated receipt list.",
+        "required": [
+          "items",
+          "total_count",
+          "page",
+          "page_size",
+          "items_by_receipt"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptSummary"
+            },
+            "description": "Receipts for this page (newest first)."
+          },
+          "items_by_receipt": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptItemDetail"
+            },
+            "description": "Item rows for the receipts in `items`, so the UI can resolve products."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page offset used.",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size used.",
+            "minimum": 0
+          },
+          "total_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total receipts matching the filters."
+          }
+        }
+      },
+      "ReceiptStats": {
+        "type": "object",
+        "description": "Headline receipt/price-tracking numbers for the Overview tab.",
+        "required": [
+          "total_receipts",
+          "receipts_this_month",
+          "total_spent",
+          "spent_this_month",
+          "items_tracked",
+          "price_records",
+          "store_count",
+          "month"
+        ],
+        "properties": {
+          "first_receipt_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Oldest receipt date."
+          },
+          "items_tracked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Distinct normalized products seen on receipts."
+          },
+          "last_receipt_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Newest receipt date."
+          },
+          "month": {
+            "type": "string",
+            "format": "date",
+            "description": "First day of the month the month-scoped numbers refer to."
+          },
+          "price_records": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recorded unit prices (the raw material of price history)."
+          },
+          "receipts_this_month": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Receipts dated in the requested month."
+          },
+          "spent_this_month": {
+            "type": "string",
+            "description": "Sum of receipt totals dated in the requested month."
+          },
+          "store_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Distinct stores that issued receipts."
+          },
+          "total_receipts": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Receipts on record."
+          },
+          "total_spent": {
+            "type": "string",
+            "description": "Sum of all receipt totals."
+          }
+        }
+      },
+      "ReceiptStatsParams": {
+        "type": "object",
+        "description": "Query params for the overview statistics.",
+        "properties": {
+          "month": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Month to report on, `YYYY-MM` (default: the current month)."
+          }
+        }
+      },
+      "ReceiptSummary": {
+        "type": "object",
+        "description": "A saved receipt with its store and item count.",
+        "required": [
+          "id",
+          "scanned_at",
+          "item_count"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Receipt ID."
+          },
+          "item_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of line items."
+          },
+          "receipt_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Purchase date printed on the receipt."
+          },
+          "scanned_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the receipt was scanned/saved (carries the time of day)."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`nfce`, `ocr`, or null for receipts saved before sources were tracked."
+          },
+          "store_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Store ID (null when the receipt has no store)."
+          },
+          "store_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Store name."
+          },
+          "total_amount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Receipt total as stored by the backend."
           }
         }
       },
@@ -4117,9 +5390,9 @@
           }
         }
       },
-      "SaveReceiptRequest": {
+      "SaveReceiptBody": {
         "type": "object",
-        "description": "Request payload for saving a fully parsed/reviewed receipt.",
+        "description": "Request payload for saving a reviewed receipt (NFC-e or OCR).",
         "required": [
           "store_name",
           "date",
@@ -4132,7 +5405,7 @@
               "string",
               "null"
             ],
-            "description": "Store CNPJ (optional)."
+            "description": "Store CNPJ when the source provides one."
           },
           "date": {
             "type": "string",
@@ -4142,17 +5415,25 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReceiptItemInput"
+              "$ref": "#/components/schemas/NewReceiptItem"
             },
             "description": "Line items (at least one)."
           },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where the data came from: `nfce` (QR code) or `ocr` (photo)."
+          },
           "store_name": {
             "type": "string",
-            "description": "Store name (or from scan)."
+            "description": "Store name (from the scan, or typed by the user)."
           },
           "total": {
             "type": "string",
-            "description": "Total amount."
+            "description": "Receipt total.",
+            "example": "287.43"
           }
         }
       },
@@ -4190,6 +5471,309 @@
           "description": {
             "type": "string",
             "description": "Description from the bank statement."
+          }
+        }
+      },
+      "StoreDetail": {
+        "type": "object",
+        "description": "Everything the store detail screen shows.",
+        "required": [
+          "store",
+          "monthly_spend",
+          "top_items",
+          "items",
+          "recent_receipts"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoreItemPrice"
+            },
+            "description": "Items with their latest price and change at this store."
+          },
+          "monthly_spend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoreMonthlySpend"
+            },
+            "description": "Spend per month (oldest first) for the chart."
+          },
+          "recent_receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptSummary"
+            },
+            "description": "Latest receipts."
+          },
+          "store": {
+            "$ref": "#/components/schemas/StoreSummary",
+            "description": "Store with its all-time aggregates."
+          },
+          "top_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoreTopItem"
+            },
+            "description": "Most purchased items."
+          }
+        }
+      },
+      "StoreItemPrice": {
+        "type": "object",
+        "description": "Latest price of an item at one store.",
+        "required": [
+          "description",
+          "record_count"
+        ],
+        "properties": {
+          "change_percentage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Change between the last two prices."
+          },
+          "description": {
+            "type": "string",
+            "description": "Item description."
+          },
+          "last_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Date of the latest price."
+          },
+          "latest_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Most recent price at this store."
+          },
+          "normalized_product_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Normalized product ID."
+          },
+          "previous_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Previous price at this store."
+          },
+          "record_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Prices recorded for this item at this store."
+          }
+        }
+      },
+      "StoreListParams": {
+        "type": "object",
+        "description": "Query params for the store list.",
+        "properties": {
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Page offset (default 0).",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Page size (default 50, max 200).",
+            "minimum": 0
+          },
+          "period": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`all` (default), `month`, `last_month`, `3m`, `6m`, `year`."
+          },
+          "search": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Case-insensitive substring match on the store name."
+          },
+          "sort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`spend` (default), `name`, `recent`."
+          }
+        }
+      },
+      "StoreListResponse": {
+        "type": "object",
+        "description": "Paginated store list.",
+        "required": [
+          "items",
+          "total_count",
+          "page",
+          "page_size"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoreSummary"
+            },
+            "description": "Stores for this page."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page offset used.",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size used.",
+            "minimum": 0
+          },
+          "total_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total stores matching the filters."
+          }
+        }
+      },
+      "StoreMonthlySpend": {
+        "type": "object",
+        "description": "Spend per month at one store.",
+        "required": [
+          "month",
+          "receipt_count",
+          "total"
+        ],
+        "properties": {
+          "month": {
+            "type": "string",
+            "format": "date",
+            "description": "First day of the month."
+          },
+          "receipt_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Receipts that month."
+          },
+          "total": {
+            "type": "string",
+            "description": "Spend that month."
+          }
+        }
+      },
+      "StoreSummary": {
+        "type": "object",
+        "description": "A store with its receipt aggregates.",
+        "required": [
+          "id",
+          "name",
+          "receipt_count",
+          "item_count",
+          "total_spent"
+        ],
+        "properties": {
+          "cnpj": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Store CNPJ, when known."
+          },
+          "first_visit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "First visit (all time)."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Store ID."
+          },
+          "item_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Items in those receipts."
+          },
+          "last_visit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Latest visit (all time)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Store name."
+          },
+          "receipt_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Receipts in the selected period."
+          },
+          "total_spent": {
+            "type": "string",
+            "description": "Spend in the selected period."
+          }
+        }
+      },
+      "StoreTopItem": {
+        "type": "object",
+        "description": "Most purchased item at one store.",
+        "required": [
+          "description",
+          "quantity",
+          "purchase_count",
+          "total"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Item description."
+          },
+          "product_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Normalized product ID."
+          },
+          "purchase_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many times it was bought."
+          },
+          "quantity": {
+            "type": "string",
+            "description": "Total quantity bought."
+          },
+          "total": {
+            "type": "string",
+            "description": "Total spent on it."
           }
         }
       },
@@ -4237,7 +5821,7 @@
             "items": {
               "$ref": "#/components/schemas/CategorySummary"
             },
-            "description": "Per-category breakdown for the month."
+            "description": "Per-category *expense* breakdown for the month (income accounts are\nreported through `income_total`)."
           },
           "expense_total": {
             "type": "string",
@@ -4436,6 +6020,14 @@
           "amount": {
             "type": "string",
             "description": "Monetary amount, always positive. `type` determines direction."
+          },
+          "card_due_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Due date (\"vencimento\") of the credit-card bill that contains this\npurchase (NULL for non-card transactions or cards without a billing\ncycle).\n\nDerived on read for the transaction list so the UI can show which bill a\npurchase lands on; queries that do not select it leave it `null`."
           },
           "category_id": {
             "type": [
@@ -4698,6 +6290,20 @@
           }
         }
       },
+      "UpdateAppSettingsRequest": {
+        "type": "object",
+        "description": "Request payload for updating application settings.",
+        "required": [
+          "card_expense_dating"
+        ],
+        "properties": {
+          "card_expense_dating": {
+            "type": "string",
+            "description": "`purchase_date` or `due_date`.",
+            "example": "due_date"
+          }
+        }
+      },
       "UpdateCategoryRequest": {
         "type": "object",
         "description": "Payload for updating an existing category.",
@@ -4736,6 +6342,40 @@
             "type": "string",
             "description": "`income` or `expense`.",
             "example": "expense"
+          }
+        }
+      },
+      "UpdateReceiptItemRequest": {
+        "type": "object",
+        "description": "Request payload for updating a receipt item.",
+        "required": [
+          "description"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "New description (re-normalized as a product)."
+          },
+          "quantity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New quantity."
+          },
+          "total_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New line total (defaults to quantity × unit price)."
+          },
+          "unit_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New unit price."
           }
         }
       },
@@ -4851,6 +6491,10 @@
     {
       "name": "Receipts",
       "description": "Receipt scanning (NFC-e QR), price history, and product normalization"
+    },
+    {
+      "name": "Settings",
+      "description": "Application preferences such as credit-card expense dating"
     }
   ],
   "x-generator": "Auto-generated by backend/src/bin/gen-openapi.rs from utoipa annotations in backend/src/openapi.rs"

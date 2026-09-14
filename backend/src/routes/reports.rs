@@ -15,6 +15,7 @@ use crate::models::{
     CategoryBreakdownItem, CategoryBreakdownResponse, MonthlyReportItem, MonthlyReportResponse,
     TrendPoint, TrendsResponse,
 };
+use crate::routes::settings;
 use crate::state::AppState;
 
 /// Query parameters for the monthly report.
@@ -160,19 +161,27 @@ pub async fn monthly_report(
     }
 
     let rows: Vec<MonthlyRow> = sqlx::query_as(
-        "SELECT EXTRACT(YEAR FROM date)::int AS year,
-                EXTRACT(MONTH FROM date)::int AS month,
-                COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::numeric AS income_total,
-                COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::numeric AS expense_total
-         FROM transactions
-         WHERE date >= $1 AND date < $2
-           AND ($3::uuid IS NULL OR account_id = $3)
-         GROUP BY EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int
-         ORDER BY year, month",
+        // Dates are evaluated through `effective_transaction_date` so the
+        // card-expense dating preference applies here too; the `t.date` bounds
+        // keep the scan narrow without changing the result (an effective date
+        // is never earlier than its transaction, nor more than a cycle later).
+        "SELECT EXTRACT(YEAR FROM effective_transaction_date(t.date, t.account_id, $4))::int AS year,
+                EXTRACT(MONTH FROM effective_transaction_date(t.date, t.account_id, $4))::int AS month,
+                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::numeric AS income_total,
+                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS expense_total
+         FROM transactions t
+         WHERE t.date >= $1 - INTERVAL '3 months'
+           AND t.date < $2
+           AND effective_transaction_date(t.date, t.account_id, $4) >= $1
+           AND effective_transaction_date(t.date, t.account_id, $4) < $2
+           AND ($3::uuid IS NULL OR t.account_id = $3)
+         GROUP BY 1, 2
+         ORDER BY 1, 2",
     )
     .bind(start)
     .bind(add_months(end, 1))
     .bind(params.account_id)
+    .bind(settings::card_expense_dating(&state.pg_pool).await)
     .fetch_all(&state.pg_pool)
     .await
     .map_err(|e| {
@@ -257,12 +266,16 @@ pub async fn category_breakdown(
                 COUNT(*)::bigint AS transaction_count
          FROM transactions t
          LEFT JOIN categories c ON c.id = t.category_id
-         WHERE t.type = 'expense' AND t.date >= $1 AND t.date <= $2
+         WHERE t.type = 'expense'
+           AND t.date >= $1 - INTERVAL '3 months'
+           AND effective_transaction_date(t.date, t.account_id, $3) >= $1
+           AND effective_transaction_date(t.date, t.account_id, $3) <= $2
          GROUP BY t.category_id, c.name, c.color, c.icon
          ORDER BY total DESC",
     )
     .bind(start_date)
     .bind(end_date)
+    .bind(settings::card_expense_dating(&state.pg_pool).await)
     .fetch_all(&state.pg_pool)
     .await
     .map_err(|e| {
@@ -334,17 +347,21 @@ pub async fn trends(
     }
 
     let rows: Vec<TrendRow> = sqlx::query_as(
-        "SELECT EXTRACT(YEAR FROM date)::int AS year,
-                EXTRACT(MONTH FROM date)::int AS month,
-                COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::numeric AS income_total,
-                COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::numeric AS expense_total
-         FROM transactions
-         WHERE date >= $1 AND date < $2
-         GROUP BY EXTRACT(YEAR FROM date)::int, EXTRACT(MONTH FROM date)::int
-         ORDER BY year, month",
+        "SELECT EXTRACT(YEAR FROM effective_transaction_date(t.date, t.account_id, $3))::int AS year,
+                EXTRACT(MONTH FROM effective_transaction_date(t.date, t.account_id, $3))::int AS month,
+                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::numeric AS income_total,
+                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS expense_total
+         FROM transactions t
+         WHERE t.date >= $1 - INTERVAL '3 months'
+           AND t.date < $2
+           AND effective_transaction_date(t.date, t.account_id, $3) >= $1
+           AND effective_transaction_date(t.date, t.account_id, $3) < $2
+         GROUP BY 1, 2
+         ORDER BY 1, 2",
     )
     .bind(start)
     .bind(add_months(end, 1))
+    .bind(settings::card_expense_dating(&state.pg_pool).await)
     .fetch_all(&state.pg_pool)
     .await
     .map_err(|e| {

@@ -1,19 +1,23 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as React from 'react';
-import { Landmark, LogOut, Moon, Plus, Sun } from 'lucide-react';
+import { ChevronDown, Landmark, LogOut, Menu, Moon, Plus, Sun } from 'lucide-react';
 
 import { useAuth } from '@/app/auth';
 import { useI18n } from '@/app/i18n';
 import { useTheme } from '@/app/theme';
 import {
   PRIMARY_NAV,
-  PLANNING_NAV,
-  CARDS_NAV,
-  TOOLS_NAV,
-  SYSTEM_NAV,
+  TOOL_GROUPS,
+  isMobileRoot,
+  screenTitleKey,
+  type NavGroup,
   type NavItem,
 } from '@/app/navigation';
+import { MobileTabBar } from '@/app/MobileTabBar';
+import { MobileTopBar } from '@/app/MobileTopBar';
+import { QuickAddFab } from '@/app/QuickAddFab';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { LanguageToggle } from '@/components/language-toggle';
 import {
   captureSupported as isCaptureSupported,
   subscribeDeepLinks,
@@ -24,6 +28,14 @@ import { syncSilently } from '@/offline/sync-engine';
 import { clearServerProbeCache } from '@/offline/net';
 import { Button } from '@/components/ui/button';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -31,33 +43,113 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-function NavSection({ title, items }: { title?: string; items: NavItem[] }) {
+/** Shared pill styling for nav entries (top bar trigger, links and menus). */
+function navItemClass(isActive: boolean): string {
+  return cn(
+    'flex items-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors',
+    isActive
+      ? 'bg-primary/15 text-foreground'
+      : 'text-muted-foreground hover:bg-surface-hover hover:text-foreground',
+  );
+}
+
+/** Two-letter avatar initials derived from the signed-in email (`diego.b@…` → `DB`). */
+function initialsFromEmail(email?: string): string {
+  const handle = email?.split('@')[0] ?? '';
+  if (!handle) return 'PF';
+  const parts = handle.split(/[._-]+/).filter(Boolean);
+  const letters = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : handle.slice(0, 2);
+  return letters.toUpperCase();
+}
+
+/** A link inside the dropdown menus, optionally with a one-line description. */
+function MenuLink({ item }: { item: NavItem }) {
   const { t } = useI18n();
   return (
-    <nav className="space-y-1 px-3" aria-label={title ?? t('nav.main')}>
-      {title && (
-        <p className="px-2 pb-1 pt-4 text-[0.6875rem] font-semibold uppercase tracking-wider text-dim">
-          {title}
-        </p>
-      )}
-      {items.map((item) => (
-        <NavLink
-          key={item.key}
-          to={item.route}
-          className={({ isActive }) =>
-            cn(
-              'group flex items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-surface-hover hover:text-foreground',
-            )
-          }
+    <DropdownMenuItem asChild>
+      <NavLink to={item.route} className="w-full">
+        <span className="flex w-full items-start gap-2.5">
+          <item.icon className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="min-w-0">
+            <span className="block truncate">{t(item.labelKey)}</span>
+            {item.descKey && (
+              <span className="block truncate text-xs text-dim">{t(item.descKey)}</span>
+            )}
+          </span>
+        </span>
+      </NavLink>
+    </DropdownMenuItem>
+  );
+}
+
+/** Accounting, power tools and administration, grouped inside one menu. */
+function ToolsMenu({ groups }: { groups: NavGroup[] }) {
+  const { t } = useI18n();
+  const { pathname } = useLocation();
+  const items = groups.flatMap((group) => group.items);
+  const isActive = items.some((item) => pathname.startsWith(item.route));
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={cn(navItemClass(isActive), 'outline-none')}>
+        {t('nav.tools')}
+        <ChevronDown className="h-3.5 w-3.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[16.5rem]">
+        {groups.map((group, index) => (
+          <div key={group.key}>
+            {index > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-dim">
+              {t(group.labelKey)}
+            </DropdownMenuLabel>
+            {group.items.map((item) => (
+              <MenuLink key={item.key} item={item} />
+            ))}
+          </div>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Compact navigation for narrow viewports: everything in one menu. */
+function MobileNavMenu({
+  primary,
+  groups,
+}: {
+  primary: NavItem[];
+  groups: NavGroup[];
+}) {
+  const { t } = useI18n();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          aria-label={t('nav.ariaOpenMenu')}
+          title={t('nav.toggle')}
         >
-          <item.icon className="h-4 w-4 shrink-0" />
-          <span className="truncate">{t(item.labelKey)}</span>
-        </NavLink>
-      ))}
-    </nav>
+          <Menu className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[16.5rem]">
+        {primary.map((item) => (
+          <MenuLink key={item.key} item={item} />
+        ))}
+        {groups.map((group) => (
+          <div key={group.key}>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-dim">
+              {t(group.labelKey)}
+            </DropdownMenuLabel>
+            {group.items.map((item) => (
+              <MenuLink key={item.key} item={item} />
+            ))}
+          </div>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -74,12 +166,13 @@ function routeFromDeepLink(link: string): string | null {
   return null;
 }
 
-/** Application shell with a fixed sidebar, top header, and routed content. */
+/** Application shell: desktop top bar, Android app bar + bottom tabs. */
 export function RootLayout() {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   // Android-only nav items (notification capture) are hidden on desktop where
   // the native NotificationListenerService doesn't exist.
   const [captureSupported, setCaptureSupported] = React.useState(false);
@@ -96,6 +189,18 @@ export function RootLayout() {
 
   const visibleItems = (items: NavItem[]) =>
     items.filter((i) => !i.androidOnly || captureSupported);
+  const primaryItems = visibleItems(PRIMARY_NAV);
+  const toolGroups: NavGroup[] = TOOL_GROUPS.map((group) => ({
+    ...group,
+    items: visibleItems(group.items),
+  })).filter((group) => group.items.length > 0);
+  const userInitials = initialsFromEmail(user?.email);
+
+  // Phone layout: the app bar names the screen and the FAB is offered on the two
+  // screens where entering a transaction is the point.
+  const mobileIsRoot = isMobileRoot(pathname);
+  const mobileTitle = screenTitleKey(pathname);
+  const showFab = pathname.startsWith('/dashboard') || pathname.startsWith('/transactions');
 
   const goQuickAdd = () => navigate('/transactions?add=1');
 
@@ -146,72 +251,42 @@ export function RootLayout() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-screen overflow-hidden bg-background">
-        {/* Sidebar */}
-        <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
-          <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Landmark className="h-4 w-4" />
-            </div>
-            <span className="text-sm font-semibold tracking-tight">PudimFinance</span>
-          </div>
+      <div className="flex h-screen flex-col overflow-hidden bg-background">
+        {/* Desktop top navigation */}
+        <header className="relative z-30 flex h-[68px] shrink-0 items-center gap-3 border-b border-border bg-surface px-4 lg:gap-5 lg:px-6 max-md:hidden">
+          <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+              <Landmark className="h-5 w-5" />
+            </span>
+            <span className="text-[15px] font-semibold tracking-tight">
+              <span className="text-foreground">Pudim</span>
+              <span className="text-primary">Finance</span>
+            </span>
+          </Link>
 
-          <div className="flex-1 overflow-y-auto py-3">
-            <NavSection items={visibleItems(PRIMARY_NAV)} />
-            <NavSection title={t('nav.planning')} items={visibleItems(PLANNING_NAV)} />
-            <NavSection title={t('nav.cards')} items={visibleItems(CARDS_NAV)} />
-            <NavSection title={t('nav.tools')} items={visibleItems(TOOLS_NAV)} />
-            <NavSection title={t('nav.system')} items={visibleItems(SYSTEM_NAV)} />
-          </div>
+          <nav className="hidden flex-1 items-center gap-1 lg:flex" aria-label={t('nav.main')}>
+            {primaryItems.map((item) => (
+              <NavLink
+                key={item.key}
+                to={item.route}
+                className={({ isActive }) => navItemClass(isActive)}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t(item.labelKey)}</span>
+              </NavLink>
+            ))}
+            {toolGroups.length > 0 && <ToolsMenu groups={toolGroups} />}
+          </nav>
 
-          <div className="border-t border-border p-3">
-            <div className="flex items-center gap-3 rounded-md px-2 py-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-                {user?.email?.charAt(0).toUpperCase() ?? '?'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{user?.email}</p>
-                <p className="text-[0.6875rem] text-dim">
-                  {locale === 'pt-BR' ? 'pt-BR' : 'en'}
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-1 w-full justify-start text-muted-foreground hover:text-destructive"
-              onClick={logout}
-            >
-              <LogOut className="h-4 w-4" />
-              {t('nav.signOut')}
-            </Button>
-          </div>
-        </aside>
+          <div className="flex-1 lg:hidden" />
 
-        {/* Main column */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <OfflineBanner />
-          {/* Header */}
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur">
-            <div className="flex-1" />
-            <Button
-              variant="default"
-              size="sm"
-              onClick={goQuickAdd}
-              className="gap-1.5"
-            >
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button size="sm" onClick={goQuickAdd} className="gap-1.5">
               <Plus className="h-4 w-4" />
-              {t('dashboard.addTransaction')}
+              <span className="hidden sm:inline">{t('header.addTransaction')}</span>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLocale(locale === 'pt-BR' ? 'en' : 'pt-BR')}
-              title={t('app.language')}
-              aria-label={t('app.language')}
-            >
-              {locale === 'pt-BR' ? 'EN' : 'PT'}
-            </Button>
+            <MobileNavMenu primary={primaryItems} groups={toolGroups} />
+            <LanguageToggle />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -228,15 +303,52 @@ export function RootLayout() {
                 {theme === 'dark' ? t('header.lightMode') : t('header.darkMode')}
               </TooltipContent>
             </Tooltip>
-          </header>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#10B981] to-[#3B82F6] text-sm font-semibold text-white ring-2 ring-border transition-opacity hover:opacity-90"
+                  aria-label={t('header.signedInAs', { email: user?.email ?? '' })}
+                  title={t('header.signedInAs', { email: user?.email ?? '' })}
+                >
+                  {userInitials}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[15rem]">
+                <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+                  {user?.email}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="gap-2 text-destructive focus:text-destructive"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t('nav.signOut')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
 
-          {/* Routed content */}
-          <main className="min-h-0 flex-1 overflow-y-auto">
-            <div className="container py-6">
-              <Outlet />
-            </div>
-          </main>
-        </div>
+        {/* Android app bar */}
+        <MobileTopBar
+          titleKey={mobileTitle}
+          isRoot={mobileIsRoot}
+          showBell={captureSupported}
+        />
+
+        <OfflineBanner />
+
+        {/* Routed content. Extra bottom room on phones for the tab bar + FAB. */}
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="px-4 pb-28 pt-4 sm:px-6 md:pb-12 md:pt-6 lg:px-8 lg:pt-7">
+            <Outlet />
+          </div>
+        </main>
+
+        {showFab && <QuickAddFab />}
+        <MobileTabBar />
       </div>
     </TooltipProvider>
   );

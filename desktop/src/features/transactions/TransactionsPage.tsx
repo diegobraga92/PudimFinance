@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Download, Filter, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Download, Filter, Pencil, Plus, ReceiptText, Search, SearchX, SlidersHorizontal, Trash2 } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
@@ -16,7 +16,10 @@ import {
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -28,14 +31,24 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TransactionForm } from './TransactionForm';
+import { TransactionListRow } from './TransactionListRow';
+import { groupTransactionsByMonth } from './group-by-month';
 import { categoryIcon } from '@shared/category-icons';
+import type { TranslationKey } from '@shared/i18n';
 import { refreshWidgetSpentToday } from '@/lib/widget';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
 
+/** Type chips shown above the phone list. */
+const TYPE_CHIPS: { key: 'all' | 'income' | 'expense'; labelKey: TranslationKey }[] = [
+  { key: 'all', labelKey: 'transactions.filters.allTypes' },
+  { key: 'income', labelKey: 'transactions.filters.income' },
+  { key: 'expense', labelKey: 'transactions.filters.expense' },
+];
+
 export function TransactionsPage() {
-  const { t, formatMoney, formatDate } = useI18n();
+  const { t, formatMoney, formatDate, monthNames } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,23 +67,30 @@ export function TransactionsPage() {
 
   const [items, setItems] = React.useState<Transaction[]>([]);
   const [page, setPage] = React.useState(0);
+  const [total, setTotal] = React.useState(0);
   const [hasMore, setHasMore] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /** Phone-only: reveals the date/category controls behind the filter button. */
+  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
 
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
     queryFn: () => fetchAccountsWithBalance(),
   });
-  const categories = categoriesQuery.data ?? [];
-  const accounts = accountsQuery.data ?? [];
-  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
+  const accounts = React.useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
+  const categoryById = React.useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories],
+  );
 
   const load = React.useCallback(
     async (nextPage: number, append: boolean) => {
-      if (nextPage === 0) setLoadingMore(false);
-      else setLoadingMore(true);
+      if (append) setLoadingMore(true);
+      else setLoading(true);
       setError(null);
       try {
         const filters: TransactionFilters = { page: nextPage, page_size: PAGE_SIZE };
@@ -81,10 +101,12 @@ export function TransactionsPage() {
         const res = await fetchTransactions(filters);
         setItems((prev) => (append ? [...prev, ...res.items] : res.items));
         setPage(res.page);
+        setTotal(res.total);
         setHasMore(res.page * PAGE_SIZE + res.items.length < res.total);
       } catch (err) {
         setError(err instanceof Error ? err.message : t('errors.loadTransactions'));
       } finally {
+        setLoading(false);
         setLoadingMore(false);
       }
     },
@@ -219,129 +241,327 @@ export function TransactionsPage() {
     setEndDate('');
     setFilterCategory('');
   };
+  const searching = query.trim().length > 0;
+
+  // Income / expenses / net for the rows in view. The card labels their scope
+  // (all vs. filtered, and how many of the total are loaded) so a partial page
+  // is never presented as the whole period's figures.
+  const totals = React.useMemo(() => {
+    let income = 0;
+    let expenses = 0;
+    for (const tx of visible) {
+      const amount = parseFloat(tx.amount);
+      if (Number.isNaN(amount)) continue;
+      if (tx.type === 'income') income += amount;
+      else expenses += amount;
+    }
+    return { income, expenses, net: income - expenses };
+  }, [visible]);
+
+  const summaryScope =
+    hasFilters || searching ? t('transactions.summaryFiltered') : t('transactions.summaryAll');
+  const summaryCount = hasMore
+    ? t('transactions.summaryLoadedOf', { count: visible.length, total })
+    : t(
+        visible.length === 1 ? 'transactions.summaryCount_one' : 'transactions.summaryCount_other',
+        { count: visible.length },
+      );
+
+  // Phones show the list under month headings ("SEPTEMBER 2026").
+  const monthGroups = React.useMemo(
+    () => groupTransactionsByMonth(visible, monthNames),
+    [visible, monthNames],
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('nav.transactions')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {items.length > 0 ? t('transactions.search') : t('transactions.noDesc')}
-          </p>
+    <div className="space-y-4 md:space-y-6">
+      <PageHeader
+        titleKey="nav.transactions"
+        subtitleKey="transactions.subtitle"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={exportCsv}
+              disabled={visible.length === 0}
+              aria-label={t('transactions.export')}
+            >
+              <Download className="h-4 w-4" />
+              <span className="max-md:hidden">{t('transactions.export')}</span>
+            </Button>
+            {/* The FAB covers "new transaction" on phones. */}
+            <Button className="max-md:hidden" onClick={() => openCreate('expense')}>
+              <Plus className="h-4 w-4" />
+              {t('transactions.newTransaction')}
+            </Button>
+          </>
+        }
+      />
+
+      {/* Headline figures for the rows in view */}
+      <Card className="shadow-card">
+        <div className="flex flex-col gap-6 p-7 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">
+              {t('common.net')} • {summaryScope}
+            </p>
+            {loading && visible.length === 0 ? (
+              <Skeleton className="mt-3 h-[42px] w-48" />
+            ) : (
+              <p
+                className={cn(
+                  'mt-2 text-[42px] font-bold leading-none tracking-[-0.02em] tabular-nums',
+                  totals.net >= 0 ? 'text-success' : 'text-danger',
+                )}
+              >
+                {formatMoney(totals.net)}
+              </p>
+            )}
+            <p className="mt-2.5 text-xs text-dim">{summaryCount}</p>
+          </div>
+
+          <div className="flex shrink-0 gap-10 sm:mt-1">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">{t('common.income')}</p>
+              {loading && visible.length === 0 ? (
+                <Skeleton className="mt-2 h-6 w-28" />
+              ) : (
+                <p className="mt-1 text-xl font-semibold tabular-nums text-success">
+                  {formatMoney(totals.income)}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">{t('common.expenses')}</p>
+              {loading && visible.length === 0 ? (
+                <Skeleton className="mt-2 h-6 w-28" />
+              ) : (
+                <p className="mt-1 text-xl font-semibold tabular-nums text-danger">
+                  {formatMoney(totals.expenses)}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={visible.length === 0}>
-            <Download className="h-4 w-4" />
-            {t('transactions.export')}
-          </Button>
-          <Button size="sm" onClick={() => openCreate('expense')}>
-            <Plus className="h-4 w-4" />
-            {t('transactions.addShort')}
-          </Button>
-        </div>
-      </div>
+      </Card>
 
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('transactions.search')}
-          aria-label={t('transactions.searchAria')}
-        />
-      </div>
+      {/* Results */}
+      <Card className="overflow-hidden shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-7 py-5">
+          <h2 className="text-lg font-semibold">{t('transactions.title')}</h2>
+          <p className="text-sm text-muted-foreground">{summaryCount}</p>
+        </div>
 
-      {/* Server-side filters (type, date range, category) */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="tx-filter-type">{t('transactions.filters.allTypes')}</Label>
-          <select
-            id="tx-filter-type"
-            className="flex h-9 rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
-          >
-            <option value="all">{t('transactions.filters.allTypes')}</option>
-            <option value="income">{t('transactions.filters.income')}</option>
-            <option value="expense">{t('transactions.filters.expense')}</option>
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="tx-filter-from">{t('transactions.filters.from')}</Label>
-          <Input
-            id="tx-filter-from"
-            type="date"
-            className="h-9"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="tx-filter-to">{t('transactions.filters.to')}</Label>
-          <Input
-            id="tx-filter-to"
-            type="date"
-            className="h-9"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="tx-filter-category">{t('transactions.filters.category')}</Label>
-          <select
-            id="tx-filter-category"
-            className="flex h-9 rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="">{t('transactions.filters.allCategories')}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            <Filter className="h-4 w-4" />
-            {t('transactions.filters.clear')}
-          </Button>
+        {/* Search + server-side filters. Hidden when there is nothing to filter. */}
+        {(items.length > 0 || hasFilters || searching) && (
+          <div className="space-y-3 border-b border-border p-4 md:p-5">
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1 md:max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t('transactions.search')}
+                  aria-label={t('transactions.searchAria')}
+                />
+              </div>
+              {/* Phones: filter toggle + clear */}
+              <Button
+                variant={mobileFiltersOpen ? 'default' : 'outline'}
+                size="icon"
+                className="md:hidden"
+                onClick={() => setMobileFiltersOpen((open) => !open)}
+                aria-expanded={mobileFiltersOpen}
+                aria-label={t('transactions.filters.title')}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+              </Button>
+              {(hasFilters || searching) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden"
+                  aria-label={t('transactions.filters.clear')}
+                  onClick={() => {
+                    clearFilters();
+                    setQuery('');
+                  }}
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            {/* Phones: type chips */}
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 md:hidden">
+              {TYPE_CHIPS.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setFilterType(chip.key)}
+                  aria-pressed={filterType === chip.key}
+                  className={cn(
+                    'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors',
+                    filterType === chip.key
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border bg-surface text-muted-foreground',
+                  )}
+                >
+                  {t(chip.labelKey)}
+                </button>
+              ))}
+            </div>
+
+            <div
+              className={cn(
+                'flex flex-wrap items-center gap-2 md:gap-3',
+                !mobileFiltersOpen && 'max-md:hidden',
+              )}
+            >
+              <select
+                aria-label={t('transactions.filters.allTypes')}
+                className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] md:h-9 md:w-auto"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
+              >
+                <option value="all">{t('transactions.filters.allTypes')}</option>
+                <option value="income">{t('transactions.filters.income')}</option>
+                <option value="expense">{t('transactions.filters.expense')}</option>
+              </select>
+              <Input
+                type="date"
+                aria-label={t('transactions.filters.from')}
+                className="w-full dark:[color-scheme:dark] md:h-9 md:w-[10.5rem]"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <Input
+                type="date"
+                aria-label={t('transactions.filters.to')}
+                className="w-full dark:[color-scheme:dark] md:h-9 md:w-[10.5rem]"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+              <select
+                aria-label={t('transactions.filters.category')}
+                className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] md:h-9 md:max-w-[12rem] md:w-auto"
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+              >
+                <option value="">{t('transactions.filters.allCategories')}</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {(hasFilters || searching) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="max-md:hidden"
+                  onClick={() => {
+                    clearFilters();
+                    setQuery('');
+                  }}
+                >
+                  <Filter className="h-4 w-4" />
+                  {t('transactions.filters.clear')}
+                </Button>
+              )}
+            </div>
+          </div>
         )}
-      </div>
+        {loading && items.length === 0 ? (
+          <div className="space-y-2 p-5">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-2 py-1.5">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 && !error ? (
+          <div className="p-7">
+            <EmptyState
+              icon={<ReceiptText className="h-8 w-8" />}
+              title={t('transactions.noTitle')}
+              description={t('transactions.noDesc')}
+              action={
+                <Button onClick={() => openCreate('expense')}>
+                  <Plus className="h-4 w-4" />
+                  {t('transactions.newTransaction')}
+                </Button>
+              }
+            />
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="p-7">
+            <EmptyState
+              icon={<SearchX className="h-8 w-8" />}
+              title={t('transactions.noMatches')}
+              description={t('transactions.noMatchesDesc', { query })}
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    clearFilters();
+                    setQuery('');
+                  }}
+                >
+                  {t('transactions.filters.clear')}
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <>
+            {/* Phones: grouped list with month headings */}
+            <div className="md:hidden">
+              {monthGroups.map((group) => (
+                <section key={group.key}>
+                  <h3 className="bg-muted/60 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-dim">
+                    {group.label}
+                  </h3>
+                  <ul className="divide-y divide-border/60">
+                    {group.items.map((tx) => (
+                      <TransactionListRow
+                        key={tx.id}
+                        tx={tx}
+                        category={tx.category_id ? categoryById.get(tx.category_id) : undefined}
+                        accountName={
+                          tx.account_id
+                            ? accounts.find((a) => a.id === tx.account_id)?.name
+                            : undefined
+                        }
+                        onEdit={() => openEdit(tx)}
+                        onDelete={() => setPendingDelete(tx)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
 
-      {/* Table */}
-      {items.length === 0 && !error ? (
-        <div className="card-surface flex flex-col items-center justify-center gap-2 py-16 text-center">
-          <p className="text-sm font-medium">{t('transactions.noTitle')}</p>
-          <p className="max-w-sm text-sm text-dim">{t('transactions.noDesc')}</p>
-          <Button className="mt-2" size="sm" onClick={() => openCreate('expense')}>
-            <Plus className="h-4 w-4" />
-            {t('transactions.firstOne')}
-          </Button>
-        </div>
-      ) : visible.length === 0 ? (
-        <div className="card-surface flex flex-col items-center justify-center gap-1 py-16 text-center">
-          <p className="text-sm font-medium">{t('transactions.noMatches')}</p>
-          <p className="text-sm text-dim">{t('transactions.noMatchesDesc', { query })}</p>
-        </div>
-      ) : (
-        <div className="card-surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
+            {/* Desktop: table */}
+            <div className="hidden md:block">
+            <Table className="[&_td:first-child]:pl-7 [&_td:last-child]:pr-7 [&_th:first-child]:pl-7 [&_th:last-child]:pr-7">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>{t('common.date')}</TableHead>
                   <TableHead>{t('common.description')}</TableHead>
                   <TableHead>{t('common.category')}</TableHead>
                   <TableHead className="text-right">{t('common.amount')}</TableHead>
-                  <TableHead className="w-24 text-right">{t('common.items')}</TableHead>
+                  <TableHead className="w-24 text-right">{t('transactions.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -350,8 +570,13 @@ export function TransactionsPage() {
                   const isIncome = tx.type === 'income';
                   return (
                     <TableRow key={tx.id}>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {formatDate(tx.date)}
+                      <TableCell className="whitespace-nowrap align-middle">
+                        <span className="block text-muted-foreground">{formatDate(tx.date)}</span>
+                        {tx.card_due_date && tx.card_due_date !== tx.date && (
+                          <span className="block text-xs text-dim">
+                            {t('transactions.billDue', { date: formatDate(tx.card_due_date) })}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="font-medium">{tx.description}</span>
@@ -407,22 +632,22 @@ export function TransactionsPage() {
                 })}
               </TableBody>
             </Table>
-          </div>
-
-          {hasMore && (
-            <div className="flex justify-center border-t border-border p-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void load(page + 1, true)}
-                disabled={loadingMore}
-              >
-                {loadingMore ? t('common.loading') : t('transactions.loadMore')}
-              </Button>
             </div>
-          )}
-        </div>
-      )}
+
+            {hasMore && (
+              <div className="flex justify-center border-t border-border p-4">
+                <Button
+                  variant="outline"
+                  onClick={() => void load(page + 1, true)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? t('common.loading') : t('transactions.loadMore')}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
 
       {/* Add / edit dialog */}
       <TransactionForm

@@ -3,54 +3,76 @@
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------------
- * PudimFinance design tokens (from-scratch UI).
+ * PudimFinance design tokens.
  *
  * Colors are RGB triplets consumed by Tailwind via `rgb(var(--token) / alpha)`.
- * The `.dark` class on <html> swaps every token in one pass.
+ * The `.dark` class on <html> swaps every token in one pass, so the same
+ * semantic name (`success`, `danger`, `surface`, ...) works in both themes.
+ *
+ * Spacing follows Tailwind's default 4px scale (1→4px … 12→48px); the dashboard
+ * uses 16px between cards and 20px of internal card padding.
  * ------------------------------------------------------------------------- */
 :root {
-  --background: 248 250 252; /* slate-50 */
-  --foreground: 15 23 42; /* slate-900 */
+  --background: 246 249 253; /* soft blue-tinted paper */
+  --foreground: 15 23 42; /* slate-900 ink */
   --surface: 255 255 255;
-  --surface-hover: 241 245 249; /* slate-100 */
-  --border: 226 232 240; /* slate-200 */
-  --input: 203 213 225; /* slate-300 */
-  --muted: 241 245 249; /* slate-100 */
-  --muted-foreground: 100 116 139; /* slate-500 */
-  --dim: 148 163 184; /* slate-400 */
-  --primary: 79 70 229; /* indigo-600 */
+  --surface-elevated: 255 255 255;
+  --surface-hover: 241 245 249;
+  --border: 226 232 240;
+  --input: 203 213 225;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
+  --dim: 148 163 184;
+  --primary: 5 150 105; /* emerald-600 */
+  --primary-hover: 4 120 87; /* emerald-700 */
   --primary-foreground: 255 255 255;
-  --accent: 224 231 255; /* indigo-100 */
-  --accent-foreground: 49 46 129; /* indigo-900 */
-  --destructive: 239 68 68; /* red-500 */
+  --accent: 209 250 229; /* emerald-100 */
+  --accent-foreground: 6 78 59; /* emerald-900 */
+  --destructive: 220 38 38; /* red-600 */
   --destructive-foreground: 255 255 255;
-  --ring: 99 102 241; /* indigo-500 */
-  --income: 16 185 129; /* emerald-500 */
-  --expense: 244 63 94; /* rose-500 */
-  --warning: 245 158 11; /* amber-500 */
-  --radius: 0.625rem;
+  --ring: 16 185 129; /* emerald-500 */
+  --income: 5 150 105; /* emerald-600 */
+  --expense: 220 38 38; /* red-600 */
+  --warning: 180 83 9; /* amber-700 */
+  --success: 5 150 105; /* emerald-600 */
+  --success-foreground: 255 255 255;
+  --danger: 220 38 38; /* red-600 */
+  --danger-foreground: 255 255 255;
+  --purple: 124 58 237; /* violet-600 */
+  --info: 37 99 235; /* blue-600 — charts only */
+  --radius: 1rem; /* 16px — major cards */
+  --shadow-card: 0 2px 12px -4px rgb(15 23 42 / 0.12);
 }
 
 .dark {
-  --background: 11 17 32; /* slate-950-ish, softer than pure black */
-  --foreground: 241 245 249; /* slate-100 */
-  --surface: 23 32 52; /* slate-900-ish surface */
-  --surface-hover: 37 47 71; /* slate-800-ish hover */
-  --border: 45 57 84; /* slate-800 */
-  --input: 51 65 85; /* slate-700 */
-  --muted: 30 41 59; /* slate-800 */
-  --muted-foreground: 148 163 184; /* slate-400 */
-  --dim: 100 116 139; /* slate-500 */
-  --primary: 129 140 248; /* indigo-400 */
-  --primary-foreground: 30 27 75; /* indigo-950 */
-  --accent: 49 46 129; /* indigo-900 */
-  --accent-foreground: 224 231 255; /* indigo-100 */
-  --destructive: 248 113 113; /* red-400 */
-  --destructive-foreground: 69 10 10;
-  --ring: 99 102 241;
-  --income: 52 211 153; /* emerald-400 */
-  --expense: 251 113 133; /* rose-400 */
-  --warning: 251 191 36; /* amber-400 */
+  --background: 11 14 20; /* #0B0E14 */
+  --foreground: 226 232 240; /* #E2E8F0 */
+  --surface: 21 26 34; /* #151A22 */
+  --surface-elevated: 24 30 39; /* #181E27 */
+  --surface-hover: 28 34 45; /* #1C222D */
+  --border: 35 42 53; /* #232A35 */
+  --input: 45 55 72; /* #2D3748 */
+  --muted: 28 34 45; /* #1C222D */
+  --muted-foreground: 148 163 184; /* #94A3B8 */
+  --dim: 100 116 139; /* #64748B */
+  --primary: 16 185 129; /* #10B981 */
+  --primary-hover: 5 150 105; /* #059669 */
+  --primary-foreground: 11 14 20; /* #0B0E14 */
+  --accent: 45 55 72; /* #2D3748 — active pill */
+  --accent-foreground: 226 232 240;
+  --destructive: 239 68 68; /* #EF4444 */
+  --destructive-foreground: 250 250 250;
+  --ring: 16 185 129;
+  --income: 16 185 129; /* #10B981 */
+  --expense: 239 68 68; /* #EF4444 */
+  --warning: 245 158 11; /* #F59E0B */
+  --success: 16 185 129; /* #10B981 */
+  --success-foreground: 11 14 20;
+  --danger: 239 68 68; /* #EF4444 */
+  --danger-foreground: 250 250 250;
+  --purple: 139 92 246; /* #8B5CF6 */
+  --info: 59 130 246; /* #3B82F6 — charts only */
+  --shadow-card: 0 4px 20px rgb(0 0 0 / 0.2);
 }
 
 @layer base {
@@ -60,11 +82,24 @@
 
   html {
     @apply antialiased;
+    /* Phones: no rubber-band bounce behind the fixed tab bar, and no accidental
+     * double-tap zoom on controls. */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
 
   body {
     @apply bg-background text-foreground font-sans;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Android/iOS: 16px inputs stop the browser from zooming on focus. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
 
   ::selection {
