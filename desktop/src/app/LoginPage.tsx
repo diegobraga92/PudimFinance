@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Landmark } from 'lucide-react';
+import { Landmark, PlugZap } from 'lucide-react';
 import { useAuth } from '@/app/auth';
 import { useI18n } from '@/app/i18n';
+import { getApiBaseUrl, setApiBaseUrl, testServerConnection } from '@/lib/serverConfig';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,12 +20,46 @@ export function LoginPage() {
   const [displayName, setDisplayName] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [server, setServer] = React.useState('');
+  const [testing, setTesting] = React.useState(false);
+  const [testResult, setTestResult] = React.useState<'ok' | 'fail' | null>(null);
+
+  // Prefill with the address the app is using: the saved one, else the default.
+  React.useEffect(() => {
+    void (async () => {
+      setServer(await getApiBaseUrl());
+    })();
+  }, []);
+
+  /**
+   * Persists the typed address so the sign-in request hits it. Never throws:
+   * blank input keeps whatever is already configured.
+   */
+  const saveServer = async () => {
+    if (!server.trim()) return;
+    try {
+      setServer(await setApiBaseUrl(server));
+    } catch {
+      // Invalid address, so keep the previously configured one.
+    }
+  };
+
+  const handleTestServer = async () => {
+    if (!server.trim()) return;
+    setTesting(true);
+    setTestResult(null);
+    const ok = await testServerConnection(server);
+    setTestResult(ok ? 'ok' : 'fail');
+    setTesting(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
+      // The server address typed on this screen wins over the stored one.
+      await saveServer();
       if (mode === 'login') {
         await login(email.trim(), password);
       } else {
@@ -86,6 +121,40 @@ export function LoginPage() {
               {error}
             </div>
           )}
+
+          {/* Server address, so a fresh install can reach a remote backend before signing in. */}
+          <div className="mb-4 space-y-1.5">
+            <Label htmlFor="pudim-server">{t('server.title')}</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="pudim-server"
+                type="url"
+                spellCheck={false}
+                autoComplete="url"
+                value={server}
+                onChange={(e) => {
+                  setServer(e.target.value);
+                  setTestResult(null);
+                }}
+                onBlur={() => void saveServer()}
+                placeholder={t('login.serverPlaceholder')}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => void handleTestServer()}
+                disabled={testing || !server.trim()}
+              >
+                <PlugZap className="h-4 w-4" />
+                {testing ? t('common.loading') : t('server.test')}
+              </Button>
+            </div>
+            {testResult === 'ok' && <p className="text-xs text-income">{t('server.connectionOk')}</p>}
+            {testResult === 'fail' && (
+              <p className="text-xs text-destructive">{t('server.connectionFailed')}</p>
+            )}
+          </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {mode === 'register' && (
