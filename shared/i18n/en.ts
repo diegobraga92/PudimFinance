@@ -1067,6 +1067,7 @@ export const en = {
   'notifications.accessNeededDesc':
     'To capture transactions from other apps, PudimFinance needs Android "Notification access". Open Settings to enable it.',
   'notifications.openSettings': 'Open Settings',
+  'notifications.nativeError': 'Native Android bridge error',
   'notifications.unavailable':
     'Capturing notifications from other apps is only available on Android.',
   'notifications.monitoredApps': 'Monitored Apps',

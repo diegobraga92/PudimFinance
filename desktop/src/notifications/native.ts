@@ -51,12 +51,42 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
+let lastNativeError: string | null = null;
+
+function nativeErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function recordNativeError(operation: string, error: unknown): void {
+  lastNativeError = `${operation}: ${nativeErrorMessage(error)}`;
+  console.error(`[PudimFinance native] ${lastNativeError}`, error);
+}
+
+/** Returns the most recent native bridge error for an in-app diagnostic. */
+export function getLastNativeError(): string | null {
+  return lastNativeError;
+}
+
+/** Clears the most recent native bridge error after a successful retry. */
+export function clearLastNativeError(): void {
+  lastNativeError = null;
+}
+
 /** True when the native capture backend is available (Android build). */
 export async function captureSupported(): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    return await invoke<boolean>('plugin:pudim-native|is_supported');
-  } catch {
+    const supported = await invoke<boolean>('plugin:pudim-native|is_supported');
+    clearLastNativeError();
+    return supported;
+  } catch (error) {
+    recordNativeError('is_supported', error);
     return false;
   }
 }
@@ -151,8 +181,11 @@ export async function subscribeCaptureActions(
 export async function notificationPostingAllowed(): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    return await invoke<boolean>('plugin:pudim-native|notification_posting_allowed');
-  } catch {
+    const allowed = await invoke<boolean>('plugin:pudim-native|notification_posting_allowed');
+    clearLastNativeError();
+    return allowed;
+  } catch (error) {
+    recordNativeError('notification_posting_allowed', error);
     return false;
   }
 }
@@ -161,8 +194,11 @@ export async function notificationPostingAllowed(): Promise<boolean> {
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    return await invoke<boolean>('plugin:pudim-native|request_notification_permission');
-  } catch {
+    const allowed = await invoke<boolean>('plugin:pudim-native|request_notification_permission');
+    clearLastNativeError();
+    return allowed;
+  } catch (error) {
+    recordNativeError('request_notification_permission', error);
     return false;
   }
 }
@@ -183,7 +219,8 @@ export async function syncCaptureSettings(settings: {
       pushPrompt: settings.pushPrompt,
       monitoredApps: settings.monitoredApps,
     });
-  } catch {
+  } catch (error) {
+    recordNativeError('set_capture_settings', error);
     // Non-fatal: while the app is alive JS still drives capture/prompting.
   }
 }
@@ -192,8 +229,11 @@ export async function syncCaptureSettings(settings: {
 export async function notificationAccessGranted(): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    return await invoke<boolean>('plugin:pudim-native|access_granted');
-  } catch {
+    const granted = await invoke<boolean>('plugin:pudim-native|access_granted');
+    clearLastNativeError();
+    return granted;
+  } catch (error) {
+    recordNativeError('access_granted', error);
     return false;
   }
 }
@@ -256,11 +296,14 @@ export async function subscribeDeepLinks(cb: (link: string) => void): Promise<()
 }
 
 /** Opens the Android "Notification access" settings screen (Android only). */
-export async function openNotificationAccessSettings(): Promise<void> {
-  if (!isTauri()) return;
+export async function openNotificationAccessSettings(): Promise<boolean> {
+  if (!isTauri()) return false;
   try {
     await invoke('plugin:pudim-native|open_settings');
-  } catch {
-    // Non-fatal.
+    clearLastNativeError();
+    return true;
+  } catch (error) {
+    recordNativeError('open_settings', error);
+    return false;
   }
 }

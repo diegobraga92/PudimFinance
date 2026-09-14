@@ -1068,6 +1068,7 @@ export const ptBR = {
   'notifications.accessNeededDesc':
     'Para capturar transações de outros apps, o PudimFinance precisa do "Acesso a notificações" do Android. Abra as Configurações para ativá-lo.',
   'notifications.openSettings': 'Abrir Configurações',
+  'notifications.nativeError': 'Erro na ponte nativa do Android',
   'notifications.unavailable':
     'A captura de notificações de outros apps está disponível apenas no Android.',
   'notifications.monitoredApps': 'Apps Monitorados',

@@ -3,7 +3,7 @@ name = "pudim-android-native"
 version = "0.1.0"
 description = "PudimFinance Android notification capture (bank transaction alerts) + access helpers"
 edition = "2021"
-links = "pudim-android-native"
+links = "pudim-native"
 
 [build-dependencies]
 tauri-plugin = { version = "2", features = ["build"] }

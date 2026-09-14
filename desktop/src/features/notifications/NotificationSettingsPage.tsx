@@ -22,6 +22,7 @@ import {
   captureSupported,
   notificationAccessGranted,
   notificationPostingAllowed,
+  getLastNativeError,
   openNotificationAccessSettings,
   requestNotificationPermission,
   syncCaptureSettings,
@@ -46,6 +47,16 @@ export function NotificationSettingsPage() {
   const [accessGranted, setAccessGranted] = React.useState<boolean | null>(null);
   // Whether Android lets the app post its own (import-prompt) notifications.
   const [postingAllowed, setPostingAllowed] = React.useState<boolean | null>(null);
+  const [nativeError, setNativeError] = React.useState<string | null>(null);
+
+  const refreshPermissions = React.useCallback(async () => {
+    if (!supported) return;
+    const granted = await notificationAccessGranted();
+    const posting = await notificationPostingAllowed();
+    setAccessGranted(granted);
+    setPostingAllowed(posting);
+    setNativeError(getLastNativeError());
+  }, [supported]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -59,8 +70,17 @@ export function NotificationSettingsPage() {
       const tauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
       setSupported(isSupported || tauriRuntime);
       setSettings(s);
-      setAccessGranted(isSupported || tauriRuntime ? await notificationAccessGranted() : false);
-      setPostingAllowed(isSupported || tauriRuntime ? await notificationPostingAllowed() : false);
+      if (isSupported || tauriRuntime) {
+        const granted = await notificationAccessGranted();
+        const posting = await notificationPostingAllowed();
+        setAccessGranted(granted);
+        setPostingAllowed(posting);
+        setNativeError(getLastNativeError());
+      } else {
+        setAccessGranted(false);
+        setPostingAllowed(false);
+        setNativeError(getLastNativeError());
+      }
     })();
     return () => {
       mounted = false;
@@ -70,17 +90,17 @@ export function NotificationSettingsPage() {
   // Refresh the access/permission flags when the window regains focus (the user
   // may have just toggled them in the Android system settings).
   React.useEffect(() => {
-    const refreshPermissions = () => {
-      if (!supported) return;
-      void notificationAccessGranted().then(setAccessGranted);
-      void notificationPostingAllowed().then(setPostingAllowed);
-    };
-    const onFocus = () => {
-      refreshPermissions();
+    const onFocus = () => void refreshPermissions();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshPermissions();
     };
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [supported]);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [refreshPermissions]);
 
   const update = React.useCallback((patch: Partial<NotificationSettings>) => {
     setSettings((cur) => {
@@ -129,7 +149,11 @@ export function NotificationSettingsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void openNotificationAccessSettings()}
+              onClick={() => {
+                void openNotificationAccessSettings().then((opened) => {
+                  setNativeError(opened ? null : getLastNativeError());
+                });
+              }}
             >
               <Settings2 className="h-4 w-4" />
               {t('notifications.openSettings')}
@@ -155,8 +179,9 @@ export function NotificationSettingsPage() {
                 // The system dialog resolves asynchronously, so re-check shortly
                 // after instead of trusting the immediate (pre-answer) state.
                 void requestNotificationPermission().then(() => {
+                  setNativeError(getLastNativeError());
                   window.setTimeout(
-                    () => void notificationPostingAllowed().then(setPostingAllowed),
+                    () => void refreshPermissions(),
                     800,
                   );
                 });
@@ -166,6 +191,13 @@ export function NotificationSettingsPage() {
               {t('notifications.enableNotifications')}
             </Button>
           </div>
+        </div>
+      )}
+
+      {nativeError && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+          <p className="font-medium">{t('notifications.nativeError')}</p>
+          <p className="mt-1 break-words font-mono opacity-80">{nativeError}</p>
         </div>
       )}
 
