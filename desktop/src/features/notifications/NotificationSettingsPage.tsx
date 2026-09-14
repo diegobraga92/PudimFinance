@@ -53,10 +53,14 @@ export function NotificationSettingsPage() {
       const isSupported = await captureSupported();
       const s = await getNotificationSettings();
       if (!mounted) return;
-      setSupported(isSupported);
+      // This screen is only exposed as an Android feature in the Tauri shell.
+      // Keep it usable if the capability probe races plugin registration or an
+      // older native build does not expose `is_supported` yet.
+      const tauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+      setSupported(isSupported || tauriRuntime);
       setSettings(s);
-      setAccessGranted(isSupported ? await notificationAccessGranted() : false);
-      setPostingAllowed(isSupported ? await notificationPostingAllowed() : false);
+      setAccessGranted(isSupported || tauriRuntime ? await notificationAccessGranted() : false);
+      setPostingAllowed(isSupported || tauriRuntime ? await notificationPostingAllowed() : false);
     })();
     return () => {
       mounted = false;
@@ -66,10 +70,13 @@ export function NotificationSettingsPage() {
   // Refresh the access/permission flags when the window regains focus (the user
   // may have just toggled them in the Android system settings).
   React.useEffect(() => {
-    const onFocus = () => {
+    const refreshPermissions = () => {
       if (!supported) return;
       void notificationAccessGranted().then(setAccessGranted);
       void notificationPostingAllowed().then(setPostingAllowed);
+    };
+    const onFocus = () => {
+      refreshPermissions();
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -86,8 +93,20 @@ export function NotificationSettingsPage() {
     });
   }, []);
 
+  const handleEnabledChange = React.useCallback(
+    (enabled: boolean) => {
+      update({ enabled });
+      if (enabled && supported && accessGranted !== true) {
+        // Android notification access is a special permission: it must be
+        // granted from the system settings screen rather than an in-app dialog.
+        void openNotificationAccessSettings();
+      }
+    },
+    [accessGranted, supported, update],
+  );
+
   if (!settings || supported === null) return null;
-  const canCapture = supported && settings.enabled;
+  const canCapture = supported && settings.enabled && accessGranted === true;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 md:space-y-6">
@@ -165,7 +184,8 @@ export function NotificationSettingsPage() {
           </span>
           <Switch
             checked={settings.enabled}
-            onCheckedChange={(enabled) => update({ enabled })}
+            onCheckedChange={handleEnabledChange}
+            disabled={!supported}
             aria-label={t('notifications.autoCapture')}
           />
         </CardContent>
