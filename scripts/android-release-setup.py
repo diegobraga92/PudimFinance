@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
-"""Make the CI-generated Tauri Android project produce a *signed* release APK.
+"""Prepare the CI-generated Tauri Android project for release builds.
 
 `desktop/src-tauri/gen/` is gitignored and re-created on every CI run by
-`tauri android init`, so the Gradle signing configuration documented at
-<https://v2.tauri.app/distribute/sign/android/> cannot be committed. This
-script therefore runs between `tauri android init` and `tauri android build`:
+`tauri android init`, so neither the signing configuration documented at
+<https://v2.tauri.app/distribute/sign/android/> nor the cleartext-HTTP
+permission can be committed. This script runs between `tauri android init` and
+`tauri android build` and:
 
-1. when the keystore secret is set, it decodes it and writes
-   `gen/android/keystore.properties` (alias, passwords, absolute store path);
-2. it injects the matching `signingConfigs`/`signingConfig` Kotlin into
+1. writes `gen/android/keystore.properties` (alias, passwords, absolute store
+   path) when a keystore secret is set;
+2. injects the matching `signingConfigs`/`signingConfig` Kotlin into
    `gen/android/app/build.gradle.kts`. The release build type falls back to the
    debug keystore when `keystore.properties` is absent, so a build without the
-   secret still yields an installable (debug-signed) APK instead of an
-   unsigned one.
+   secret still yields an installable (debug-signed) APK instead of an unsigned
+   one;
+3. allows cleartext HTTP in release builds. The tauri-cli template sets
+   ``android:usesCleartextTraffic="false"`` for release (only debug allows it),
+   so Android blocks every ``http://<lan-ip>:3000`` call this self-hosted client
+   is built to make and the app reports "Could not reach the server". Set
+   ``PUDIM_ALLOW_CLEARTEXT=false`` to keep Android's secure default, in which
+   case only ``https://`` servers can be reached.
 
 Accepted secret names (first one set wins, so the legacy Expo secrets keep
 working):
@@ -21,7 +28,8 @@ working):
 - alias: ``ANDROID_KEY_ALIAS`` / ``RELEASE_KEY_ALIAS``
 - passwords: ``ANDROID_KEYSTORE_PASSWORD`` / ``ANDROID_KEY_PASSWORD`` /
   ``RELEASE_KEYSTORE_PASSWORD`` (and ``RELEASE_KEY_PASSWORD`` for the key) —
-  ``keyPassword`` is only written when it differs from the keystore password.
+  ``keyPassword`` is only written when it differs from the keystore password,
+  and only a JKS keystore honours it (PKCS#12 ignores a separate key password).
 
 Idempotent: safe to run more than once against the same project.
 """
@@ -42,7 +50,7 @@ GRADLE_FILE = ANDROID_DIR / "app" / "build.gradle.kts"
 # Injected before the `buildTypes {` block (4-space indentation, re-indented to
 # whatever the generated project uses).
 SIGNING_CONFIGS = """\
-    // Injected by scripts/android-signing.py (see tauri.app/distribute/sign/android).
+    // Injected by scripts/android-release-setup.py (tauri.app/distribute/sign/android).
     // Signs release builds with the upload keystore CI provides through
     // keystore.properties, falling back to the debug keystore so a build
     // without the secret is still installable (Play Protect may warn).
@@ -66,8 +74,23 @@ SIGNING_CONFIG_LINE = (
     'signingConfigs.getByName("release") else signingConfigs.getByName("debug")'
 )
 
+# The tauri-cli template only allows cleartext in debug builds, which blocks the
+# `http://<lan-ip>:3000` servers this self-hosted client targets (Android rejects
+# the request before it leaves the app).
+CLEARTEXT_LINE = 'manifestPlaceholders["usesCleartextTraffic"] = "true"'
+
 PROPERTIES_IMPORT = "import java.util.Properties\n"
-INJECTION_MARKER = "// Injected by scripts/android-signing.py"
+INJECTION_MARKER = "// Injected by scripts/android-release-setup.py"
+
+
+def cleartext_allowed() -> bool:
+    """Whether release builds may use plain HTTP (default: yes, LAN servers)."""
+    return os.environ.get("PUDIM_ALLOW_CLEARTEXT", "").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
 
 
 def env(*names: str) -> str:
@@ -163,11 +186,13 @@ def patch_gradle() -> None:
     line_start = source.rfind("\n", 0, release.start()) + 1
     base_indent = re.match(r"\s*", source[line_start : release.start()]).group(0)
     body_indent = base_indent + "    "
+    injected = [SIGNING_CONFIG_LINE]
+    if cleartext_allowed():
+        injected.append(CLEARTEXT_LINE)
     source = (
         source[: release.end()]
         + "\n"
-        + body_indent
-        + SIGNING_CONFIG_LINE
+        + "\n".join(f"{body_indent}{line}" for line in injected)
         + source[release.end() :]
     )
 
@@ -188,6 +213,10 @@ def main() -> int:
             "::warning::No keystore secret set (ANDROID_KEYSTORE_BASE64) — the release "
             "APK will be debug-signed and Google Play Protect may block the sideload.",
         )
+    if cleartext_allowed():
+        print("Release builds may use plain HTTP (android:usesCleartextTraffic=true).")
+    else:
+        print("PUDIM_ALLOW_CLEARTEXT=false — release builds require https:// servers.")
     return 0
 
 

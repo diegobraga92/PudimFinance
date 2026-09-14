@@ -149,8 +149,8 @@ The artifact is arm64-v8a only (`--target aarch64`), which covers every recent
 phone; x86_64 emulators need `--target x86_64` instead.
 
 Release signing uses the upload keystore from the repository secrets, injected
-by `scripts/android-signing.py` (the generated `src-tauri/gen/android` project is
-gitignored, so the Gradle signing config cannot be committed):
+by `scripts/android-release-setup.py` (the generated `src-tauri/gen/android`
+project is gitignored, so the Gradle signing config cannot be committed):
 
 ```bash
 keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 \
@@ -167,9 +167,19 @@ base64 -w0 upload-keystore.jks   # → secret ANDROID_KEYSTORE_BASE64
 
 The legacy Expo names (`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEY_ALIAS`,
 `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_PASSWORD`) are still accepted, so an
-already-configured repository needs no changes. When no keystore secret is set
-the workflow logs a warning and debug-signs the release APK, so you still get an
-installable build.
+already-configured repository needs no changes. A distinct `ANDROID_KEY_PASSWORD`
+only takes effect for a `-storetype JKS` keystore: `keytool` ignores `-keypass`
+for PKCS#12 (the modern default), so there the store and key passwords must be
+the same. When no keystore secret is set the workflow logs a warning and
+debug-signs the release APK, so you still get an installable build.
+
+The same script enables **cleartext HTTP** in release builds
+(`android:usesCleartextTraffic="true"`). The Tauri template only allows it in
+debug builds, so without this the OS rejects the `http://<lan-ip>:3000` servers
+this client is designed for and the app reports *"Could not reach the server"* —
+the web and desktop clients never hit it because they don't enforce the Android
+network policy. Export `PUDIM_ALLOW_CLEARTEXT=false` in the step to keep
+Android's secure default, in which case only `https://` servers can be reached.
 
 **Google Play Protect**: because the app is sideloaded, Play Protect may warn
 or block the install. If it does, tap **"More details"** → **"Install
