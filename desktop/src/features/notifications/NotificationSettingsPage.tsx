@@ -6,6 +6,7 @@ import { useI18n } from '@/app/i18n';
 import { fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -89,21 +90,18 @@ export function NotificationSettingsPage() {
   const canCapture = supported && settings.enabled;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('notifications.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('notifications.autoCaptureDesc')}</p>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-4 md:space-y-6">
+      <PageHeader titleKey="notifications.title" subtitleKey="notifications.autoCaptureDesc" />
 
       {!supported && (
-        <div className="flex items-center gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+        <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           <Smartphone className="h-4 w-4 shrink-0" />
           <span>{t('notifications.unavailable')}</span>
         </div>
       )}
 
       {supported && accessGranted === false && (
-        <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <div className="flex items-center gap-3">
             <BellRing className="h-4 w-4 shrink-0" />
             <span>{t('notifications.permissionDenied')}</span>
@@ -122,7 +120,7 @@ export function NotificationSettingsPage() {
       )}
 
       {supported && settings.pushPrompt && postingAllowed === false && (
-        <div className="flex flex-col gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+        <div className="flex flex-col gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           <div className="flex items-start gap-3">
             <BellRing className="h-4 w-4 shrink-0" />
             <div>
@@ -152,7 +150,7 @@ export function NotificationSettingsPage() {
         </div>
       )}
 
-      <Card>
+      <Card className="shadow-card">
         <CardHeader>
           <CardTitle>{t('notifications.autoCapture')}</CardTitle>
           <CardDescription>{t('notifications.autoCaptureDesc')}</CardDescription>
@@ -173,7 +171,7 @@ export function NotificationSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="shadow-card">
         <CardHeader>
           <CardTitle>{t('notifications.monitoredApps')}</CardTitle>
           <CardDescription>
@@ -233,7 +231,7 @@ export function NotificationSettingsPage() {
       </Card>
 
 
-      <Card>
+      <Card className="shadow-card">
         <CardHeader>
           <CardTitle>{t('notifications.pushPrompt')}</CardTitle>
           <CardDescription>{t('notifications.pushPromptDesc')}</CardDescription>
@@ -249,7 +247,7 @@ export function NotificationSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="shadow-card">
         <CardHeader>
           <CardTitle>{t('notifications.captureMode')}</CardTitle>
         </CardHeader>
@@ -296,7 +294,7 @@ export function NotificationSettingsPage() {
       </Card>
 
 
-      <Card>
+      <Card className="shadow-card">
         <CardHeader>
           <CardTitle>{t('notifications.defaultCategory')}</CardTitle>
           <CardDescription>{t('notifications.defaultCategoryDesc')}</CardDescription>

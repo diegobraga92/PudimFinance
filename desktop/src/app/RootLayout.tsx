@@ -43,6 +43,7 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useNotificationCapture } from '@/notifications/NotificationCaptureProvider';
 
 /** Shared pill styling for nav entries (top bar trigger, links and menus). */
 function navItemClass(isActive: boolean): string {
@@ -64,7 +65,7 @@ function initialsFromEmail(email?: string): string {
 }
 
 /** A link inside the dropdown menus, optionally with a one-line description. */
-function MenuLink({ item }: { item: NavItem }) {
+function MenuLink({ item, badge }: { item: NavItem; badge?: number }) {
   const { t } = useI18n();
   return (
     <DropdownMenuItem asChild>
@@ -77,6 +78,11 @@ function MenuLink({ item }: { item: NavItem }) {
               <span className="block truncate text-xs text-dim">{t(item.descKey)}</span>
             )}
           </span>
+          {badge !== undefined && badge > 0 && (
+            <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+              {badge}
+            </span>
+          )}
         </span>
       </NavLink>
     </DropdownMenuItem>
@@ -121,6 +127,7 @@ function MobileNavMenu({
   groups: NavGroup[];
 }) {
   const { t } = useI18n();
+  const { pendingCount } = useNotificationCapture();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -145,7 +152,11 @@ function MobileNavMenu({
               {t(group.labelKey)}
             </DropdownMenuLabel>
             {group.items.map((item) => (
-              <MenuLink key={item.key} item={item} />
+              <MenuLink
+                key={item.key}
+                item={item}
+                badge={item.key === 'pendingReview' ? pendingCount : undefined}
+              />
             ))}
           </div>
         ))}
@@ -188,8 +199,12 @@ export function RootLayout() {
     };
   }, []);
 
+  // The native capability check can fail before the Android plugin finishes
+  // registering. Keep Android/Tauri navigation discoverable in that case; the
+  // destination still reports the precise capability/permission state.
+  const tauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
   const visibleItems = (items: NavItem[]) =>
-    items.filter((i) => !i.androidOnly || captureSupported);
+    items.filter((i) => !i.androidOnly || captureSupported || tauriRuntime);
   const primaryItems = visibleItems(PRIMARY_NAV);
   const toolGroups: NavGroup[] = TOOL_GROUPS.map((group) => ({
     ...group,

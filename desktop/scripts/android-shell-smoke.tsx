@@ -36,6 +36,7 @@ import { ThemeProvider } from '../src/app/theme';
 import { AuthProvider, useAuth } from '../src/app/auth';
 import { TooltipProvider } from '../src/components/ui/tooltip';
 import { Toaster } from '../src/components/ui/toaster';
+import { NotificationCaptureProvider } from '../src/notifications/NotificationCaptureProvider';
 import { RootLayout } from '../src/app/RootLayout';
 import { DateField } from '../src/components/DateField';
 import { DateRangeField } from '../src/components/DateRangeField';
@@ -69,7 +70,9 @@ function Providers({ children, client }: { children: React.ReactNode; client?: Q
           <ThemeProvider>
             <MemoryRouter initialEntries={['/dashboard']}>
               <TooltipProvider>
-                <Toaster>{children}</Toaster>
+                <Toaster>
+                  <NotificationCaptureProvider>{children}</NotificationCaptureProvider>
+                </Toaster>
               </TooltipProvider>
             </MemoryRouter>
           </ThemeProvider>
@@ -113,9 +116,24 @@ check(
   ],
 );
 
+// The phone APK runs inside Tauri, so include Android-only More entries in this
+// server-rendered smoke test as well.
+Object.defineProperty(globalThis, 'window', {
+  configurable: true,
+  value: {
+    __TAURI_INTERNALS__: {},
+    dispatchEvent: () => true,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  },
+});
 check('MorePage', <MorePage />, [
   'Receipts',
   'Scan and track prices',
+  'Notification Capture',
+  'Capture bank alerts as transactions',
+  'Pending review',
+  'Confirm captured transactions',
   'Reconciliation',
   'Match bank statements',
   'Ledger',

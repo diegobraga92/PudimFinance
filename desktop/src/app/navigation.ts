@@ -102,6 +102,7 @@ export const TOOL_GROUPS: NavGroup[] = [
       {
         key: 'notifications',
         labelKey: 'nav.notifications',
+        descKey: 'nav.descNotifications',
         icon: Bell,
         route: '/notifications',
         androidOnly: true,
@@ -109,6 +110,7 @@ export const TOOL_GROUPS: NavGroup[] = [
       {
         key: 'pendingReview',
         labelKey: 'nav.reviewCaptures',
+        descKey: 'nav.descReviewCaptures',
         icon: Inbox,
         route: '/pending-review',
         androidOnly: true,

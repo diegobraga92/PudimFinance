@@ -6,6 +6,8 @@ import { useI18n } from '@/app/i18n';
 import { fetchCategories } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/EmptyState';
+import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -92,40 +94,35 @@ export function PendingCapturesPage() {
 
   if (pendingItems.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('notifications.reviewTitle')}</h1>
-        </div>
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-            <Inbox className="h-10 w-10 text-muted-foreground/50" />
-            <p className="font-medium">{t('notifications.reviewEmpty')}</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              {t('notifications.reviewEmptyDesc')}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="mx-auto max-w-3xl space-y-4 md:space-y-6">
+        <PageHeader
+          titleKey="notifications.reviewTitle"
+          subtitleKey="notifications.askBeforeDesc"
+        />
+        <EmptyState
+          icon={<Inbox className="h-7 w-7" />}
+          title={t('notifications.reviewEmpty')}
+          description={t('notifications.reviewEmptyDesc')}
+        />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('notifications.reviewTitle')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('notifications.askBeforeDesc')}
-          </p>
-        </div>
-        <Button onClick={() => void approveAll()}>
-          <Check className="h-4 w-4" />
-          {t('notifications.approveAll')}
-        </Button>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-4 md:space-y-6">
+      <PageHeader
+        titleKey="notifications.reviewTitle"
+        subtitleKey="notifications.askBeforeDesc"
+        actions={
+          <Button onClick={() => void approveAll()} className="gap-1.5">
+            <Check className="h-4 w-4" />
+            {t('notifications.approveAll')}
+          </Button>
+        }
+      />
 
       {grouped.map(([label, items]) => (
-        <Card key={label}>
+        <Card key={label} className="shadow-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">{t('notifications.fromApp', { app: label })}</CardTitle>
           </CardHeader>

@@ -2,35 +2,27 @@ import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   ArrowRight,
-  BookOpen,
-  Bell,
-  Inbox,
   Languages,
   Moon,
   Palette,
-  ReceiptText,
-  RefreshCw,
-  Server,
-  ShieldCheck,
   Sun,
-  Wallet,
 } from 'lucide-react';
 
 import { useAuth } from '@/app/auth';
 import { useI18n } from '@/app/i18n';
 import { useTheme } from '@/app/theme';
+import { PRIMARY_NAV, TOOL_GROUPS, type NavItem } from '@/app/navigation';
 import type { TranslationKey } from '@shared/i18n';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { captureSupported } from '@/notifications/native';
 import { useNotificationCapture } from '@/notifications/NotificationCaptureProvider';
 
 interface Row {
   key: string;
   labelKey: TranslationKey;
-  descKey: TranslationKey;
-  icon: typeof ReceiptText;
+  descKey?: TranslationKey;
+  icon: NavItem['icon'];
   route?: string;
   onSelect?: () => void;
   active?: boolean;
@@ -48,81 +40,23 @@ export function MorePage() {
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
   const { pendingCount } = useNotificationCapture();
-  const [notificationCaptureSupported, setNotificationCaptureSupported] = React.useState(false);
+  const tauriRuntime = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
-  React.useEffect(() => {
-    let mounted = true;
-    void captureSupported().then((supported) => {
-      if (mounted) setNotificationCaptureSupported(supported);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const tools: Row[] = [
-    ...(notificationCaptureSupported
-      ? [
-          {
-            key: 'notifications',
-            labelKey: 'nav.notifications' as const,
-            descKey: 'nav.descNotifications' as const,
-            icon: Bell,
-            route: '/notifications',
-          },
-          {
-            key: 'pendingReview',
-            labelKey: 'nav.reviewCaptures' as const,
-            descKey: 'nav.descReviewCaptures' as const,
-            icon: Inbox,
-            route: '/pending-review',
-            badge: pendingCount > 0 ? String(pendingCount) : undefined,
-          },
-        ]
-      : []),
-    {
-      key: 'receipts',
-      labelKey: 'nav.receipts',
-      descKey: 'nav.descReceipts',
-      icon: ReceiptText,
-      route: '/receipts',
-    },
-    {
-      key: 'reconciliation',
-      labelKey: 'nav.reconciliation',
-      descKey: 'nav.descReconciliation',
-      icon: RefreshCw,
-      route: '/reconciliation',
-    },
-    {
-      key: 'ledger',
-      labelKey: 'nav.ledger',
-      descKey: 'nav.descLedger',
-      icon: BookOpen,
-      route: '/ledger',
-    },
-    {
-      key: 'audit',
-      labelKey: 'nav.audit',
-      descKey: 'nav.descAudit',
-      icon: ShieldCheck,
-      route: '/audit',
-    },
-    {
-      key: 'creditCards',
-      labelKey: 'nav.creditCards',
-      descKey: 'nav.descCreditCards',
-      icon: Wallet,
-      route: '/credit-cards',
-    },
-  ];
+  const moreItems = [
+    ...PRIMARY_NAV.filter((item) => item.key === 'receipts'),
+    ...TOOL_GROUPS.slice(0, 2).flatMap((group) => group.items),
+  ].filter((item) => !item.androidOnly || tauriRuntime);
+  const tools: Row[] = moreItems.map((item) => ({
+    ...item,
+    badge: item.key === 'pendingReview' && pendingCount > 0 ? String(pendingCount) : undefined,
+  }));
 
   const settings: Row[] = [
     {
       key: 'server',
       labelKey: 'nav.server',
       descKey: 'nav.descServer',
-      icon: Server,
+      icon: TOOL_GROUPS[2].items[0].icon,
       route: '/server',
     },
     {
@@ -229,7 +163,7 @@ function MoreRow({ row }: { row: Row }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{t(row.labelKey)}</span>
-        <span className="block truncate text-xs text-dim">{t(row.descKey)}</span>
+        {row.descKey && <span className="block truncate text-xs text-dim">{t(row.descKey)}</span>}
       </span>
       {row.badge && (
         <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
