@@ -403,6 +403,30 @@
           "markdownDescription": "Denies the open_settings command without any pre-configured scope."
         },
         {
+          "description": "Enables the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-register-listener",
+          "markdownDescription": "Enables the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-register-listener",
+          "markdownDescription": "Denies the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove-listener",
+          "markdownDescription": "Enables the remove_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove-listener",
+          "markdownDescription": "Denies the remove_listener command without any pre-configured scope."
+        },
+        {
           "description": "Enables the request_notification_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-request-notification-permission",
@@ -499,10 +523,10 @@
           "markdownDescription": "Denies the take_deep_link command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`",
+          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`"
+          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

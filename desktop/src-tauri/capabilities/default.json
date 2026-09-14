@@ -21,6 +21,8 @@
     "pudim-native:allow-biometric-available",
     "pudim-native:allow-biometric-authenticate",
     "pudim-native:allow-set-widget-spent-today",
-    "pudim-native:allow-take-deep-link"
+    "pudim-native:allow-take-deep-link",
+    "pudim-native:allow-register-listener",
+    "pudim-native:allow-remove-listener"
   ]
 }

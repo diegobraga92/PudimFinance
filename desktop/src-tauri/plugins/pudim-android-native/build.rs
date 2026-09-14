@@ -16,6 +16,8 @@ const COMMANDS: &[&str] = &[
     "biometric_authenticate",
     "set_widget_spent_today",
     "take_deep_link",
+    "register_listener",
+    "remove_listener",
 ];
 
 fn main() {

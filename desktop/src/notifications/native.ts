@@ -105,7 +105,8 @@ export async function subscribeNativeNotifications(
     return () => {
       void unlisten.unregister();
     };
-  } catch {
+  } catch (error) {
+    recordNativeError('notificationCaptured listener', error);
     return () => {};
   }
 }

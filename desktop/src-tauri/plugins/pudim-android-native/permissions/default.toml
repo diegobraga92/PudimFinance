@@ -20,4 +20,6 @@ permissions = [
   "allow-biometric-authenticate",
   "allow-set-widget-spent-today",
   "allow-take-deep-link",
+  "allow-register-listener",
+  "allow-remove-listener",
 ]

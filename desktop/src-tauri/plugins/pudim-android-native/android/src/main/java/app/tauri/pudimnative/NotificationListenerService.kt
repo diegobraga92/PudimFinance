@@ -89,6 +89,9 @@ internal fun extractPayload(sbn: StatusBarNotification, appLabel: String): Map<S
 
     val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
     val body = buildString {
+        extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.let {
+            append(it).append(' ')
+        }
         extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.let {
             append(it).append(' ')
         }
@@ -98,6 +101,12 @@ internal fun extractPayload(sbn: StatusBarNotification, appLabel: String): Map<S
         extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             ?.joinToString(" ") { it?.toString().orEmpty() }
             ?.let { append(it) }
+        extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.let {
+            append(it).append(' ')
+        }
+        extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()?.let {
+            append(it)
+        }
     }.trim()
 
     if (body.isEmpty()) return null
