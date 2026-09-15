@@ -66,6 +66,16 @@ export function transactionTypeForAction(action: CaptureActionKind): 'income' | 
   return action === 'income' ? 'income' : 'expense';
 }
 
+/** Returns the configured source account for a prompt action. */
+export function accountIdForAction(
+  action: CaptureActionKind,
+  settings: Pick<NotificationSettings, 'debitAccountId' | 'creditAccountId'>,
+): string | null {
+  if (action === 'debit') return settings.debitAccountId;
+  if (action === 'credit') return settings.creditAccountId;
+  return null;
+}
+
 /**
  * Known Brazilian banks/payment apps. The monitor matches against the
  * notification *app name* (e.g. "Nubank").
@@ -272,6 +282,14 @@ export interface PendingCapture {
   prompted?: boolean;
 }
 
+/** Uses the current default for older captures that were queued without a category. */
+export function categoryIdForCapture(
+  item: Pick<PendingCapture, 'type' | 'categoryId'>,
+  settings: Pick<NotificationSettings, 'defaultCategoryId'>,
+): string | null {
+  return item.categoryId ?? (item.type === 'expense' ? settings.defaultCategoryId : null);
+}
+
 const MAX_PENDING = 50;
 
 function normalizeForDedup(s: string): string {
@@ -338,6 +356,7 @@ export async function addPendingCapture(item: PendingCapture): Promise<PendingCa
   if (existingIdx >= 0) {
     next[existingIdx] = {
       ...next[existingIdx],
+      categoryId: next[existingIdx].categoryId ?? item.categoryId,
       postTime: Math.max(next[existingIdx].postTime, item.postTime),
     };
   } else {

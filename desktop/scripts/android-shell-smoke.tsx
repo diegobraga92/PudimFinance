@@ -60,7 +60,11 @@ import { ReceiptsPage } from '../src/features/receipts/ReceiptsPage';
 import { PRIMARY_NAV, MOBILE_TABS, TOOL_GROUPS, screenTitleKey, isMobileRoot } from '../src/app/navigation';
 import { groupTransactionsByMonth } from '../src/features/transactions/group-by-month';
 import { clearAuthSession, setAuthSession } from '../src/lib/auth';
-import { parseNotification } from '../src/notifications/capture';
+import {
+  accountIdForAction,
+  categoryIdForCapture,
+  parseNotification,
+} from '../src/notifications/capture';
 import { toIsoDate } from '../src/lib/date-input';
 
 function Providers({ children, client }: { children: React.ReactNode; client?: QueryClient }) {
@@ -426,6 +430,35 @@ for (const [label, ok] of captureChecks) {
 }
 if (captureChecks.every(([, ok]) => ok)) {
   console.log(`PASS: notification capture parsing (${captureChecks.length} cases)`);
+}
+
+const actionSettings = {
+  defaultCategoryId: 'default-expense-category',
+  debitAccountId: 'checking-account',
+  creditAccountId: 'credit-card-account',
+};
+const actionSettingsChecks: [string, boolean][] = [
+  ['credit uses the configured credit-card account', accountIdForAction('credit', actionSettings) === 'credit-card-account'],
+  [
+    'expense action uses the current default category',
+    categoryIdForCapture({ type: 'expense', categoryId: null }, actionSettings) ===
+      'default-expense-category',
+  ],
+  [
+    'guessed category wins over the default',
+    categoryIdForCapture({ type: 'expense', categoryId: 'guessed-category' }, actionSettings) ===
+      'guessed-category',
+  ],
+  ['income does not use an expense default', categoryIdForCapture({ type: 'income', categoryId: null }, actionSettings) === null],
+];
+for (const [label, ok] of actionSettingsChecks) {
+  if (!ok) {
+    console.error(`FAIL: capture action settings — ${label}`);
+    failures += 1;
+  }
+}
+if (actionSettingsChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: capture action settings (${actionSettingsChecks.length} cases)`);
 }
 
 // ---- transactions range control + row checkbox ------------------------------

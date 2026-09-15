@@ -4,7 +4,9 @@ import { useToast } from '@/components/ui/toaster';
 import { useI18n } from '@/app/i18n';
 import {
   addPendingCapture,
+  accountIdForAction,
   appLabelFor,
+  categoryIdForCapture,
   dedupKeyOf,
   getNotificationSettings,
   getPendingCaptures,
@@ -161,6 +163,10 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   /** Imports a queued capture from a prompt action (income/debit/credit). */
   const importFromAction = React.useCallback(async (action: CaptureAction) => {
     if (!isCaptureActionKind(action.action)) return;
+    // Settings may change while this provider remains mounted. Reload them so
+    // push actions use the current account and default-category selections.
+    const settings = await getNotificationSettings();
+    settingsRef.current = settings;
     let item = (await getPendingCaptures()).find((c) => c.id === action.capture_id);
     if (!item) {
       // The listener posted the prompt while the app was dead, so the inbox
@@ -168,7 +174,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       // raw notification that travelled with the action.
       const text = [action.title, action.text].filter(Boolean).join(' ').trim();
       const parsed = text
-        ? parseNotification(text, [], settingsRef.current?.defaultCategoryId ?? null)
+        ? parseNotification(text, [], settings.defaultCategoryId)
         : null;
       if (parsed) {
         item = toPendingCapture(parsed, action.app_label ?? action.app_name ?? '', {
@@ -178,19 +184,14 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     }
     if (!item) return;
     const { dedupKey } = item;
-    const settings = settingsRef.current;
-    const accountId =
-      action.action === 'debit'
-        ? settings?.debitAccountId ?? null
-        : action.action === 'credit'
-          ? settings?.creditAccountId ?? null
-          : null;
+    const accountId = accountIdForAction(action.action, settings);
+    const categoryId = categoryIdForCapture(item, settings);
     try {
       await createTransaction({
         description: item.description,
         amount: item.amount,
         type: transactionTypeForAction(action.action),
-        category_id: item.categoryId,
+        category_id: categoryId,
         date: item.date,
         account_id: accountId,
         notes: tRef.current('notifications.notes'),
@@ -216,14 +217,17 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const subscribeLive = React.useCallback(async () => {
     if (!nativeUnsubscribeRef.current) {
       nativeUnsubscribeRef.current = await subscribeNativeNotifications((payload) => {
-        const settings = settingsRef.current;
-        const label = sourceLabel(payload);
-        if (!settings?.enabled) return;
-        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) return;
-        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
-        if (!text) return;
-        const parsed = parseNotification(text, [], settings.defaultCategoryId);
-        if (parsed) handleParsedRef.current(parsed, payload);
+        void (async () => {
+          const settings = await getNotificationSettings();
+          settingsRef.current = settings;
+          const label = sourceLabel(payload);
+          if (!settings.enabled) return;
+          if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) return;
+          const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
+          if (!text) return;
+          const parsed = parseNotification(text, [], settings.defaultCategoryId);
+          if (parsed) handleParsedRef.current(parsed, payload);
+        })();
       });
     }
     if (!actionUnsubscribeRef.current) {
@@ -241,7 +245,9 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   }, []);
 
   const drainQueuedCaptures = React.useCallback(async () => {
-    const settings = settingsRef.current ?? (await getNotificationSettings());
+    // Settings may have changed while this provider stayed mounted or while the
+    // app was backgrounded. Use the persisted values for every drain.
+    const settings = await getNotificationSettings();
     settingsRef.current = settings;
     if (settings.enabled) {
       for (const payload of await drainNativeNotifications()) {
