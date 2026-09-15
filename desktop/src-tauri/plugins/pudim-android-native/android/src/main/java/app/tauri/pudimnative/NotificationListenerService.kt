@@ -31,9 +31,8 @@ class NotificationListenerService : NotificationListenerService() {
         val appLabel = appLabelOf(this, sbn.packageName)
         val payload = extractPayload(sbn, appLabel) ?: return
 
-        if (PudimNativePlugin.instance != null) {
+        if (PudimNativePlugin.notifyPosted(payload)) {
             // Webview alive: let JS parse and prompt (single source of truth).
-            PudimNativePlugin.notifyPosted(payload)
             return
         }
 

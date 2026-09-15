@@ -7,10 +7,10 @@ import android.content.Intent
 /**
  * Handles the income / debit / credit buttons on an import-prompt notification.
  *
- * When the webview is alive the choice is forwarded immediately through
+ * When the WebView is active the choice is forwarded immediately through
  * [PudimNativePlugin.notifyCaptureAction] (the `captureAction` event). If the
- * app process is dead, the choice is persisted in [PendingCaptureActions] and
- * applied on the next launch.
+ * app is paused, stopped, or dead, the choice is persisted in
+ * [PendingCaptureActions] and applied when the WebView drains it.
  */
 class CaptureActionReceiver : BroadcastReceiver() {
 
@@ -35,9 +35,7 @@ class CaptureActionReceiver : BroadcastReceiver() {
         val postTime = intent.getLongExtra(EXTRA_POST_TIME, 0L)
         if (postTime > 0L) payload["post_time"] = postTime
 
-        if (PudimNativePlugin.instance != null) {
-            PudimNativePlugin.notifyCaptureAction(payload)
-        } else {
+        if (!PudimNativePlugin.notifyCaptureAction(payload)) {
             PendingCaptureActions.enqueue(context, payload)
         }
     }

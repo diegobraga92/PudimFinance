@@ -211,6 +211,24 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const importFromActionRef = React.useRef(importFromAction);
   importFromActionRef.current = importFromAction;
 
+  const drainQueuedCaptures = React.useCallback(async () => {
+    const settings = settingsRef.current ?? (await getNotificationSettings());
+    settingsRef.current = settings;
+    if (!settings.enabled) return;
+    for (const payload of await drainNativeNotifications()) {
+      const label = sourceLabel(payload);
+      if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) continue;
+      const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
+      if (!text) continue;
+      const parsed = parseNotification(text, [], settings.defaultCategoryId);
+      if (parsed) handleParsedRef.current(parsed, payload);
+    }
+    for (const action of await drainCaptureActions()) {
+      await importFromActionRef.current(action);
+    }
+    setPendingItems(await getPendingCaptures());
+  }, []);
+
   React.useEffect(() => {
     let mounted = true;
     let unsubscribe: (() => void) | null = null;
@@ -220,6 +238,21 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       settingsRef.current = await getNotificationSettings();
       if (settingsRef.current) void syncCaptureSettings(settingsRef.current);
       if (mounted) setPendingItems(await getPendingCaptures());
+      // Register the live listener before draining cold-start captures. This
+      // closes the startup window where the native plugin is alive but JS has
+      // not subscribed yet.
+      unsubscribe = await subscribeNativeNotifications((payload) => {
+        const settings = settingsRef.current;
+        if (!settings?.enabled) return;
+        const label = sourceLabel(payload);
+        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) {
+          return;
+        }
+        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
+        if (!text) return;
+        const parsed = parseNotification(text, [], settings.defaultCategoryId);
+        if (parsed) handleParsedRef.current(parsed, payload);
+      });
       // Notifications captured while the app was killed (Android).
       for (const payload of await drainNativeNotifications()) {
         const settings = settingsRef.current;
@@ -233,19 +266,6 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         const parsed = parseNotification(text, [], settings.defaultCategoryId);
         if (parsed) handleParsedRef.current(parsed, payload);
       }
-      // Live subscription.
-      unsubscribe = await subscribeNativeNotifications((payload) => {
-        const settings = settingsRef.current;
-        if (!settings?.enabled) return;
-        const label = sourceLabel(payload);
-        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) {
-          return;
-        }
-        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
-        if (!text) return;
-        const parsed = parseNotification(text, [], settings.defaultCategoryId);
-        if (parsed) handleParsedRef.current(parsed, payload);
-      });
       // Import actions tapped while the app was killed (Android).
       for (const action of await drainCaptureActions()) {
         await importFromActionRef.current(action);
@@ -262,6 +282,18 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       unsubscribeActions?.();
     };
   }, []);
+
+  React.useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void drainQueuedCaptures();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [drainQueuedCaptures]);
 
   const approve = React.useCallback(
     async (

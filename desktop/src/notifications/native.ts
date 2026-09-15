@@ -116,7 +116,8 @@ export async function drainNativeNotifications(): Promise<CapturedNotification[]
   if (!isTauri()) return [];
   try {
     return await invoke<CapturedNotification[]>('plugin:pudim-native|drain_pending');
-  } catch {
+  } catch (error) {
+    recordNativeError('drain_pending', error);
     return [];
   }
 }

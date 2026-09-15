@@ -10,6 +10,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
@@ -17,6 +18,8 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /** Intent extra carrying the home-screen widget deep link. */
 const val DEEP_LINK_EXTRA = "pudim_deep_link"
@@ -46,23 +49,62 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     companion object {
         @Volatile
         var instance: PudimNativePlugin? = null
+        private val biometricInFlight = AtomicBoolean(false)
+        private val activeBiometricPrompt = AtomicReference<BiometricPrompt?>(null)
 
         /** Called by [NotificationListenerService] for every posted notification. */
-        fun notifyPosted(payload: Map<String, Any?>) {
-            instance?.triggerObject("notificationCaptured", payload.toJSObject())
+        fun notifyPosted(payload: Map<String, Any?>): Boolean {
+            val plugin = instance ?: return false
+            if (!plugin.webViewActive) return false
+            plugin.triggerObject("notificationCaptured", payload.toJSObject())
+            return true
         }
 
         /** Called by [CaptureActionReceiver] when an import action is tapped. */
-        fun notifyCaptureAction(payload: Map<String, Any?>) {
-            instance?.triggerObject("captureAction", payload.toJSObject())
+        fun notifyCaptureAction(payload: Map<String, Any?>): Boolean {
+            val plugin = instance ?: return false
+            if (!plugin.webViewActive) return false
+            plugin.triggerObject("captureAction", payload.toJSObject())
+            return true
         }
     }
 
+    @Volatile
+    private var webViewActive = false
+
     override fun load(webView: WebView) {
         instance = this
+        // Tauri creates/loads the WebView during activity startup, and plugin
+        // load can happen after the Activity's first onResume callback. Treat
+        // a loaded WebView as active; later lifecycle callbacks mark it paused
+        // or stopped explicitly.
+        webViewActive = true
         super.load(webView)
         // Deep link from the home-screen widget at cold start (JS drains it via takeDeepLink).
         activity.intent?.getStringExtra(DEEP_LINK_EXTRA)?.let { PendingDeepLink.value = it }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webViewActive = true
+    }
+
+    override fun onPause() {
+        webViewActive = false
+        super.onPause()
+    }
+
+    override fun onStop() {
+        webViewActive = false
+        super.onStop()
+    }
+
+    override fun onDestroy(activity: AppCompatActivity) {
+        webViewActive = false
+        if (instance === this) instance = null
+        activeBiometricPrompt.getAndSet(null)?.cancelAuthentication()
+        biometricInFlight.set(false)
+        super.onDestroy(activity)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -102,22 +144,37 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
             return
         }
         val host = activity as? FragmentActivity
-        if (host == null) {
+        if (
+            host == null ||
+            activity.isFinishing ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && activity.isDestroyed) ||
+            !host.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) ||
+            !biometricInFlight.compareAndSet(false, true)
+        ) {
             invoke.resolveObject(false)
             return
         }
+
+        lateinit var prompt: BiometricPrompt
+        fun finish(result: Boolean) {
+            if (biometricInFlight.compareAndSet(true, false)) {
+                activeBiometricPrompt.compareAndSet(prompt, null)
+                invoke.resolveObject(result)
+            }
+        }
+
         val executor: Executor = ContextCompat.getMainExecutor(activity)
-        val prompt = BiometricPrompt(
+        prompt = BiometricPrompt(
             host,
             executor,
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    invoke.resolveObject(true)
+                    finish(true)
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     // Includes user cancel, so resolve false. A failed attempt stays open.
-                    invoke.resolveObject(false)
+                    finish(false)
                 }
             },
         )
@@ -130,7 +187,14 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
                     BiometricManager.Authenticators.BIOMETRIC_STRONG,
             )
             .build()
-        executor.execute { prompt.authenticate(info) }
+        activeBiometricPrompt.set(prompt)
+        executor.execute {
+            if (activity.isFinishing || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && activity.isDestroyed)) {
+                finish(false)
+            } else {
+                prompt.authenticate(info)
+            }
+        }
     }
 
     private fun isBiometricAvailable(): Boolean {

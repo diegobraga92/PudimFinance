@@ -6,10 +6,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Durable queue of raw notifications captured while the app process was dead
- * (no webview alive to receive them). The native
- * [NotificationListenerService] writes here when [PudimNativePlugin.instance] is
- * null, and the webview drains the queue on the next app launch.
+ * Durable queue of raw notifications captured while the WebView is paused,
+ * stopped, or unavailable. The native [NotificationListenerService] writes here
+ * when the plugin cannot safely forward to the active WebView, and the WebView
+ * drains the queue on launch or when it returns to the foreground.
  *
  * Bounded to [MAX_ITEMS] so unrelated apps can't grow it without limit.
  */

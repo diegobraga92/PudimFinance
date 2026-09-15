@@ -31,8 +31,10 @@ export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
   const [locked, setLocked] = React.useState(false);
   const [ready, setReady] = React.useState(false);
   const prompting = React.useRef(false);
+  const [promptBusy, setPromptBusy] = React.useState(false);
   const didAutoPrompt = React.useRef(false);
   const unlockedAt = React.useRef(0);
+  const promptDismissalPending = React.useRef(false);
   const prevVisible = React.useRef(document.visibilityState);
 
   const suppressRelock = React.useCallback(
@@ -43,6 +45,7 @@ export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
   const prompt = React.useCallback(async () => {
     if (prompting.current) return;
     prompting.current = true;
+    setPromptBusy(true);
     try {
       const result = await Promise.race([
         authenticateBiometric(),
@@ -51,11 +54,15 @@ export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
       if (result) {
         unlockedAt.current = Date.now();
         setLocked(false);
+        // The biometric sheet itself causes a hidden -> visible transition.
+        // Consume that transition without re-locking after a successful scan.
+        promptDismissalPending.current = true;
       }
     } catch {
       // Stay locked if the prompt fails for any reason.
     } finally {
       prompting.current = false;
+      setPromptBusy(false);
     }
   }, []);
 
@@ -89,12 +96,19 @@ export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
       const prev = prevVisible.current;
       prevVisible.current = next;
       if (next === 'hidden') {
-        // Any in-flight OS dialog is gone now. Clear the guard so a
-        // never-settling prompt can't wedge the Unlock button.
-        prompting.current = false;
-        if (supported && !suppressRelock()) setLocked(true);
+        // A biometric prompt itself can make the WebView hidden. Do not
+        // re-lock or clear the in-flight guard while that prompt owns the
+        // Activity; its success callback must be allowed to unlock the app.
+        if (supported && !prompting.current && !suppressRelock()) setLocked(true);
       } else if (next === 'visible' && prev === 'hidden') {
-        prompting.current = false;
+        // Returning from the biometric sheet is also a visibility transition.
+        // The existing prompt will resolve and clear the lock; starting a
+        // second prompt here can leave the Activity/WebView in a dead state.
+        if (prompting.current) return;
+        if (promptDismissalPending.current) {
+          promptDismissalPending.current = false;
+          return;
+        }
         if (supported && !suppressRelock()) {
           setLocked(true);
           void prompt();
@@ -130,7 +144,7 @@ export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
         <Button
           className="mt-8 w-full"
           onClick={() => void prompt()}
-          disabled={prompting.current}
+          disabled={promptBusy}
         >
           <ShieldCheck className="h-4 w-4" />
           {t('biometric.unlock')}
