@@ -3,25 +3,6 @@
 //! Serves the REST API, Swagger UI, and health endpoints.
 //! Configuration is loaded from environment variables (see [`config::Config`]).
 
-mod auth;
-mod config;
-mod db;
-mod events;
-mod google;
-mod health;
-mod ledger;
-mod metrics;
-mod middleware;
-mod models;
-mod openapi;
-mod receipt_ocr;
-mod receipt_scanner;
-mod reconciliation_parser;
-mod routes;
-mod state;
-mod telemetry;
-mod transaction_ledger;
-
 use axum::Router;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -32,13 +13,13 @@ use tracing::info;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::config::Config;
-use crate::db::init_pool;
-use crate::health::health_handler;
-use crate::metrics::init_metrics_recorder;
-use crate::openapi::ApiDoc;
-use crate::routes::api_router;
-use crate::state::AppState;
+use backend::config::Config;
+use backend::db::init_pool;
+use backend::health::health_handler;
+use backend::metrics::init_metrics_recorder;
+use backend::openapi::ApiDoc;
+use backend::routes::api_router;
+use backend::state::AppState;
 
 /// Entry point that initializes telemetry and the database, then serves the HTTP API until shutdown.
 #[tokio::main]
@@ -46,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     let config = Config::from_env();
 
-    telemetry::init_logging(&config.otel_endpoint, "pudimfinance-backend");
+    backend::telemetry::init_logging(&config.otel_endpoint, "pudimfinance-backend");
     let metrics_recorder = init_metrics_recorder();
     let pg_pool = init_pool(
         &config.database_url,
@@ -54,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
         config.database_pool_acquire_timeout_secs,
     )
     .await;
-    let event_publisher = events::EventPublisher::new(&config.rabbitmq_url);
+    let event_publisher = backend::events::EventPublisher::new(&config.rabbitmq_url);
     let google = if config.google_client_ids.is_empty() {
         info!("Google sign-in disabled (GOOGLE_CLIENT_IDS is empty)");
         None
@@ -63,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
             "Google sign-in enabled for {} client ID(s)",
             config.google_client_ids.len()
         );
-        Some(std::sync::Arc::new(google::GoogleVerifier::new(
+        Some(std::sync::Arc::new(backend::google::GoogleVerifier::new(
             config.google_client_ids.clone(),
             config.google_client_secret.clone(),
             config.google_client_secret_client_id.clone(),
@@ -74,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
         pg_pool,
         event_publisher,
         jwt_secret: config.jwt_secret.clone(),
-        rate_limiter: middleware::RateLimiterState::new(),
+        rate_limiter: backend::middleware::RateLimiterState::new(),
         google,
     };
 
@@ -97,16 +78,16 @@ async fn main() -> anyhow::Result<()> {
         .merge(api_router())
         .route_layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
-            middleware::auth_middleware,
+            backend::middleware::auth_middleware,
         ))
         // Runs before auth so /api/auth/login is rate-limited too.
         .layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
-            middleware::rate_limit_middleware,
+            backend::middleware::rate_limit_middleware,
         ))
         // Deprecation headers (ADR 009) on legacy v1 endpoints.
         .layer(axum::middleware::from_fn(
-            middleware::deprecation_middleware,
+            backend::middleware::deprecation_middleware,
         ))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(TraceLayer::new_for_http())

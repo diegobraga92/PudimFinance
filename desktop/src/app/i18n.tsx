@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { translations, toIntlLocale, translate, type Locale, type TranslationKey } from '@shared/i18n';
+import { toIntlLocale, translate, type Locale, type TranslationKey } from '@shared/i18n';
 
 const LOCALE_KEY = 'pudim_locale';
 
@@ -109,4 +109,4 @@ export function useI18n(): I18nValue {
   return ctx;
 }
 
-export { translations, type Locale, type TranslationKey };
+export type { Locale, TranslationKey };

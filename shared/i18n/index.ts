@@ -29,9 +29,6 @@ export const _assertPtBRKeys: [never] extends [_MissingKeys]
     : never
   : never = true;
 
-/** The English dictionary doubles as the canonical shape for all locales. */
-export type TranslationShape = typeof en;
-
 export const translations: Record<Locale, Translation> = { en, 'pt-BR': ptBR };
 
 /** Map a locale to the `Intl` locale tag used for dates/numbers. */

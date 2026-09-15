@@ -132,9 +132,6 @@ export const TOOL_GROUPS: NavGroup[] = [
   },
 ];
 
-/** Flat list of every tool (used for active-state checks and the mobile menu). */
-export const TOOLS_NAV: NavItem[] = TOOL_GROUPS.flatMap((group) => group.items);
-
 /** The screens that make up the Accounting & Data workspace. */
 export const ACCOUNTING_TOOLS: NavItem[] = TOOL_GROUPS[0].items;
 

@@ -8,7 +8,7 @@ in `src-tauri/`; shared translations and icon identifiers live in `../shared/`.
 
 - Tauri 2 and Rust
 - React 18, TypeScript, Vite, Tailwind CSS
-- TanStack Query, Zustand, React Router
+- TanStack Query, React Router
 - Radix primitives and Recharts
 - IndexedDB offline mirror and sync queue
 - Android plugin for notification capture, secure storage, biometrics, and widget support

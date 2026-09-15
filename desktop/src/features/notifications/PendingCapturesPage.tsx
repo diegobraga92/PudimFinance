@@ -33,7 +33,7 @@ export function PendingCapturesPage() {
   const { t, formatMoney } = useI18n();
   const { pendingItems, approve, approveAll, skip } = useNotificationCapture();
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
-  const categories = categoriesQuery.data ?? [];
+  const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
 
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<PendingCapture | null>(null);

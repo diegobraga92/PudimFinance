@@ -8,7 +8,6 @@ default-run = "backend"
 axum = { version = "0.8", features = ["macros", "multipart"] }
 reqwest = { version = "0.13", default-features = false, features = ["form", "json", "rustls"] }
 tokio = { version = "1", features = ["full"] }
-tower = "0.5"
 tower-http = { version = "0.7", features = ["cors", "trace"] }
 
 sqlx = { version = "0.9", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls", "uuid", "chrono", "migrate", "macros", "rust_decimal"] }
@@ -35,7 +34,6 @@ csv = "1"
 regex = "1"
 
 lapin = { version = "4", features = ["rustls"] }
-futures-util = "0.3"
 deadpool-lapin = "0.14"
 
 jsonwebtoken = "9"

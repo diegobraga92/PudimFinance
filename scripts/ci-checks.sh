@@ -9,7 +9,6 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 PASS="${GREEN}✅${NC}"
 FAIL="${RED}❌${NC}"
-INFO="${CYAN}ℹ️${NC}"
 
 DOCKER_RUN="docker run --rm -v $ROOT_DIR/backend:/app -w /app rust:slim-bookworm"
 DEPS_CMD="apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev curl > /dev/null 2>&1"
@@ -33,7 +32,6 @@ step()   { echo -e "\n${CYAN}═══ $1 ═══${NC}"; }
 ok()     { echo -e "  ${PASS} $1"; }
 fail()   { echo -e "  ${FAIL} $1"; exit 1; }
 skip()   { echo -e "  ${YELLOW}⏭️  $1${NC}"; }
-info()   { echo -e "  ${INFO} $1"; }
 
 # ──────────────────────────────────────────────
 # Backend checks run via Docker (cargo is not on the host)
