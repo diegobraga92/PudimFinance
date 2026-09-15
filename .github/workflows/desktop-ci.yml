@@ -156,6 +156,13 @@ jobs:
         working-directory: desktop
         run: npm run tauri android init
 
+      # `android init` seeds the generated project with Tauri's default launcher
+      # art. Generate the app icon after init so the Android APK ships the wallet
+      # icon from the committed source image.
+      - name: Generate Android launcher icons
+        working-directory: desktop
+        run: npm run tauri -- icon src-tauri/icons/icon-source.png -o src-tauri/icons --ios-color "#b7440a"
+
       # gen/ is gitignored and re-created by `android init` above, so the release
       # config (keystore.properties + app/build.gradle.kts) has to be injected on
       # every run — see https://v2.tauri.app/distribute/sign/android/.
