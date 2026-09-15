@@ -154,6 +154,11 @@ export const ptBR = {
   'login.switchToLogin': 'Já é cadastrado? Entre',
   'login.authFailed': 'Falha na autenticação',
   'login.serverPlaceholder': 'Servidor (ex.: http://192.168.1.100:3000)',
+  'login.continueWithGoogle': 'Continuar com o Google',
+  'login.googleWaiting': 'Aguardando o Google…',
+  'login.googleFailed': 'Falha ao entrar com o Google',
+  'login.googleUnavailable': 'O login com Google não está disponível neste servidor',
+  'common.or': 'ou',
 
   // ---- Dashboard -----------------------------------------------------------
   'dashboard.greetingMorning': 'Bom dia, {name}!',

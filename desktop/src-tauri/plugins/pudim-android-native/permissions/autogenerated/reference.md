@@ -7,6 +7,7 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-is-supported`
 - `allow-access-granted`
 - `allow-open-settings`
+- `allow-open-external`
 - `allow-drain-pending`
 - `allow-show-capture-prompt`
 - `allow-cancel-capture-prompt`
@@ -21,6 +22,7 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-biometric-authenticate`
 - `allow-set-widget-spent-today`
 - `allow-take-deep-link`
+- `allow-take-auth-redirect`
 - `allow-register-listener`
 - `allow-remove-listener`
 
@@ -237,6 +239,32 @@ Enables the notification_posting_allowed command without any pre-configured scop
 <td>
 
 Denies the notification_posting_allowed command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-open-external`
+
+</td>
+<td>
+
+Enables the open_external command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-open-external`
+
+</td>
+<td>
+
+Denies the open_external command without any pre-configured scope.
 
 </td>
 </tr>
@@ -497,6 +525,32 @@ Enables the show_capture_prompt command without any pre-configured scope.
 <td>
 
 Denies the show_capture_prompt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-take-auth-redirect`
+
+</td>
+<td>
+
+Enables the take_auth_redirect command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-take-auth-redirect`
+
+</td>
+<td>
+
+Denies the take_auth_redirect command without any pre-configured scope.
 
 </td>
 </tr>

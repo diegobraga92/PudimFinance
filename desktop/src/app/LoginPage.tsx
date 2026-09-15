@@ -3,6 +3,7 @@ import { Landmark, PlugZap } from 'lucide-react';
 import { useAuth } from '@/app/auth';
 import { useI18n } from '@/app/i18n';
 import { getApiBaseUrl, setApiBaseUrl, testServerConnection } from '@/lib/serverConfig';
+import { fetchAuthProviders } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +13,7 @@ type Mode = 'login' | 'register';
 
 /** Full-screen auth page shown when no valid session exists. */
 export function LoginPage() {
-  const { login, register } = useAuth();
+  const { login, register, googleLogin } = useAuth();
   const { t } = useI18n();
   const [mode, setMode] = React.useState<Mode>('login');
   const [email, setEmail] = React.useState('');
@@ -23,6 +24,17 @@ export function LoginPage() {
   const [server, setServer] = React.useState('');
   const [testing, setTesting] = React.useState(false);
   const [testResult, setTestResult] = React.useState<'ok' | 'fail' | null>(null);
+  const [googleAvailable, setGoogleAvailable] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+    const timer = window.setTimeout(() => {
+      void fetchAuthProviders()
+        .then((providers) => setGoogleAvailable(providers.google))
+        .catch(() => setGoogleAvailable(false));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [server]);
 
   // Prefill with the address the app is using: the saved one, else the default.
   React.useEffect(() => {
@@ -67,6 +79,19 @@ export function LoginPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.authFailed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await saveServer();
+      await googleLogin();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('login.googleFailed'));
     } finally {
       setBusy(false);
     }
@@ -157,6 +182,18 @@ export function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            {googleAvailable && mode === 'login' && (
+              <>
+                <Button type="button" variant="outline" className="w-full" disabled={busy} onClick={() => void handleGoogleLogin()}>
+                  {busy ? t('login.googleWaiting') : t('login.continueWithGoogle')}
+                </Button>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="h-px flex-1 bg-border" />
+                  <span>{t('common.or')}</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              </>
+            )}
             {mode === 'register' && (
               <div className="space-y-1.5">
                 <Label htmlFor="pudim-display-name">{t('login.displayName')}</Label>

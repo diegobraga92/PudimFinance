@@ -6,6 +6,7 @@ permissions = [
   "allow-is-supported",
   "allow-access-granted",
   "allow-open-settings",
+  "allow-open-external",
   "allow-drain-pending",
   "allow-show-capture-prompt",
   "allow-cancel-capture-prompt",
@@ -20,6 +21,7 @@ permissions = [
   "allow-biometric-authenticate",
   "allow-set-widget-spent-today",
   "allow-take-deep-link",
+  "allow-take-auth-redirect",
   "allow-register-listener",
   "allow-remove-listener",
 ]

@@ -8,6 +8,7 @@
     "pudim-native:allow-is-supported",
     "pudim-native:allow-access-granted",
     "pudim-native:allow-open-settings",
+    "pudim-native:allow-open-external",
     "pudim-native:allow-drain-pending",
     "pudim-native:allow-show-capture-prompt",
     "pudim-native:allow-cancel-capture-prompt",
@@ -22,6 +23,7 @@
     "pudim-native:allow-biometric-authenticate",
     "pudim-native:allow-set-widget-spent-today",
     "pudim-native:allow-take-deep-link",
+    "pudim-native:allow-take-auth-redirect",
     "pudim-native:allow-register-listener",
     "pudim-native:allow-remove-listener"
   ]

@@ -189,6 +189,23 @@ export async function loginUser(payload: { email: string; password: string }): P
   });
 }
 
+export async function loginWithGoogle(payload: {
+  code: string;
+  code_verifier: string;
+  redirect_uri: string;
+  client_id: string;
+}): Promise<AuthResponse> {
+  return request<AuthResponse>('/api/auth/google', {
+    method: 'POST',
+    withAuth: false,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchAuthProviders(): Promise<{ google: boolean }> {
+  return request<{ google: boolean }>('/api/auth/providers', { withAuth: false });
+}
+
 export async function refreshToken(payload: { refresh_token: string }): Promise<AuthResponse> {
   return request<AuthResponse>('/api/auth/refresh', {
     method: 'POST',

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import android.webkit.WebView
+import android.net.Uri
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.app.NotificationManagerCompat
@@ -26,6 +27,12 @@ const val DEEP_LINK_EXTRA = "pudim_deep_link"
 
 /** Last deep link delivered by the widget, for cold-start reads. */
 internal object PendingDeepLink {
+    @Volatile
+    var value: String? = null
+}
+
+/** Last OAuth redirect delivered by Android, for cold-start reads. */
+internal object PendingAuthRedirect {
     @Volatile
     var value: String? = null
 }
@@ -79,8 +86,7 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     override fun load(webView: WebView) {
         instance = this
         super.load(webView)
-        // Deep link from the home-screen widget at cold start (JS drains it via takeDeepLink).
-        activity.intent?.getStringExtra(DEEP_LINK_EXTRA)?.let { PendingDeepLink.value = it }
+        extractDeepLink(activity.intent)?.let(::captureDeepLink)
     }
 
     override fun onDestroy(activity: AppCompatActivity) {
@@ -92,9 +98,19 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Widget tapped while the app is already running, so forward immediately.
-        val link = intent.getStringExtra(DEEP_LINK_EXTRA) ?: return
-        PendingDeepLink.value = link
+        // Widget/OAuth link tapped while the app is already running.
+        extractDeepLink(intent)?.let(::captureDeepLink)
+    }
+
+    private fun extractDeepLink(intent: Intent?): String? =
+        intent?.getStringExtra(DEEP_LINK_EXTRA) ?: intent?.data?.toString()
+
+    private fun captureDeepLink(link: String) {
+        if (link.startsWith("com.googleusercontent.apps.")) {
+            PendingAuthRedirect.value = link
+        } else {
+            PendingDeepLink.value = link
+        }
         emitDeepLink(link)
     }
 
@@ -111,6 +127,14 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         val value = PendingDeepLink.value
         PendingDeepLink.value = null
         // Wrapped because `resolveObject` cannot serialize a bare JSON null.
+        invoke.resolveObject(mapOf("value" to value))
+    }
+
+    /** Returns (and clears) a Google OAuth redirect captured at cold start. */
+    @Command
+    fun takeAuthRedirect(invoke: Invoke) {
+        val value = PendingAuthRedirect.value
+        PendingAuthRedirect.value = null
         invoke.resolveObject(mapOf("value" to value))
     }
 
@@ -215,6 +239,17 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun openSettings(invoke: Invoke) {
         val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        activity.startActivity(intent)
+        invoke.resolve()
+    }
+
+    /** Opens an OAuth authorization URL in Android's system browser. */
+    @Command
+    fun openExternal(invoke: Invoke) {
+        val args = invoke.parseArgs(ExternalUrlArgs::class.java)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(args.url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         activity.startActivity(intent)
@@ -353,4 +388,9 @@ internal class SecureSetArgs {
 @InvokeArg
 internal class SecureDeleteArgs {
     lateinit var key: String
+}
+
+@InvokeArg
+internal class ExternalUrlArgs {
+    lateinit var url: String
 }

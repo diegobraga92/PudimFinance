@@ -2,6 +2,7 @@ const COMMANDS: &[&str] = &[
     "is_supported",
     "access_granted",
     "open_settings",
+    "open_external",
     "drain_pending",
     "show_capture_prompt",
     "cancel_capture_prompt",
@@ -16,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "biometric_authenticate",
     "set_widget_spent_today",
     "take_deep_link",
+    "take_auth_redirect",
     "register_listener",
     "remove_listener",
 ];

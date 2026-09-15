@@ -50,7 +50,7 @@ function notify(): void {
 
 // Storage primitives. Keyring first, localStorage as fallback and migration.
 
-async function storeGet(key: string): Promise<string | null> {
+export async function storeGet(key: string): Promise<string | null> {
   if (isTauri()) {
     try {
       const value = await invoke<string | null>('auth_store_get', { key });
@@ -76,7 +76,7 @@ async function storeGet(key: string): Promise<string | null> {
  * have to log in again?" symptom. Reading still prefers the keyring, and
  * deleting clears both copies.
  */
-async function storeSet(key: string, value: string): Promise<void> {
+export async function storeSet(key: string, value: string): Promise<void> {
   if (isTauri()) {
     try {
       await invoke('auth_store_set', { key, value });
@@ -92,7 +92,7 @@ async function storeSet(key: string, value: string): Promise<void> {
 }
 
 /** Deletes from both keyring and localStorage (never leaves a stale copy). */
-async function storeDelete(key: string): Promise<void> {
+export async function storeDelete(key: string): Promise<void> {
   if (isTauri()) {
     try {
       await invoke('auth_store_delete', { key });

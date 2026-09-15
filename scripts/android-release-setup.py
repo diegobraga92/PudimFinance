@@ -20,6 +20,9 @@ permission can be committed. This script runs between `tauri android init` and
    is built to make and the app reports "Could not reach the server". Set
    ``PUDIM_ALLOW_CLEARTEXT=false`` to keep Android's secure default, in which
    case only ``https://`` servers can be reached.
+4. injects the Google Android OAuth custom-scheme intent filter into the generated
+   manifest. The client ID comes from ``desktop/google-oauth-clients.json`` (or
+   ``GOOGLE_ANDROID_CLIENT_ID`` when an override is needed).
 
 Accepted secret names (first one set wins, so the legacy Expo secrets keep
 working):
@@ -46,6 +49,9 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 ANDROID_DIR = REPO_ROOT / "desktop" / "src-tauri" / "gen" / "android"
 KEYSTORE_PROPERTIES = ANDROID_DIR / "keystore.properties"
 GRADLE_FILE = ANDROID_DIR / "app" / "build.gradle.kts"
+MANIFEST_FILE = ANDROID_DIR / "app" / "src" / "main" / "AndroidManifest.xml"
+GOOGLE_CLIENTS_FILE = REPO_ROOT / "desktop" / "google-oauth-clients.json"
+OAUTH_MANIFEST_MARKER = "<!-- PudimFinance Google OAuth redirect -->"
 
 # Injected before the `buildTypes {` block (4-space indentation, re-indented to
 # whatever the generated project uses).
@@ -195,8 +201,54 @@ def patch_gradle() -> None:
         + "\n".join(f"{body_indent}{line}" for line in injected)
         + source[release.end() :]
     )
-
     GRADLE_FILE.write_text(source)
+
+
+
+def google_android_client_id() -> str | None:
+    override = os.environ.get("GOOGLE_ANDROID_CLIENT_ID", "").strip()
+    if override:
+        return override
+    try:
+        import json
+
+        clients = json.loads(GOOGLE_CLIENTS_FILE.read_text())
+        value = str(clients.get("androidClientId", "")).strip()
+        return value or None
+    except (OSError, ValueError, TypeError) as exc:
+        print(f"::warning::Could not read {GOOGLE_CLIENTS_FILE}: {exc}")
+        return None
+
+
+def patch_manifest() -> bool:
+    """Inject the Android Google OAuth custom-scheme intent filter."""
+    if not MANIFEST_FILE.is_file():
+        sys.exit(f"error: {MANIFEST_FILE} not found — run `npm run tauri android init` first")
+    client_id = google_android_client_id()
+    if not client_id:
+        print("::warning::No Google Android client ID configured; OAuth intent filter was skipped.")
+        return False
+    suffix = ".apps.googleusercontent.com"
+    if not client_id.endswith(suffix):
+        sys.exit("error: GOOGLE_ANDROID_CLIENT_ID must end with .apps.googleusercontent.com")
+    scheme = f"com.googleusercontent.apps.{client_id[:-len(suffix)]}"
+    source = MANIFEST_FILE.read_text()
+    if OAUTH_MANIFEST_MARKER in source:
+        return True
+    intent_filter = f'''            {OAUTH_MANIFEST_MARKER}
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="{scheme}" android:pathPrefix="/oauth2redirect" />
+            </intent-filter>
+'''
+    activity_end = source.find("        </activity>")
+    if activity_end < 0:
+        sys.exit(f"error: no activity closing tag in {MANIFEST_FILE} — did the tauri-cli template change?")
+    source = source[:activity_end] + intent_filter + source[activity_end:]
+    MANIFEST_FILE.write_text(source)
+    return True
 
 
 def main() -> int:
@@ -205,6 +257,7 @@ def main() -> int:
 
     signed = configure_keystore()
     patch_gradle()
+    oauth_manifest = patch_manifest()
 
     if signed:
         print(f"Release signing configured from the CI keystore secrets ({KEYSTORE_PROPERTIES}).")
@@ -217,6 +270,8 @@ def main() -> int:
         print("Release builds may use plain HTTP (android:usesCleartextTraffic=true).")
     else:
         print("PUDIM_ALLOW_CLEARTEXT=false — release builds require https:// servers.")
+    if oauth_manifest:
+        print("Google Android OAuth redirect intent filter configured.")
     return 0
 
 

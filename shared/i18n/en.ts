@@ -156,6 +156,11 @@ export const en = {
   'login.switchToLogin': 'Already registered? Sign in',
   'login.authFailed': 'Authentication failed',
   'login.serverPlaceholder': 'Server (e.g. http://192.168.1.100:3000)',
+  'login.continueWithGoogle': 'Continue with Google',
+  'login.googleWaiting': 'Waiting for Google…',
+  'login.googleFailed': 'Google sign-in failed',
+  'login.googleUnavailable': 'Google sign-in is unavailable on this server',
+  'common.or': 'or',
 
   // ---- Dashboard -----------------------------------------------------------
   'dashboard.greetingMorning': 'Good morning, {name}!',

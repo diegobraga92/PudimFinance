@@ -14,6 +14,8 @@ pub mod config;
 pub mod db;
 /// RabbitMQ event publishing for the ledger.
 pub mod events;
+/// Google OAuth authorization-code exchange and ID-token verification.
+pub mod google;
 /// Health check endpoint and response types.
 pub mod health;
 /// Double-entry ledger logic (balance validation, account mapping).

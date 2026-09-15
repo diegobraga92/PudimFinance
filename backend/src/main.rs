@@ -7,6 +7,7 @@ mod auth;
 mod config;
 mod db;
 mod events;
+mod google;
 mod health;
 mod ledger;
 mod metrics;
@@ -54,12 +55,25 @@ async fn main() -> anyhow::Result<()> {
     )
     .await;
     let event_publisher = events::EventPublisher::new(&config.rabbitmq_url);
+    let google = if config.google_client_ids.is_empty() {
+        info!("Google sign-in disabled (GOOGLE_CLIENT_IDS is empty)");
+        None
+    } else {
+        info!(
+            "Google sign-in enabled for {} client ID(s)",
+            config.google_client_ids.len()
+        );
+        Some(std::sync::Arc::new(google::GoogleVerifier::new(
+            config.google_client_ids.clone(),
+        )))
+    };
 
     let app_state = AppState {
         pg_pool,
         event_publisher,
         jwt_secret: config.jwt_secret.clone(),
         rate_limiter: middleware::RateLimiterState::new(),
+        google,
     };
 
     let recorder = metrics_recorder.clone();

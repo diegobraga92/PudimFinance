@@ -280,6 +280,22 @@ export async function takeDeepLink(): Promise<string | null> {
   }
 }
 
+/** Returns (and clears) a Google OAuth redirect captured at cold start. */
+export async function takeAuthRedirect(): Promise<string | null> {
+  if (!isTauri()) return null;
+  try {
+    return await invoke<string | null>('plugin:pudim-native|take_auth_redirect');
+  } catch {
+    return null;
+  }
+}
+
+/** Opens a Google authorization URL in the system browser. */
+export async function openExternal(url: string): Promise<void> {
+  if (!isTauri()) throw new Error('Google sign-in requires the native app');
+  await invoke('plugin:pudim-native|open_external', { url });
+}
+
 /** Subscribes to home-screen widget deep links while the app is running. */
 export async function subscribeDeepLinks(cb: (link: string) => void): Promise<() => void> {
   if (!isTauri()) return () => {};

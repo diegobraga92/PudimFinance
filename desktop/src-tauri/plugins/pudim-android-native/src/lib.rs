@@ -27,6 +27,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::is_supported,
             commands::access_granted,
             commands::open_settings,
+            commands::open_external,
             commands::drain_pending,
             commands::show_capture_prompt,
             commands::cancel_capture_prompt,
@@ -38,6 +39,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::biometric_authenticate,
             commands::set_widget_spent_today,
             commands::take_deep_link,
+            commands::take_auth_redirect,
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

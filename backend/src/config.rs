@@ -17,6 +17,8 @@ pub struct Config {
     pub rabbitmq_url: String,
     /// Secret used to sign JWTs.
     pub jwt_secret: String,
+    /// Google OAuth client IDs accepted during ID-token verification.
+    pub google_client_ids: Vec<String>,
     /// OpenTelemetry OTLP endpoint for exporting traces (defaults to `http://localhost:4317`).
     pub otel_endpoint: String,
 }
@@ -46,6 +48,13 @@ impl Config {
                 .unwrap_or_else(|_| "amqp://pudim:pudim@localhost:5672".into()),
             jwt_secret: env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "dev-secret-change-me-in-production".into()),
+            google_client_ids: env::var("GOOGLE_CLIENT_IDS")
+                .unwrap_or_default()
+                .split(',')
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map(ToOwned::to_owned)
+                .collect(),
             otel_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:4317".into()),
         }

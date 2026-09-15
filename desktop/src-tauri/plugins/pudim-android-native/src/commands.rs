@@ -151,6 +151,50 @@ pub fn open_settings<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     }
 }
 
+/// Opens a validated OAuth authorization URL in the system browser.
+#[tauri::command]
+pub fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), String> {
+    if !is_google_authorization_url(&url) {
+        return Err("Only Google authorization URLs may be opened".to_string());
+    }
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Err("Native Android plugin is unavailable".to_string());
+        };
+        handle
+            .run_mobile_plugin::<()>("openExternal", serde_json::json!({ "url": url }))
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = &state;
+        #[cfg(target_os = "linux")]
+        let mut command = std::process::Command::new("xdg-open");
+        #[cfg(target_os = "macos")]
+        let mut command = std::process::Command::new("open");
+        #[cfg(target_os = "windows")]
+        let mut command = {
+            let mut command = std::process::Command::new("cmd");
+            command.args(["/C", "start", ""]);
+            command
+        };
+        command
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("Could not open system browser: {e}"))
+    }
+}
+
+fn is_google_authorization_url(url: &str) -> bool {
+    url.len() <= 4096
+        && url.starts_with("https://accounts.google.com/o/oauth2/v2/auth?")
+        && !url.contains('\n')
+        && !url.contains('\r')
+}
+
 #[tauri::command]
 pub fn drain_pending<R: Runtime>(app: AppHandle<R>) -> Result<Vec<CapturedNotification>, String> {
     let state = app.state::<CaptureHandle<R>>();
@@ -463,6 +507,26 @@ pub fn take_deep_link<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, S
         };
         handle
             .run_mobile_plugin::<NullableStringResult>("takeDeepLink", ())
+            .map(|result| result.value)
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = &state;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn take_auth_redirect<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(None);
+        };
+        handle
+            .run_mobile_plugin::<NullableStringResult>("takeAuthRedirect", ())
             .map(|result| result.value)
             .map_err(|e| e.to_string())
     }

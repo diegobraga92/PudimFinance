@@ -27,7 +27,7 @@ use crate::models::{
 };
 use crate::routes::accounts;
 use crate::routes::audit;
-use crate::routes::auth::{self, LoginRequest, RefreshRequest, RegisterRequest};
+use crate::routes::auth::{self, GoogleAuthRequest, LoginRequest, RefreshRequest, RegisterRequest};
 use crate::routes::budgets;
 use crate::routes::categories::{self, CategoryListParams};
 use crate::routes::credit_cards;
@@ -94,6 +94,8 @@ use crate::routes::transactions;
         ledger::reconciliation_history,
         auth::register,
         auth::login,
+        auth::google_login,
+        auth::providers,
         auth::refresh,
         auth::me,
         audit::list_audit_events,
@@ -128,6 +130,7 @@ use crate::routes::transactions;
         health::HealthError,
         RegisterRequest,
         LoginRequest,
+        GoogleAuthRequest,
         RefreshRequest,
         ScanRequest,
         OcrRequest,

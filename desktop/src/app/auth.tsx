@@ -8,6 +8,7 @@ import {
   type AuthUser,
 } from '@/lib/auth';
 import { fetchMe, loginUser, registerUser } from '@/lib/api';
+import { signInWithGoogle } from '@/lib/googleAuth';
 
 interface AuthContextValue {
   /** Currently signed-in user, or `null` when signed out. */
@@ -20,6 +21,7 @@ interface AuthContextValue {
   restoredSession: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (email: string, password: string, displayName?: string) => Promise<AuthUser>;
+  googleLogin: () => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -105,6 +107,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const googleLogin = React.useCallback(async () => {
+    const res = await signInWithGoogle();
+    await setAuthSession(res.access_token, res.refresh_token, res.user);
+    setUser(res.user);
+    setToken(res.access_token);
+    setRestoredSession(false);
+    return res.user;
+  }, []);
+
   const logout = React.useCallback(() => {
     void clearAuthSession().then(() => {
       setUser(null);
@@ -113,8 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = React.useMemo<AuthContextValue>(
-    () => ({ user, token, isLoading, restoredSession, login, register, logout }),
-    [user, token, isLoading, restoredSession, login, register, logout],
+    () => ({ user, token, isLoading, restoredSession, login, register, googleLogin, logout }),
+    [user, token, isLoading, restoredSession, login, register, googleLogin, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
