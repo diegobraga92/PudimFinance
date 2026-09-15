@@ -1984,6 +1984,61 @@
         }
       }
     },
+    "/api/reports/cash-flow": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Dashboard cash-flow totals grouped at the resolution needed by each chart view.",
+        "operationId": "cash_flow",
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "description": "Start date (inclusive)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "description": "End date (inclusive)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "Aggregation: day, week, or month",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cash-flow totals for the requested periods",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashFlowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid date range or granularity"
+          }
+        }
+      }
+    },
     "/api/reports/category-breakdown": {
       "get": {
         "tags": [
@@ -3369,6 +3424,51 @@
           "name": {
             "type": "string",
             "description": "Card display name (e.g., \"Nubank Credit Card\")."
+          }
+        }
+      },
+      "CashFlowPoint": {
+        "type": "object",
+        "description": "A single cash-flow period, grouped by day, week, or month.",
+        "required": [
+          "period_start",
+          "income_total",
+          "expense_total",
+          "balance"
+        ],
+        "properties": {
+          "balance": {
+            "type": "string",
+            "description": "Balance = income − expense."
+          },
+          "expense_total": {
+            "type": "string",
+            "description": "Total expenses for the period."
+          },
+          "income_total": {
+            "type": "string",
+            "description": "Total income for the period."
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "description": "First date of the period. Weeks start on Monday; months start on day one."
+          }
+        }
+      },
+      "CashFlowResponse": {
+        "type": "object",
+        "description": "Response for the dashboard cash-flow chart.",
+        "required": [
+          "points"
+        ],
+        "properties": {
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CashFlowPoint"
+            },
+            "description": "Continuous cash-flow points in chronological order."
           }
         }
       },

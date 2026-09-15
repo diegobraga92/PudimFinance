@@ -7,10 +7,12 @@ import {
   fetchAccountsWithBalance,
   fetchBudgetSummary,
   fetchCategories,
+  fetchCashFlow,
   fetchMonthlyReport,
   fetchSummary,
   fetchTransactions,
 } from '@/lib/api';
+import { toIntlLocale } from '@shared/i18n';
 import { DashboardHeader } from './DashboardHeader';
 import { SummaryCards, type SummaryDeltas } from './SummaryCards';
 import { CashFlowCard, type CashFlowPoint, type CashFlowRange } from './CashFlowCard';
@@ -39,11 +41,11 @@ function shiftMonth(year: number, month: number, delta: number): { year: number;
  * category breakdown, recent activity, budgets and shortcuts into real flows.
  *
  * Every value comes from the existing APIs — the selected month drives the
- * summary, budgets, categories and activity; the cash-flow window ends on the
- * selected month and reaches back one extra month for the comparisons.
+ * summary, budgets, categories and activity. The cash-flow chart changes its
+ * server-side aggregation based on the selected window.
  */
 export function DashboardPage() {
-  const { t, shortMonthNames } = useI18n();
+  const { t, locale, shortMonthNames } = useI18n();
   const { user } = useAuth();
 
   const now = React.useMemo(() => new Date(), []);
@@ -98,34 +100,38 @@ export function DashboardPage() {
       }),
   });
 
-  // One extra month of history so the summary cards can compare with the
-  // previous month without an additional request.
-  const flowStart = React.useMemo(
-    () => shiftMonth(year, month, -(range + 1)),
-    [year, month, range],
-  );
+  const previousMonth = shiftMonth(year, month, -1);
+  const comparisonQuery = useQuery({
+    queryKey: ['dashboard-cash-flow-comparison', previousMonth.year, previousMonth.month, year, month],
+    queryFn: () => fetchMonthlyReport(previousMonth.year, previousMonth.month, year, month),
+  });
+  const cashFlowWindow = React.useMemo(() => {
+    const startPeriod = range === 1 ? shiftMonth(year, month, 0) : shiftMonth(year, month, -(range - 1));
+    const startDate = `${startPeriod.year}-${String(startPeriod.month).padStart(2, '0')}-01`;
+    const endDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+    return {
+      startDate,
+      endDate,
+      granularity: range === 1 ? ('day' as const) : range === 3 ? ('week' as const) : ('month' as const),
+    };
+  }, [year, month, range]);
   const cashFlowQuery = useQuery({
-    queryKey: ['dashboard-cash-flow', flowStart.year, flowStart.month, year, month],
-    queryFn: () => fetchMonthlyReport(flowStart.year, flowStart.month, year, month),
+    queryKey: ['dashboard-cash-flow', cashFlowWindow],
+    queryFn: () =>
+      fetchCashFlow(cashFlowWindow.startDate, cashFlowWindow.endDate, cashFlowWindow.granularity),
   });
 
   const summary = summaryQuery.data;
   // Memoized so the derived maps/arrays below keep stable identities.
   const accounts = React.useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
   const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
-  const cashFlowMonths = React.useMemo(
-    () => cashFlowQuery.data?.months ?? [],
-    [cashFlowQuery.data],
-  );
+  const cashFlowMonths = React.useMemo(() => comparisonQuery.data?.months ?? [], [comparisonQuery.data]);
 
   const income = parseFloat(summary?.income_total ?? '0');
   const expenses = parseFloat(summary?.expense_total ?? '0');
   const net = income - expenses;
   const savingsRate = income > 0 ? (net / income) * 100 : null;
-
-  const totalAssets = accounts
-    .filter((account) => account.type === 'asset')
-    .reduce((sum, account) => sum + parseFloat(account.balance), 0);
 
   const accountById = React.useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -165,23 +171,25 @@ export function DashboardPage() {
     };
   }, [cashFlowMonths, previousPeriod, income, expenses, savingsRate]);
 
-  // Exactly `range` points ending on the selected month; months the report omits
-  // are rendered as zero so the x axis stays continuous.
+  // Format the server-provided period starts for the selected chart resolution.
   const cashFlowSeries: CashFlowPoint[] = React.useMemo(() => {
-    const byPeriod = new Map(cashFlowMonths.map((entry) => [`${entry.year}-${entry.month}`, entry]));
-    const points: CashFlowPoint[] = [];
-    for (let offset = range - 1; offset >= 0; offset -= 1) {
-      const period = shiftMonth(year, month, -offset);
-      const entry = byPeriod.get(`${period.year}-${period.month}`);
-      points.push({
-        label: `${shortMonthNames[period.month - 1]} '${String(period.year).slice(2)}`,
-        income: entry ? parseFloat(entry.income_total) : 0,
-        expenses: entry ? parseFloat(entry.expense_total) : 0,
-        net: entry ? parseFloat(entry.balance) : 0,
-      });
-    }
-    return points;
-  }, [cashFlowMonths, year, month, range, shortMonthNames]);
+    const intl = toIntlLocale(locale);
+    return (cashFlowQuery.data?.points ?? []).map((point) => {
+      const date = new Date(`${point.period_start}T00:00:00`);
+      const label =
+        range === 1
+          ? date.toLocaleDateString(intl, { day: 'numeric', month: 'short' })
+          : range === 3
+            ? `${shortMonthNames[date.getMonth()]} ${date.getDate()}`
+            : `${shortMonthNames[date.getMonth()]} '${String(date.getFullYear()).slice(2)}`;
+      return {
+        label,
+        income: parseFloat(point.income_total),
+        expenses: parseFloat(point.expense_total),
+        net: parseFloat(point.balance),
+      };
+    });
+  }, [cashFlowQuery.data, locale, range, shortMonthNames]);
 
   const greeting = React.useMemo(() => {
     const handle = user?.email?.split('@')[0] ?? '';
@@ -219,7 +227,6 @@ export function DashboardPage() {
         <SummaryCards
           loading={cardsLoading}
           available={summary !== undefined}
-          balance={totalAssets}
           net={net}
           income={income}
           expenses={expenses}

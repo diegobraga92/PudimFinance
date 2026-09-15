@@ -20,8 +20,6 @@ interface SummaryCardsProps {
   loading: boolean;
   /** `false` when the summary request failed — cards show a dash instead of zeros. */
   available: boolean;
-  /** Sum of asset-account balances (the money the user actually has). */
-  balance: number;
   /** Income − expenses for the selected month. */
   net: number;
   income: number;
@@ -229,11 +227,10 @@ function SavingsRateCard({
   );
 }
 
-/** The four headline numbers: balance, income, expenses and savings rate. */
+/** The four headline numbers: monthly net, income, expenses and savings rate. */
 export function SummaryCards({
   loading,
   available,
-  balance,
   net,
   income,
   expenses,
@@ -256,37 +253,13 @@ export function SummaryCards({
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <SummaryCard
-        label={t('dashboard.currentBalance')}
-        value={formatMoney(balance)}
+        label={t('dashboard.netThisMonthLabel')}
+        value={formatMoney(net)}
         icon={<Wallet className="h-5 w-5" />}
         iconClassName="bg-primary/15 text-primary"
-        valueClassName={balance >= 0 ? 'text-success' : 'text-danger'}
+        valueClassName={net >= 0 ? 'text-success' : 'text-danger'}
         available={available}
         loading={loading}
-        aside={
-          loading ? (
-            <div className="shrink-0 text-right">
-              <Skeleton className="ml-auto h-2.5 w-16" />
-              <Skeleton className="ml-auto mt-2 h-5 w-20" />
-            </div>
-          ) : (
-            /* The month's net sits beside the balance (instead of a caption
-             * below it) so the headline pair is readable at a glance. */
-            <div className="shrink-0 text-right">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('dashboard.netThisMonthLabel')}
-              </p>
-              <p
-                className={cn(
-                  'mt-1 text-lg font-bold leading-tight tabular-nums',
-                  net >= 0 ? 'text-success' : 'text-danger',
-                )}
-              >
-                {available ? formatMoney(net) : '—'}
-              </p>
-            </div>
-          )
-        }
       />
       <SummaryCard
         label={t('common.income')}

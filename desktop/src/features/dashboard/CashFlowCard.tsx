@@ -24,8 +24,8 @@ export interface CashFlowPoint {
   net: number;
 }
 
-/** Windows offered by the cash-flow chart: 1 = just the selected month. */
-export type CashFlowRange = 1 | 6 | 12;
+/** Windows offered by the cash-flow chart. Each window uses a different time bucket. */
+export type CashFlowRange = 1 | 3 | 6 | 12;
 
 interface CashFlowCardProps {
   data: CashFlowPoint[];
@@ -42,7 +42,7 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   color: 'rgb(var(--foreground))',
 };
 
-/** Income vs. expenses vs. net over the trailing months of the selected period. */
+/** Income vs. expenses vs. net at the resolution selected by the time window. */
 export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCardProps) {
   const { t, locale, formatMoney } = useI18n();
   const intl = toIntlLocale(locale);
@@ -60,15 +60,13 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
           <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.cashFlowSubtitle')}</p>
         </div>
         <div className="flex shrink-0 gap-0.5 rounded-md bg-muted p-1">
-          {([1, 6, 12] as const).map((months) => (
+          {([1, 3, 6, 12] as const).map((months) => (
             <button
               key={months}
               type="button"
               onClick={() => onRangeChange(months)}
               title={
-                months === 1
-                  ? t('dashboard.thisMonth')
-                  : t('dashboard.lastMonthsRange', { count: months })
+                months === 1 ? t('dashboard.thisMonth') : t('dashboard.lastMonthsRange', { count: months })
               }
               className={cn(
                 'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',

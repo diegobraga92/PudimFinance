@@ -4,7 +4,7 @@ use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::routing::get;
 use axum::{Json, Router};
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::{Datelike, Duration, NaiveDate, Utc, Weekday};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::json;
@@ -12,8 +12,8 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::models::{
-    CategoryBreakdownItem, CategoryBreakdownResponse, MonthlyReportItem, MonthlyReportResponse,
-    TrendPoint, TrendsResponse,
+    CashFlowPoint, CashFlowResponse, CategoryBreakdownItem, CategoryBreakdownResponse,
+    MonthlyReportItem, MonthlyReportResponse, TrendPoint, TrendsResponse,
 };
 use crate::routes::settings;
 use crate::state::AppState;
@@ -31,6 +31,17 @@ pub struct MonthlyParams {
     pub end_month: Option<i32>,
     /// Restrict to a single source account (payment method) UUID.
     pub account_id: Option<Uuid>,
+}
+
+/// Query parameters for the dashboard cash-flow chart.
+#[derive(Debug, Deserialize)]
+pub struct CashFlowParams {
+    /// Start date (inclusive).
+    pub start_date: Option<NaiveDate>,
+    /// End date (inclusive).
+    pub end_date: Option<NaiveDate>,
+    /// Aggregation period: `day`, `week`, or `month`.
+    pub granularity: Option<String>,
 }
 
 /// Query parameters for the category breakdown report.
@@ -53,6 +64,7 @@ pub struct TrendsParams {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/reports/monthly", get(monthly_report))
+        .route("/api/reports/cash-flow", get(cash_flow))
         .route("/api/reports/category-breakdown", get(category_breakdown))
         .route("/api/reports/trends", get(trends))
 }
@@ -93,6 +105,134 @@ fn add_months(d: NaiveDate, months: i32) -> NaiveDate {
         d.day().min(last_day)
     };
     NaiveDate::from_ymd_opt(year, month as u32, day).unwrap()
+}
+
+/// Returns the Monday of the ISO week containing `d`.
+fn week_start(d: NaiveDate) -> NaiveDate {
+    let days_from_monday = match d.weekday() {
+        Weekday::Mon => 0,
+        Weekday::Tue => 1,
+        Weekday::Wed => 2,
+        Weekday::Thu => 3,
+        Weekday::Fri => 4,
+        Weekday::Sat => 5,
+        Weekday::Sun => 6,
+    };
+    d - Duration::days(days_from_monday)
+}
+
+/// Advances a chart period by one unit.
+fn next_cash_flow_period(d: NaiveDate, granularity: &str) -> NaiveDate {
+    match granularity {
+        "day" => d + Duration::days(1),
+        "week" => d + Duration::days(7),
+        "month" => add_months(d, 1),
+        _ => unreachable!("cash-flow granularity is validated before iteration"),
+    }
+}
+
+/// Dashboard cash-flow totals grouped at the resolution needed by each chart view.
+#[utoipa::path(
+    get,
+    path = "/api/reports/cash-flow",
+    tag = "Reports",
+    params(
+        ("start_date" = Option<NaiveDate>, Query, description = "Start date (inclusive)"),
+        ("end_date" = Option<NaiveDate>, Query, description = "End date (inclusive)"),
+        ("granularity" = Option<String>, Query, description = "Aggregation: day, week, or month"),
+    ),
+    responses(
+        (status = 200, description = "Cash-flow totals for the requested periods", body = CashFlowResponse),
+        (status = 400, description = "Invalid date range or granularity"),
+    ),
+)]
+pub async fn cash_flow(
+    State(state): State<AppState>,
+    Query(params): Query<CashFlowParams>,
+) -> Result<Json<CashFlowResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let today = Utc::now().date_naive();
+    let end_date = params.end_date.unwrap_or(today);
+    let start_date = params.start_date.unwrap_or_else(|| month_start(end_date));
+    let granularity = params.granularity.as_deref().unwrap_or("month");
+
+    if start_date > end_date {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "start_date must be before or equal to end_date" })),
+        ));
+    }
+    if !matches!(granularity, "day" | "week" | "month") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "granularity must be 'day', 'week', or 'month'" })),
+        ));
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct CashFlowRow {
+        period_start: NaiveDate,
+        income_total: Decimal,
+        expense_total: Decimal,
+    }
+
+    let rows: Vec<CashFlowRow> = sqlx::query_as(
+        // The effective date applies the configured credit-card dating rule.
+        // The raw transaction-date pre-filter keeps the date index useful while
+        // allowing a card purchase to move into a later billing period.
+        "SELECT date_trunc($1, effective_transaction_date(t.date, t.account_id, $4))::date AS period_start,
+                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::numeric AS income_total,
+                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS expense_total
+         FROM transactions t
+         WHERE t.date >= $2 - INTERVAL '3 months'
+           AND t.date <= $3
+           AND effective_transaction_date(t.date, t.account_id, $4) >= $2
+           AND effective_transaction_date(t.date, t.account_id, $4) <= $3
+         GROUP BY 1
+         ORDER BY 1",
+    )
+    .bind(granularity)
+    .bind(start_date)
+    .bind(end_date)
+    .bind(settings::card_expense_dating(&state.pg_pool).await)
+    .fetch_all(&state.pg_pool)
+    .await
+    .map_err(|e| {
+        error!("Failed to fetch cash-flow report: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to fetch cash-flow report" })),
+        )
+    })?;
+
+    let first_period = match granularity {
+        "day" => start_date,
+        "week" => week_start(start_date),
+        "month" => month_start(start_date),
+        _ => unreachable!(),
+    };
+    let last_period = match granularity {
+        "day" => end_date,
+        "week" => week_start(end_date),
+        "month" => month_start(end_date),
+        _ => unreachable!(),
+    };
+
+    let mut points = Vec::new();
+    let mut cursor = first_period;
+    while cursor <= last_period {
+        let row = rows.iter().find(|row| row.period_start == cursor);
+        let income_total = row.map(|row| row.income_total).unwrap_or(Decimal::ZERO);
+        let expense_total = row.map(|row| row.expense_total).unwrap_or(Decimal::ZERO);
+        points.push(CashFlowPoint {
+            period_start: cursor,
+            income_total,
+            expense_total,
+            balance: income_total - expense_total,
+        });
+        cursor = next_cash_flow_period(cursor, granularity);
+    }
+
+    Ok(Json(CashFlowResponse { points }))
 }
 
 /// Monthly income/expense summary over a date range.
@@ -402,4 +542,36 @@ pub async fn trends(
     }
 
     Ok(Json(TrendsResponse { trends }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{next_cash_flow_period, week_start};
+    use chrono::NaiveDate;
+
+    fn date(value: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(value, "%Y-%m-%d").unwrap()
+    }
+
+    #[test]
+    fn week_starts_on_monday() {
+        assert_eq!(week_start(date("2026-09-14")), date("2026-09-14"));
+        assert_eq!(week_start(date("2026-09-20")), date("2026-09-14"));
+    }
+
+    #[test]
+    fn cash_flow_periods_advance_by_their_granularity() {
+        assert_eq!(
+            next_cash_flow_period(date("2026-09-14"), "day"),
+            date("2026-09-15")
+        );
+        assert_eq!(
+            next_cash_flow_period(date("2026-09-14"), "week"),
+            date("2026-09-21")
+        );
+        assert_eq!(
+            next_cash_flow_period(date("2026-09-01"), "month"),
+            date("2026-10-01")
+        );
+    }
 }

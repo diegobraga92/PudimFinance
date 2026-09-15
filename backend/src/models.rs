@@ -663,6 +663,30 @@ pub struct MonthlyReportResponse {
     pub months: Vec<MonthlyReportItem>,
 }
 
+/// A single cash-flow period, grouped by day, week, or month.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CashFlowPoint {
+    /// First date of the period. Weeks start on Monday; months start on day one.
+    #[schema(value_type = String, format = Date)]
+    pub period_start: NaiveDate,
+    /// Total income for the period.
+    #[schema(value_type = String)]
+    pub income_total: Decimal,
+    /// Total expenses for the period.
+    #[schema(value_type = String)]
+    pub expense_total: Decimal,
+    /// Balance = income − expense.
+    #[schema(value_type = String)]
+    pub balance: Decimal,
+}
+
+/// Response for the dashboard cash-flow chart.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CashFlowResponse {
+    /// Continuous cash-flow points in chronological order.
+    pub points: Vec<CashFlowPoint>,
+}
+
 /// A single category's aggregated totals for the category-breakdown report.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct CategoryBreakdownItem {

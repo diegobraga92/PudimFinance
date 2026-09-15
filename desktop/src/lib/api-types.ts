@@ -791,6 +791,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/cash-flow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard cash-flow totals grouped at the resolution needed by each chart view. */
+        get: operations["cash_flow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reports/category-breakdown": {
         parameters: {
             query?: never;
@@ -1404,6 +1421,25 @@ export interface components {
             id: string;
             /** @description Card display name (e.g., "Nubank Credit Card"). */
             name: string;
+        };
+        /** @description A single cash-flow period, grouped by day, week, or month. */
+        CashFlowPoint: {
+            /** @description Balance = income − expense. */
+            balance: string;
+            /** @description Total expenses for the period. */
+            expense_total: string;
+            /** @description Total income for the period. */
+            income_total: string;
+            /**
+             * Format: date
+             * @description First date of the period. Weeks start on Monday; months start on day one.
+             */
+            period_start: string;
+        };
+        /** @description Response for the dashboard cash-flow chart. */
+        CashFlowResponse: {
+            /** @description Continuous cash-flow points in chronological order. */
+            points: components["schemas"]["CashFlowPoint"][];
         };
         /** @description A transaction category (income or expense), optionally nested via `parent_id`. */
         Category: {
@@ -4701,6 +4737,40 @@ export interface operations {
                 };
             };
             /** @description Invalid file or unsupported format */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cash_flow: {
+        parameters: {
+            query?: {
+                /** @description Start date (inclusive) */
+                start_date?: string;
+                /** @description End date (inclusive) */
+                end_date?: string;
+                /** @description Aggregation: day, week, or month */
+                granularity?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cash-flow totals for the requested periods */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CashFlowResponse"];
+                };
+            };
+            /** @description Invalid date range or granularity */
             400: {
                 headers: {
                     [name: string]: unknown;

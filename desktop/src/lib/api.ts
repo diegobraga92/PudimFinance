@@ -41,6 +41,8 @@ export type BudgetSummaryItem = components['schemas']['BudgetSummaryItem'];
 export type BudgetSummaryResponse = components['schemas']['BudgetSummaryResponse'];
 export type MonthlyReportItem = components['schemas']['MonthlyReportItem'];
 export type MonthlyReportResponse = components['schemas']['MonthlyReportResponse'];
+export type CashFlowPoint = components['schemas']['CashFlowPoint'];
+export type CashFlowResponse = components['schemas']['CashFlowResponse'];
 export type CategoryBreakdownItem = components['schemas']['CategoryBreakdownItem'];
 export type CategoryBreakdownResponse = components['schemas']['CategoryBreakdownResponse'];
 export type TrendPoint = components['schemas']['TrendPoint'];
@@ -617,6 +619,18 @@ export async function fetchMonthlyReport(
   };
   if (accountId) params.account_id = accountId;
   return request<MonthlyReportResponse>(`/api/reports/monthly${qs(params)}`);
+}
+
+export type CashFlowGranularity = 'day' | 'week' | 'month';
+
+export async function fetchCashFlow(
+  startDate: string,
+  endDate: string,
+  granularity: CashFlowGranularity,
+): Promise<CashFlowResponse> {
+  return request<CashFlowResponse>(
+    `/api/reports/cash-flow${qs({ start_date: startDate, end_date: endDate, granularity })}`,
+  );
 }
 
 export async function fetchCategoryBreakdown(

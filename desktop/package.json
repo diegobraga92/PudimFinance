@@ -10,6 +10,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "generate-types": "openapi-typescript ../api/openapi/openapi.json -o src/lib/api-types.ts",
+    "icons": "tauri icon src-tauri/icons/icon-manifest.json -o src-tauri/icons",
     "tauri": "tauri",
     "test:offline": "tsx --tsconfig=tsconfig.app.json scripts/offline-smoke.ts",
     "test:android": "tsx --tsconfig=tsconfig.app.json scripts/android-shell-smoke.tsx"
