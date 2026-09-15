@@ -159,6 +159,7 @@ export const en = {
   'login.continueWithGoogle': 'Continue with Google',
   'login.googleWaiting': 'Waiting for Google…',
   'login.googleFailed': 'Google sign-in failed',
+  'login.googleNoAccount': 'No Google account is available on this device. Add a Google account in Android Settings and try again.',
   'login.googleUnavailable': 'Google sign-in is unavailable on this server',
   'common.or': 'or',
 

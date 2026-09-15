@@ -76,15 +76,15 @@ Set `GOOGLE_CLIENT_IDS` to the comma-separated Android, Desktop, and Android
 server-client audience IDs from Google Cloud:
 
 ```dotenv
-GOOGLE_CLIENT_IDS=416078507672-hvo7chlndcefmks9loeigg1kvtueikho.apps.googleusercontent.com,416078507672-tfalhei9jo0954el9demikrs09hsnsid.apps.googleusercontent.com
+GOOGLE_CLIENT_IDS=416078507672-hvo7chlndcefmks9loeigg1kvtueikho.apps.googleusercontent.com,416078507672-tfalhei9jo0954el9demikrs09hsnsid.apps.googleusercontent.com,416078507672-15djqb6mv26dlhqdd3cdvvl5rdnhfnnn.apps.googleusercontent.com
 # GOOGLE_CLIENT_SECRET_CLIENT_ID=<Desktop client ID>
 # GOOGLE_CLIENT_SECRET=<server-only secret for the Desktop client>
 ```
 
 `desktop/google-oauth-clients.json` contains `androidServerClientId`, which is
-passed to Credential Manager as `serverClientId`. Google recommends a Web
-application OAuth client for this server audience; if one is created, replace
-that JSON value and add the same ID to `GOOGLE_CLIENT_IDS`. The Android OAuth
+passed to Credential Manager as `serverClientId`. It must be the Web
+application OAuth client used as the server audience, and the same ID must be
+present in `GOOGLE_CLIENT_IDS`. The Android OAuth
 client must be configured for package `com.pudimfinance.app` with the SHA-1
 fingerprint of every signing certificate used by the APK (debug, CI upload, and
 Play App Signing certificates as applicable).

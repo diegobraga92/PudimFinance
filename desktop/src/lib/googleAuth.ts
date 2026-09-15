@@ -7,9 +7,13 @@ import { openExternal } from '@/notifications/native';
 const ANDROID_CLIENT_ID = clients.androidClientId;
 const DESKTOP_CLIENT_ID = clients.desktopClientId;
 const ANDROID_SERVER_CLIENT_ID = clients.androidServerClientId;
-const GOOGLE_SIGN_IN_CANCELLED = 'GOOGLE_SIGN_IN_CANCELLED';
 const PENDING_KEY = 'pudim_google_oauth_pending';
 const PENDING_TTL_MS = 10 * 60 * 1000;
+
+export type GoogleSignInErrorCode =
+  | 'GOOGLE_SIGN_IN_CANCELLED'
+  | 'GOOGLE_SIGN_IN_NO_ACCOUNT'
+  | 'GOOGLE_SIGN_IN_UNAVAILABLE';
 
 interface PendingOAuth {
   state: string;
@@ -107,11 +111,38 @@ export async function signInWithGoogle(): Promise<Awaited<ReturnType<typeof logi
   return completeGoogleSignIn(redirect, pending);
 }
 
-export function isGoogleSignInCancelled(error: unknown): boolean {
-  return (
-    error === GOOGLE_SIGN_IN_CANCELLED ||
-    (error instanceof Error && error.message === GOOGLE_SIGN_IN_CANCELLED)
-  );
+/** Extracts a Tauri rejection regardless of whether it crossed as a string or object. */
+export function rejectionText(error: unknown): string | null {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : null;
+  }
+  return null;
+}
+
+/** Returns the stable native code embedded in a Google sign-in rejection. */
+export function googleSignInErrorCode(error: unknown): GoogleSignInErrorCode | null {
+  const text = rejectionText(error);
+  if (!text) return null;
+  if (text.includes('GOOGLE_SIGN_IN_CANCELLED')) return 'GOOGLE_SIGN_IN_CANCELLED';
+  if (text.includes('GOOGLE_SIGN_IN_NO_ACCOUNT')) return 'GOOGLE_SIGN_IN_NO_ACCOUNT';
+  if (text.includes('GOOGLE_SIGN_IN_UNAVAILABLE')) return 'GOOGLE_SIGN_IN_UNAVAILABLE';
+  return null;
+}
+
+/** Returns native diagnostic text after removing a recognized machine code. */
+export function googleSignInErrorMessage(error: unknown): string | null {
+  const text = rejectionText(error)?.trim();
+  if (!text) return null;
+  const code = googleSignInErrorCode(error);
+  if (!code) return text;
+  const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const detail = text
+    .replace(new RegExp(`^\\s*\\[?${escapedCode}\\]?\\s*(?:[-:]\\s*)?`, 'i'), '')
+    .trim();
+  return detail || null;
 }
 
 async function completeGoogleSignIn(

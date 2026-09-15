@@ -4,7 +4,7 @@ import { useAuth } from '@/app/auth';
 import { useI18n } from '@/app/i18n';
 import { getApiBaseUrl, setApiBaseUrl, testServerConnection } from '@/lib/serverConfig';
 import { fetchAuthProviders } from '@/lib/api';
-import { isGoogleSignInCancelled } from '@/lib/googleAuth';
+import { googleSignInErrorCode, googleSignInErrorMessage } from '@/lib/googleAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -92,8 +92,14 @@ export function LoginPage() {
       await saveServer();
       await googleLogin();
     } catch (err) {
-      if (!isGoogleSignInCancelled(err)) {
-        setError(err instanceof Error ? err.message : t('login.googleFailed'));
+      const code = googleSignInErrorCode(err);
+      if (code === 'GOOGLE_SIGN_IN_CANCELLED') return;
+      if (code === 'GOOGLE_SIGN_IN_NO_ACCOUNT') {
+        setError(t('login.googleNoAccount'));
+      } else if (code === 'GOOGLE_SIGN_IN_UNAVAILABLE') {
+        setError(t('login.googleUnavailable'));
+      } else {
+        setError(googleSignInErrorMessage(err) ?? t('login.googleFailed'));
       }
     } finally {
       setBusy(false);

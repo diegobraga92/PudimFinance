@@ -157,6 +157,7 @@ export const ptBR = {
   'login.continueWithGoogle': 'Continuar com o Google',
   'login.googleWaiting': 'Aguardando o Google…',
   'login.googleFailed': 'Falha ao entrar com o Google',
+  'login.googleNoAccount': 'Nenhuma conta do Google está disponível neste dispositivo. Adicione uma conta nas Configurações do Android e tente novamente.',
   'login.googleUnavailable': 'O login com Google não está disponível neste servidor',
   'common.or': 'ou',
 

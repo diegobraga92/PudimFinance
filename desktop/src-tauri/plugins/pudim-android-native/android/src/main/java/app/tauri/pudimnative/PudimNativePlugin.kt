@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import android.webkit.WebView
 import android.net.Uri
 import androidx.biometric.BiometricManager
@@ -37,10 +38,8 @@ import java.util.concurrent.atomic.AtomicReference
 const val DEEP_LINK_EXTRA = "pudim_deep_link"
 
 private const val GOOGLE_SIGN_IN_CANCELLED = "GOOGLE_SIGN_IN_CANCELLED"
-private const val GOOGLE_SIGN_IN_NO_ACCOUNT =
-    "No Google account is available on this device. Add a Google account in Android Settings and try again."
-private const val GOOGLE_SIGN_IN_UNAVAILABLE =
-    "Google sign-in is unavailable. Check your Google account and try again."
+private const val GOOGLE_SIGN_IN_NO_ACCOUNT = "GOOGLE_SIGN_IN_NO_ACCOUNT"
+private const val GOOGLE_SIGN_IN_UNAVAILABLE = "GOOGLE_SIGN_IN_UNAVAILABLE"
 
 /** Last deep link delivered by the widget, for cold-start reads. */
 internal object PendingDeepLink {
@@ -276,7 +275,9 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     /**
      * Shows the Android Credential Manager account picker and returns a Google
      * ID token. The caller supplies a nonce so the backend can bind the token
-     * to this sign-in request.
+     * to this sign-in request. Rejections begin with a stable machine code so
+     * the webview can localize known Play Services failures while preserving
+     * the native diagnostic details for troubleshooting.
      */
     @Command
     fun googleSignIn(invoke: Invoke) {
@@ -300,6 +301,7 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
                     if (credential !is CustomCredential ||
                         credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
                     ) {
+                        Log.e("PudimNative", "Google sign-in returned an unsupported credential")
                         invoke.reject("Google returned an unsupported credential")
                         return
                     }
@@ -307,23 +309,26 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
                         val token = GoogleIdTokenCredential.createFrom(credential.data).idToken
                         invoke.resolveObject(mapOf("id_token" to token))
                     } catch (error: GoogleIdTokenParsingException) {
+                        Log.e("PudimNative", "Google sign-in returned an invalid ID token", error)
                         invoke.reject("Google returned an invalid ID token", error)
                     }
                 }
-
-                override fun onError(error: GetCredentialException) {
+                override fun onError(credentialError: GetCredentialException) {
+                    val detail =
+                        "${credentialError.type}: ${credentialError.errorMessage ?: "No error message"}"
+                    Log.e("PudimNative", "Google sign-in failed: $detail", credentialError)
                     when {
-                        error is GetCredentialCancellationException -> {
+                        credentialError is GetCredentialCancellationException -> {
                             // Cancellation is a normal outcome, not an authentication error.
                             invoke.reject(GOOGLE_SIGN_IN_CANCELLED)
                         }
-                        error is NoCredentialException ||
-                            error.errorMessage?.toString()?.contains("28433") == true -> {
+                        credentialError is NoCredentialException ||
+                            credentialError.errorMessage?.toString()?.contains("28433") == true -> {
                             // Play Services may report the missing-account case as the opaque
                             // bvip: 28433 message instead of NoCredentialException.
-                            invoke.reject(GOOGLE_SIGN_IN_NO_ACCOUNT, error)
+                            invoke.reject("$GOOGLE_SIGN_IN_NO_ACCOUNT - $detail", credentialError)
                         }
-                        else -> invoke.reject(GOOGLE_SIGN_IN_UNAVAILABLE, error)
+                        else -> invoke.reject("$GOOGLE_SIGN_IN_UNAVAILABLE - $detail", credentialError)
                     }
                 }
             },
