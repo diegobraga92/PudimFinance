@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchSummary } from '@/lib/api';
-import { categoryIcon } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
 
 /** Category rows listed in the "top spending" card. */
@@ -155,7 +155,7 @@ export function TransactionsSidebar() {
               {categories.map((row) => (
                 <li key={row.key} className="space-y-1.5">
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="text-base">{row.icon ? categoryIcon(row.icon) : '•'}</span>
+                    <CategoryIcon name={row.icon} className="h-4 w-4" />
                     <span className="min-w-0 flex-1 truncate">{row.name}</span>
                     <span className="shrink-0 font-medium tabular-nums">
                       {formatMoney(row.amount)}

@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { categoryIcon } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
 import {
   KNOWN_APPS,
@@ -381,7 +381,7 @@ export function NotificationSettingsPage() {
                       : 'border-border bg-surface text-muted-foreground hover:bg-surface-hover',
                   )}
                 >
-                  {c.icon ? `${categoryIcon(c.icon)} ` : ''}
+                  <CategoryIcon name={c.icon} className="mr-1 inline h-3.5 w-3.5" />
                   {c.name}
                 </button>
               ))}
@@ -428,7 +428,7 @@ export function NotificationSettingsPage() {
                 .filter((a) => a.type === 'liability')
                 .map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name} 💳
+                    {a.name}
                   </option>
                 ))}
             </select>

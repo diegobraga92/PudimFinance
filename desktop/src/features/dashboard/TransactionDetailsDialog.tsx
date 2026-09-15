@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { categoryIcon } from '@shared/category-icons';
+import { AccountIcon } from '@/components/AccountIcon';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
 import type { AccountWithBalance, Category, Transaction } from '@/lib/api';
 
@@ -70,7 +71,7 @@ export function TransactionDetailsDialog({
                   isIncome ? 'bg-success/15' : 'bg-danger/15',
                 )}
               >
-                {category?.icon ? categoryIcon(category.icon) : '•'}
+                <CategoryIcon name={category?.icon} className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-base font-semibold">{transaction.description}</p>
@@ -101,7 +102,7 @@ export function TransactionDetailsDialog({
               <DetailRow label={t('common.category')}>
                 {category ? (
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="text-base">{categoryIcon(category.icon)}</span>
+                    <CategoryIcon name={category.icon} className="h-4 w-4" />
                     <span>{category.name}</span>
                   </span>
                 ) : (
@@ -110,9 +111,9 @@ export function TransactionDetailsDialog({
               </DetailRow>
               <DetailRow label={t('dashboard.accountCard')}>
                 {account ? (
-                  <span>
-                    {account.name}
-                    {account.type === 'liability' ? ' 💳' : ''}
+                  <span className="inline-flex items-center gap-1.5">
+                    <AccountIcon name={account.icon} kind={account.account_kind} className="h-4 w-4" />
+                    <span>{account.name}</span>
                   </span>
                 ) : (
                   <span className="text-dim">{t('common.none')}</span>

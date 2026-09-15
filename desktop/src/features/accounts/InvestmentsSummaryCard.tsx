@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { AccountWithBalance } from '@/lib/api';
 import { asAccountKind } from './account-groups';
-import { accountIcon } from '@shared/account-icons';
+import { AccountIcon } from '@/components/AccountIcon';
 
 interface Props {
   /** Balance-sheet accounts; only investment kinds are listed. */
@@ -71,7 +71,7 @@ export function InvestmentsSummaryCard({ accounts, loading }: Props) {
             {rows.map((row) => (
               <li key={row.id} className="space-y-1.5">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-base">{accountIcon(row.icon, row.kind)}</span>
+                  <AccountIcon name={row.icon} kind={row.kind} className="h-4 w-4" />
                   <span className="min-w-0 flex-1 truncate">{row.name}</span>
                   <span className="shrink-0 font-medium tabular-nums">
                     {formatMoney(row.amount)}

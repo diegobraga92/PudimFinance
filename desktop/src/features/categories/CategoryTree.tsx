@@ -9,9 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { categoryIcon } from '@shared/category-icons';
 import { cn } from '@/lib/utils';
 import type { Category } from '@/lib/api';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 interface Props {
   /** Categories of a single type, already filtered by the search box. */
@@ -54,7 +54,11 @@ export function CategoryTree({ categories, onEdit, onAddSubcategory, onDelete }:
           className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md text-base"
           style={{ backgroundColor: `${category.color ?? '#60a5fa'}1f` }}
         >
-          {categoryIcon(category.icon)}
+          <CategoryIcon
+            name={category.icon}
+            className="h-[18px] w-[18px]"
+            style={{ color: category.color ?? '#60a5fa' }}
+          />
         </span>
         <div className="min-w-0 flex-1">
           <p

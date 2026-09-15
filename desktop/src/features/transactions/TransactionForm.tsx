@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useI18n } from '@/app/i18n';
 import {
   createTransaction,
@@ -22,7 +29,7 @@ import {
   type CreateTransactionRequest,
   type Transaction,
 } from '@/lib/api';
-import { categoryIcon } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { findPreviousTransaction } from '@/offline/autocomplete';
 import { cn } from '@/lib/utils';
 
@@ -237,20 +244,25 @@ export function TransactionForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="tx-category">{t('common.category')}</Label>
-              <select
-                id="tx-category"
-                className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
+              <Select
+                value={categoryId || '__none__'}
+                onValueChange={(value) => setCategoryId(value === '__none__' ? '' : value)}
               >
-                <option value="">— {t('common.none')} —</option>
+                <SelectTrigger id="tx-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[60]">
+                  <SelectItem value="__none__">— {t('common.none')} —</SelectItem>
                 {filteredCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon ? `${categoryIcon(c.icon)} ` : ''}
-                    {c.name}
-                  </option>
+                  <SelectItem key={c.id} value={c.id}>
+                    <span className="flex items-center gap-2">
+                      <CategoryIcon name={c.icon} className="h-4 w-4" />
+                      {c.name}
+                    </span>
+                  </SelectItem>
                 ))}
-              </select>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="tx-date">{t('common.date')}</Label>
@@ -271,7 +283,6 @@ export function TransactionForm({
                 {paymentAccounts.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
-                    {a.type === 'liability' ? ' 💳' : ''}
                   </option>
                 ))}
               </select>

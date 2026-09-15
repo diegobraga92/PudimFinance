@@ -14,7 +14,10 @@ export const CATEGORY_ICON_NAMES: string[] = [
   'shopping-bag', 'plane', 'repeat', 'shield', 'more-horizontal',
 ];
 
-/** Map a stored icon identifier to its display emoji. */
+/**
+ * @deprecated Desktop rendering uses Lucide icons from `CategoryIcon.tsx`.
+ * Kept for compatibility with older shared clients.
+ */
 export const CATEGORY_ICON_EMOJI: Record<string, string> = {
   briefcase: '💼',
   laptop: '💻',
@@ -38,10 +41,7 @@ export const CATEGORY_ICON_EMOJI: Record<string, string> = {
 /** Fallback glyph for unknown or missing icon identifiers. */
 const FALLBACK_ICON = '•';
 
-/**
- * Resolve an icon identifier to its display emoji, falling back to '•' for
- * unknown or missing identifiers.
- */
+/** @deprecated Use the desktop `CategoryIcon` component for new UI. */
 export function categoryIcon(name?: string | null): string {
   if (!name) return FALLBACK_ICON;
   return CATEGORY_ICON_EMOJI[name] ?? FALLBACK_ICON;

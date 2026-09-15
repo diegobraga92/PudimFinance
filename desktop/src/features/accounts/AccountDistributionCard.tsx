@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { AccountWithBalance } from '@/lib/api';
 import { KIND_CHART_COLORS, asAccountKind, isBalanceSheet } from './account-groups';
-import { accountIcon } from '@shared/account-icons';
+import { AccountIcon } from '@/components/AccountIcon';
 
 interface Props {
   accounts: AccountWithBalance[];
@@ -103,7 +103,7 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-base"
                     style={{ backgroundColor: 'rgb(var(--muted))', color: slice.color }}
                   >
-                    {accountIcon(null, slice.kind)}
+                    <AccountIcon kind={slice.kind} className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1 truncate font-medium">{slice.label}</span>
                   <span className="shrink-0 text-xs tabular-nums text-dim">

@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { categoryIcon } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
 import type { BudgetSummaryItem } from '@/lib/api';
 
@@ -97,7 +97,7 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
                   <TableRow key={item.budget.id}>
                     <TableCell className="py-3">
                       <span className="flex items-center gap-2">
-                        <span className="text-base">{categoryIcon(item.budget.icon)}</span>
+                        <CategoryIcon name={item.budget.icon} className="h-4 w-4" />
                         <span className="min-w-0 truncate text-sm font-medium">
                           {item.budget.category_name ?? t('common.uncategorised')}
                         </span>

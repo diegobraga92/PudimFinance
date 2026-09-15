@@ -1,17 +1,15 @@
 import {
   Banknote,
   CreditCard,
-  HandCoins,
   Landmark,
   TrendingUp,
-  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import type { TranslationKey } from '@shared/i18n';
 
 import type { AccountKind } from './AccountForm';
 import type { AccountWithBalance } from '@/lib/api';
-import { accountIcon } from '@shared/account-icons';
+import { resolveAccountIcon } from '@/components/AccountIcon';
 
 /**
  * Accounts-page grouping.
@@ -63,15 +61,6 @@ export const ACCOUNT_GROUPS: AccountGroupMeta[] = [
     tone: 'bg-warning/15 text-warning',
   },
 ];
-
-/** Icon per account kind, used on the individual rows. */
-const KIND_ICONS: Record<AccountKind, LucideIcon> = {
-  bank: Landmark,
-  cash: Wallet,
-  card: CreditCard,
-  loan: HandCoins,
-  investment: TrendingUp,
-};
 
 /** Tint per account kind, used on the individual row icon boxes. */
 const KIND_TONES: Record<AccountKind, string> = {
@@ -134,7 +123,6 @@ export function groupOf(account: AccountWithBalance): AccountGroupKey {
 /** Icon + tint for an account row (unknown kinds fall back to a neutral box). */
 export function accountAppearance(account: AccountWithBalance): {
   icon: LucideIcon;
-  glyph: string;
   tone: string;
   kindKey: TranslationKey | null;
   color: string;
@@ -142,16 +130,14 @@ export function accountAppearance(account: AccountWithBalance): {
   const kind = asAccountKind(account.account_kind);
   if (!kind) {
     return {
-      icon: Banknote,
-      glyph: accountIcon(account.icon, account.account_kind),
+      icon: resolveAccountIcon(account.icon, account.account_kind),
       tone: 'bg-surface-hover text-muted-foreground',
       kindKey: null,
       color: 'rgb(var(--dim))',
     };
   }
   return {
-    icon: KIND_ICONS[kind],
-    glyph: accountIcon(account.icon, kind),
+    icon: resolveAccountIcon(account.icon, kind),
     tone: KIND_TONES[kind],
     kindKey: KIND_LABEL_KEYS[kind],
     color: KIND_CHART_COLORS[kind],

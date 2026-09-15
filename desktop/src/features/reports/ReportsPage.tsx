@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { resolveCategoryColors } from '@/lib/category-colors';
-import { categoryIcon } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
 
 type ReportTab = 'overview' | 'breakdown' | 'trends';
@@ -253,8 +253,9 @@ export function ReportsPage() {
                           backgroundColor: breakdownColors.get(cat.category_id ?? `uncategorised-${i}`),
                         }}
                       />
-                      <span className="min-w-0 flex-1 truncate">
-                        {categoryIcon(cat.icon)} {cat.category_name ?? t('common.uncategorised')}
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate">
+                        <CategoryIcon name={cat.icon} className="h-3.5 w-3.5" />
+                        {cat.category_name ?? t('common.uncategorised')}
                       </span>
                       <span className="tabular-nums text-muted-foreground">
                         {cat.transaction_count} {t('common.entries')}

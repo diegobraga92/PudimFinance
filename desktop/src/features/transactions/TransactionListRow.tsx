@@ -2,8 +2,8 @@ import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import type { Category, Transaction } from '@/lib/api';
-import { categoryIcon } from '@shared/category-icons';
-import { accountIcon } from '@shared/account-icons';
+import { AccountIcon } from '@/components/AccountIcon';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -45,7 +45,7 @@ export function TransactionListRow({ tx, category, accountName, accountIconName,
             isIncome ? 'bg-success/15' : 'bg-danger/15',
           )}
         >
-          {category?.icon ? categoryIcon(category.icon) : isIncome ? '↑' : '↓'}
+          <CategoryIcon name={category?.icon} className="h-5 w-5" />
         </span>
 
         <span className="min-w-0 flex-1">
@@ -54,7 +54,7 @@ export function TransactionListRow({ tx, category, accountName, accountIconName,
             <>
               {accountName && (
                 <span>
-                  {accountIcon(accountIconName, accountKind)} {accountName}
+                  <AccountIcon name={accountIconName} kind={accountKind} className="mr-1 inline h-3.5 w-3.5" />
                   {(category?.name || tx.date) && ' · '}
                 </span>
               )}

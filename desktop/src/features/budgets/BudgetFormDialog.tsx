@@ -12,7 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { categoryIcon } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { createBudget, type BudgetSummaryItem, type Category } from '@/lib/api';
 
 interface Props {
@@ -33,10 +40,6 @@ interface Props {
   editing: BudgetSummaryItem | null;
   onSaved: () => void;
 }
-
-/** Native select styling shared with the other forms. */
-const SELECT_CLASS =
-  'h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]';
 
 /**
  * Create or edit a monthly limit through `POST /api/budgets` (an upsert, so the
@@ -141,20 +144,21 @@ export function BudgetFormDialog({
             ) : (
               <div className="space-y-1.5">
                 <Label htmlFor="budget-category">{t('budgets.form.category')}</Label>
-                <select
-                  id="budget-category"
-                  className={SELECT_CLASS}
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                >
-                  <option value="">— {t('budgets.form.selectCategory')} —</option>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger id="budget-category">
+                    <SelectValue placeholder={t('budgets.form.selectCategory')} />
+                  </SelectTrigger>
+                  <SelectContent className="z-[60]">
                   {selectable.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.icon ? `${categoryIcon(category.icon)} ` : ''}
-                      {category.name}
-                    </option>
+                    <SelectItem key={category.id} value={category.id}>
+                      <span className="flex items-center gap-2">
+                        <CategoryIcon name={category.icon} className="h-4 w-4" />
+                        {category.name}
+                      </span>
+                    </SelectItem>
                   ))}
-                </select>
+                  </SelectContent>
+                </Select>
               </div>
             )
           ) : (

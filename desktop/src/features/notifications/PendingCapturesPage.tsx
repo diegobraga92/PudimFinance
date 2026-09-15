@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -19,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { categoryIcon } from '@shared/category-icons';
 import { cn } from '@/lib/utils';
 import { useNotificationCapture } from '@/notifications/NotificationCaptureProvider';
 import { appLabelFor, type PendingCapture } from '@/notifications/capture';
@@ -148,9 +148,10 @@ export function PendingCapturesPage() {
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     {item.categoryId && categoryById.get(item.categoryId) && (
                       <Badge variant="secondary">
-                        {categoryById.get(item.categoryId)!.icon
-                          ? `${categoryIcon(categoryById.get(item.categoryId)!.icon)} `
-                          : ''}
+                        <CategoryIcon
+                          name={categoryById.get(item.categoryId)!.icon}
+                          className="mr-1 inline h-3.5 w-3.5"
+                        />
                         {categoryById.get(item.categoryId)!.name}
                       </Badge>
                     )}
@@ -253,7 +254,7 @@ export function PendingCapturesPage() {
                             : 'border-border bg-surface text-muted-foreground hover:bg-surface-hover',
                         )}
                       >
-                        {c.icon ? `${categoryIcon(c.icon)} ` : ''}
+                        <CategoryIcon name={c.icon} className="mr-1 inline h-3.5 w-3.5" />
                         {c.name}
                       </button>
                     ))}

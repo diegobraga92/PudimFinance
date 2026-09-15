@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { resolveCategoryColors } from '@/lib/category-colors';
 import { fitTextSize } from '@/lib/fit-text';
-import { categoryIcon } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
 
 /** Aggregated remainder glyph tone (muted slate). */
 const OTHERS_COLOR = '#64748b';
@@ -147,8 +147,8 @@ export function CategoryDonut({
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: row.color }}
                     />
-                    <span className="min-w-0 flex-1 truncate">
-                      {row.icon ? `${categoryIcon(row.icon)} ` : ''}
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate">
+                      <CategoryIcon name={row.icon} className="h-3.5 w-3.5" />
                       {row.name}
                     </span>
                     <span className="shrink-0 text-xs tabular-nums text-dim">{row.pct}%</span>

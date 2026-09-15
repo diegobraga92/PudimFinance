@@ -12,9 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { categoryIcon } from '@shared/category-icons';
 import { cn } from '@/lib/utils';
 import type { BudgetSummaryItem } from '@/lib/api';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import {
   HEALTH_BAR,
   HEALTH_TEXT,
@@ -161,7 +161,11 @@ function BudgetRow({
             className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md text-base"
             style={{ backgroundColor: `${item.budget.color ?? '#60a5fa'}1f` }}
           >
-            {categoryIcon(item.budget.icon)}
+            <CategoryIcon
+              name={item.budget.icon}
+              className="h-[18px] w-[18px]"
+              style={{ color: item.budget.color ?? '#60a5fa' }}
+            />
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium">{categoryName}</span>

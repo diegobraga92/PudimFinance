@@ -82,6 +82,7 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete, onA
         <ul className="divide-y divide-border/60">
           {accounts.map((account) => {
             const appearance = accountAppearance(account);
+            const AccountIconComponent = appearance.icon;
             const balance = parseFloat(account.balance) || 0;
             const isLiability = account.type === 'liability';
 
@@ -119,7 +120,7 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete, onA
                       appearance.tone,
                     )}
                   >
-                    <span className="text-lg leading-none">{appearance.glyph}</span>
+                    <AccountIconComponent aria-hidden="true" className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{account.name}</span>

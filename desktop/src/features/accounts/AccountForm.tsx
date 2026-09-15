@@ -19,11 +19,11 @@ import {
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
-  ACCOUNT_ICON_EMOJI,
   ACCOUNT_ICON_NAMES,
   DEFAULT_ACCOUNT_ICON,
   type AccountIconName,
 } from '@shared/account-icons';
+import { AccountIcon } from '@/components/AccountIcon';
 
 /** User-facing account kinds (backend `account_kind`). */
 export type AccountKind = 'bank' | 'cash' | 'card' | 'loan' | 'investment';
@@ -44,13 +44,12 @@ export const KIND_OPTIONS: {
     | 'accounts.kind.card'
     | 'accounts.kind.loan'
     | 'accounts.kind.investment';
-  icon: string;
 }[] = [
-  { key: 'bank', labelKey: 'accounts.kind.bank', icon: '🏦' },
-  { key: 'cash', labelKey: 'accounts.kind.cash', icon: '💵' },
-  { key: 'card', labelKey: 'accounts.kind.card', icon: '💳' },
-  { key: 'loan', labelKey: 'accounts.kind.loan', icon: '🏛️' },
-  { key: 'investment', labelKey: 'accounts.kind.investment', icon: '📈' },
+  { key: 'bank', labelKey: 'accounts.kind.bank' },
+  { key: 'cash', labelKey: 'accounts.kind.cash' },
+  { key: 'card', labelKey: 'accounts.kind.card' },
+  { key: 'loan', labelKey: 'accounts.kind.loan' },
+  { key: 'investment', labelKey: 'accounts.kind.investment' },
 ];
 
 interface Props {
@@ -212,7 +211,7 @@ function dayValue(value: string): number | null {
                       : 'border-border bg-surface text-muted-foreground hover:bg-surface-hover',
                   )}
                 >
-                  <span className="text-base">{opt.icon}</span>
+                  <AccountIcon kind={opt.key} className="h-5 w-5" />
                   <span className="text-balance">{t(opt.labelKey)}</span>
                 </button>
               ))}
@@ -237,7 +236,7 @@ function dayValue(value: string): number | null {
                       : 'border-border bg-surface hover:bg-surface-hover',
                   )}
                 >
-                  {ACCOUNT_ICON_EMOJI[iconName]}
+                  <AccountIcon name={iconName} className="h-5 w-5" />
                 </button>
               ))}
             </div>

@@ -18,9 +18,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { EmptyState } from '@/components/EmptyState';
+import { AccountIcon } from '@/components/AccountIcon';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { TransactionForm } from '@/features/transactions/TransactionForm';
-import { categoryIcon } from '@shared/category-icons';
-import { accountIcon } from '@shared/account-icons';
 import { cn } from '@/lib/utils';
 import type { AccountWithBalance, Category, Transaction } from '@/lib/api';
 import { TransactionDetailsDialog } from './TransactionDetailsDialog';
@@ -134,7 +134,7 @@ export function RecentTransactionsCard({
                     <TableCell className="whitespace-nowrap">
                       {category ? (
                         <span className="inline-flex items-center gap-1.5 text-sm">
-                          <span className="text-base">{categoryIcon(category.icon)}</span>
+                          <CategoryIcon name={category.icon} className="h-4 w-4" />
                           <span className="max-w-[9rem] truncate">{category.name}</span>
                         </span>
                       ) : (
@@ -160,7 +160,7 @@ export function RecentTransactionsCard({
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                       {account ? (
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="text-base">{accountIcon(account.icon, account.account_kind)}</span>
+                          <AccountIcon name={account.icon} kind={account.account_kind} className="h-4 w-4" />
                           <span>{account.name}</span>
                         </span>
                       ) : <span className="text-dim">—</span>}

@@ -33,12 +33,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { AccountIcon } from '@/components/AccountIcon';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { TransactionForm } from './TransactionForm';
 import { TransactionListRow } from './TransactionListRow';
 import { TransactionsSidebar } from './TransactionsSidebar';
 import { groupTransactionsByMonth } from './group-by-month';
-import { categoryIcon } from '@shared/category-icons';
-import { accountIcon } from '@shared/account-icons';
 import type { TranslationKey } from '@shared/i18n';
 import { refreshWidgetSpentToday } from '@/lib/widget';
 import { cn } from '@/lib/utils';
@@ -635,7 +635,7 @@ export function TransactionsPage() {
                             <TableCell>
                               {cat ? (
                                 <span className="inline-flex items-center gap-1.5">
-                                  <span className="text-base">{categoryIcon(cat.icon)}</span>
+                                  <CategoryIcon name={cat.icon} className="h-4 w-4" />
                                   <span className="text-sm">{cat.name}</span>
                                 </span>
                               ) : (
@@ -655,7 +655,11 @@ export function TransactionsPage() {
                                 const account = accounts.find((item) => item.id === tx.account_id);
                                 return account ? (
                                   <span className="inline-flex items-center gap-1.5">
-                                    <span className="text-base">{accountIcon(account.icon, account.account_kind)}</span>
+                                    <AccountIcon
+                                      name={account.icon}
+                                      kind={account.account_kind}
+                                      className="h-4 w-4"
+                                    />
                                     <span>{account.name}</span>
                                   </span>
                                 ) : <span className="text-dim">—</span>;

@@ -17,7 +17,15 @@ import {
   type Category,
   type CreateCategoryRequest,
 } from '@/lib/api';
-import { CATEGORY_ICON_EMOJI, CATEGORY_ICON_NAMES } from '@shared/category-icons';
+import { CATEGORY_ICON_NAMES } from '@shared/category-icons';
+import { CategoryIcon } from '@/components/CategoryIcon';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
   CATEGORY_COLORS,
@@ -192,7 +200,7 @@ export function CategoryForm({
                       : 'border-border bg-surface hover:bg-surface-hover',
                   )}
                 >
-                  {CATEGORY_ICON_EMOJI[iconName]}
+                  <CategoryIcon name={iconName} className="h-[18px] w-[18px]" />
                 </button>
               ))}
             </div>
@@ -229,20 +237,25 @@ export function CategoryForm({
             <Label htmlFor="cat-parent">
               {t('common.subcategory')} ({t('common.optional')})
             </Label>
-            <select
-              id="cat-parent"
-              className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
+            <Select
+              value={parentId || '__top__'}
+              onValueChange={(value) => setParentId(value === '__top__' ? '' : value)}
             >
-              <option value="">— {t('common.topLevel')} —</option>
+              <SelectTrigger id="cat-parent">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[60]">
+                <SelectItem value="__top__">— {t('common.topLevel')} —</SelectItem>
               {parentOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.icon ? `${CATEGORY_ICON_EMOJI[c.icon] ?? ''} ` : ''}
-                  {c.name}
-                </option>
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="flex items-center gap-2">
+                    <CategoryIcon name={c.icon} className="h-4 w-4" />
+                    {c.name}
+                  </span>
+                </SelectItem>
               ))}
-            </select>
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter>
