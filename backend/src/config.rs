@@ -19,6 +19,10 @@ pub struct Config {
     pub jwt_secret: String,
     /// Google OAuth client IDs accepted during ID-token verification.
     pub google_client_ids: Vec<String>,
+    /// Optional secret for confidential Google OAuth clients.
+    pub google_client_secret: Option<String>,
+    /// Client ID associated with `google_client_secret`.
+    pub google_client_secret_client_id: Option<String>,
     /// OpenTelemetry OTLP endpoint for exporting traces (defaults to `http://localhost:4317`).
     pub otel_endpoint: String,
 }
@@ -55,6 +59,12 @@ impl Config {
                 .filter(|id| !id.is_empty())
                 .map(ToOwned::to_owned)
                 .collect(),
+            google_client_secret: env::var("GOOGLE_CLIENT_SECRET")
+                .ok()
+                .filter(|secret| !secret.trim().is_empty()),
+            google_client_secret_client_id: env::var("GOOGLE_CLIENT_SECRET_CLIENT_ID")
+                .ok()
+                .filter(|client_id| !client_id.trim().is_empty()),
             otel_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:4317".into()),
         }

@@ -47,6 +47,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-in-production}
       # Comma-separated public Google OAuth client IDs (Android and Desktop).
       GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      # Exact client ID paired with the server-only Google client secret below.
+      GOOGLE_CLIENT_SECRET_CLIENT_ID: ${GOOGLE_CLIENT_SECRET_CLIENT_ID:-}
+      # Server-only secret for a confidential Google OAuth client, if required.
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       RUST_LOG: backend=debug,tower_http=debug
     depends_on:
       postgres:

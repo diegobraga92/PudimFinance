@@ -47,15 +47,24 @@ struct TokenResponse {
 pub struct GoogleVerifier {
     client: reqwest::Client,
     client_ids: Vec<String>,
+    client_secret: Option<String>,
+    client_secret_client_id: Option<String>,
     jwks: std::sync::Arc<RwLock<Option<CachedJwks>>>,
 }
 
 impl GoogleVerifier {
-    /// Creates a verifier for the configured public OAuth client IDs.
-    pub fn new(client_ids: Vec<String>) -> Self {
+    /// Creates a verifier for the configured OAuth client IDs and optional
+    /// client-secret pairing.
+    pub fn new(
+        client_ids: Vec<String>,
+        client_secret: Option<String>,
+        client_secret_client_id: Option<String>,
+    ) -> Self {
         Self {
             client: reqwest::Client::new(),
             client_ids,
+            client_secret,
+            client_secret_client_id,
             jwks: std::sync::Arc::new(RwLock::new(None)),
         }
     }
@@ -124,16 +133,21 @@ impl GoogleVerifier {
         if !self.client_ids.iter().any(|id| id == client_id) {
             return Err(anyhow!("Google client ID is not configured"));
         }
+        let form = token_exchange_params(
+            code,
+            code_verifier,
+            redirect_uri,
+            client_id,
+            client_secret_for(
+                self.client_secret.as_deref(),
+                self.client_secret_client_id.as_deref(),
+                client_id,
+            ),
+        );
         let response = self
             .client
             .post(TOKEN_URL)
-            .form(&[
-                ("code", code),
-                ("client_id", client_id),
-                ("code_verifier", code_verifier),
-                ("redirect_uri", redirect_uri),
-                ("grant_type", "authorization_code"),
-            ])
+            .form(&form)
             .send()
             .await?
             .error_for_status()
@@ -166,5 +180,75 @@ impl GoogleVerifier {
             return Err(anyhow!("Google email is not verified"));
         }
         Ok(claims)
+    }
+}
+
+fn client_secret_for<'a>(
+    client_secret: Option<&'a str>,
+    client_secret_client_id: Option<&str>,
+    client_id: &str,
+) -> Option<&'a str> {
+    (client_secret_client_id == Some(client_id))
+        .then_some(client_secret)
+        .flatten()
+}
+
+fn token_exchange_params<'a>(
+    code: &'a str,
+    code_verifier: &'a str,
+    redirect_uri: &'a str,
+    client_id: &'a str,
+    client_secret: Option<&'a str>,
+) -> Vec<(&'a str, &'a str)> {
+    let mut params = vec![("code", code), ("client_id", client_id)];
+    if let Some(secret) = client_secret {
+        params.push(("client_secret", secret));
+    }
+    params.extend([
+        ("code_verifier", code_verifier),
+        ("redirect_uri", redirect_uri),
+        ("grant_type", "authorization_code"),
+    ]);
+    params
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{client_secret_for, token_exchange_params};
+
+    #[test]
+    fn client_secret_is_only_selected_for_its_configured_client() {
+        assert_eq!(
+            client_secret_for(Some("secret"), Some("desktop"), "desktop"),
+            Some("secret")
+        );
+        assert_eq!(
+            client_secret_for(Some("secret"), Some("desktop"), "android"),
+            None
+        );
+    }
+
+    #[test]
+    fn token_exchange_omits_secret_when_unconfigured() {
+        let params = token_exchange_params("code", "verifier", "redirect", "client", None);
+
+        assert_eq!(
+            params,
+            vec![
+                ("code", "code"),
+                ("client_id", "client"),
+                ("code_verifier", "verifier"),
+                ("redirect_uri", "redirect"),
+                ("grant_type", "authorization_code"),
+            ]
+        );
+    }
+
+    #[test]
+    fn token_exchange_includes_configured_secret() {
+        let params =
+            token_exchange_params("code", "verifier", "redirect", "client", Some("secret"));
+
+        assert_eq!(params[2], ("client_secret", "secret"));
     }
 }

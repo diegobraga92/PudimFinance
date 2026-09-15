@@ -65,6 +65,8 @@ async fn main() -> anyhow::Result<()> {
         );
         Some(std::sync::Arc::new(google::GoogleVerifier::new(
             config.google_client_ids.clone(),
+            config.google_client_secret.clone(),
+            config.google_client_secret_client_id.clone(),
         )))
     };
 

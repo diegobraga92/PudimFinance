@@ -67,13 +67,19 @@ docker compose up --build
 
 Google Sign-In is optional and is enabled on the backend with `GOOGLE_CLIENT_IDS`.
 Set it in the root `.env` file; `docker-compose.yml` forwards it to the backend
-container, and `scripts/run.sh` exposes it to a locally run backend.
+container, and `scripts/run.sh` exposes it to a locally run backend. The current
+Desktop OAuth client also requires `GOOGLE_CLIENT_SECRET`; set that secret and its
+matching `GOOGLE_CLIENT_SECRET_CLIENT_ID` only in the ignored `.env` on the
+deployment server, never in `.env.example` or source control. Android's public
+client does not require a secret.
 Set it to the comma-separated Android and Desktop app client IDs from Google Cloud
 (the Web client ID is intentionally deferred until the app has a real HTTPS web
 origin):
 
 ```dotenv
 GOOGLE_CLIENT_IDS=416078507672-hvo7chlndcefmks9loeigg1kvtueikho.apps.googleusercontent.com,416078507672-tfalhei9jo0954el9demikrs09hsnsid.apps.googleusercontent.com
+# GOOGLE_CLIENT_SECRET_CLIENT_ID=<Desktop client ID>
+# GOOGLE_CLIENT_SECRET=<server-only secret for the Desktop client>
 ```
 
 The implementation uses `openid email profile`, PKCE, the system browser, and a
