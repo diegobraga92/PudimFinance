@@ -13,6 +13,8 @@
  * Settings and the pending-review inbox are persisted in localStorage.
  */
 
+import { toIsoDate } from '@/lib/date-input';
+
 export type CaptureMode = 'auto' | 'ask';
 
 export interface NotificationSettings {
@@ -206,7 +208,7 @@ export function parseNotification(
   // Extract a description by taking the text after "em"/"de"/"no" and stripping noise.
   let description = text;
   const merchantMatch = text.match(
-    /\b(?:em|no|na|de|do|da)\s+([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ0-9][A-Za-zÁÉÍÓÚÀÂÊÔÃÕÇ0-9 ]{2,40})/,
+    /\b(?:em|no|na|de|do|da)\s+([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ0-9][A-Za-zÁÉÍÓÚÀÂÊÔÃÕÇ0-9 ]{2,79}?)(?=\s+para\s+(?:o\s+)?cart(?:a|ã)o\b|\s+às?\s+[0-9]{1,2}[:h][0-9]{2}|[.,]|$)/,
   );
   if (merchantMatch) {
     description = merchantMatch[1].trim();
@@ -223,7 +225,10 @@ export function parseNotification(
   // Drop trailing punctuation and "às HH:MM" markers.
   description = description
     .replace(/\s+às?\s+[0-9]{1,2}[:h][0-9]{2}.*$/i, '')
+    .replace(/\s+para\s+(?:o\s+)?cart(?:a|ã)o\b.*$/i, '')
     .replace(/\s+(?:final|cartao|cartão)\s+[0-9*]+.*$/i, '')
+    .replace(/^(?:pix\s+)?enviado\s+de\s+/i, '')
+    .replace(/^para\s+/i, '')
     .replace(/^[-–—\s]+/, '')
     .replace(/[.,\s]+$/, '')
     .trim()
@@ -238,7 +243,9 @@ export function parseNotification(
   }
 
   const categoryId = guessCategory(description, categories) ?? fallbackCategoryId;
-  const today = new Date().toISOString().slice(0, 10);
+  // Transaction dates are calendar dates in the user's local timezone. Using
+  // an ISO UTC string makes late-evening Brazilian captures land on tomorrow.
+  const today = toIsoDate(new Date());
 
   return {
     type,

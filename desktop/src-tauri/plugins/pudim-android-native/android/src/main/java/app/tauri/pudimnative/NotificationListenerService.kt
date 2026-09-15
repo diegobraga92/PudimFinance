@@ -28,6 +28,9 @@ private val FINANCIAL_TEXT_REGEX = Regex(
 class NotificationListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        // Do not feed PudimFinance's own capture prompts back into the bank
+        // notification pipeline.
+        if (sbn.packageName == packageName) return
         val appLabel = appLabelOf(this, sbn.packageName)
         val payload = extractPayload(sbn, appLabel) ?: return
 

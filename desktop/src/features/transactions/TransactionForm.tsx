@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { DateField } from '@/components/DateField';
+import { toIsoDate } from '@/lib/date-input';
 import {
   Dialog,
   DialogContent,
@@ -91,7 +92,7 @@ export function TransactionForm({
   const [amount, setAmount] = React.useState('');
   const [type, setType] = React.useState<'income' | 'expense'>(initialType);
   const [categoryId, setCategoryId] = React.useState('');
-  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = React.useState(() => toIsoDate(new Date()));
   const [notes, setNotes] = React.useState('');
   const [accountId, setAccountId] = React.useState('');
   const [installments, setInstallments] = React.useState('1');
@@ -106,7 +107,7 @@ export function TransactionForm({
     setAmount(editing?.amount ?? '');
     setType(editing?.type === 'income' ? 'income' : initialType);
     setCategoryId(editing?.category_id ?? '');
-    setDate(editing?.date ?? new Date().toISOString().slice(0, 10));
+    setDate(editing?.date ?? toIsoDate(new Date()));
     setNotes(editing?.notes ?? '');
     setAccountId(editing?.account_id ?? '');
     setInstallments('1');

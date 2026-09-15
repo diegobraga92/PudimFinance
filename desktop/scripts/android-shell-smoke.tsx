@@ -60,6 +60,8 @@ import { ReceiptsPage } from '../src/features/receipts/ReceiptsPage';
 import { PRIMARY_NAV, MOBILE_TABS, TOOL_GROUPS, screenTitleKey, isMobileRoot } from '../src/app/navigation';
 import { groupTransactionsByMonth } from '../src/features/transactions/group-by-month';
 import { clearAuthSession, setAuthSession } from '../src/lib/auth';
+import { parseNotification } from '../src/notifications/capture';
+import { toIsoDate } from '../src/lib/date-input';
 
 function Providers({ children, client }: { children: React.ReactNode; client?: QueryClient }) {
   const fallback = React.useMemo(() => new QueryClient(), []);
@@ -382,6 +384,48 @@ for (const [label, ok] of parseChecks) {
 }
 if (parseChecks.every(([, ok]) => ok)) {
   console.log(`PASS: date parsing (${parseChecks.length} cases)`);
+}
+
+// ---- notification capture parsing ------------------------------------------
+const captureChecks: [string, boolean][] = [
+  (() => {
+    const parsed = parseNotification(
+      'Compra no crédito aprovada Compra de R$ 11,77 APROVADA em DEEPSEERWEA para o cartão com final 2985.',
+      [],
+      null,
+    );
+    return [
+      'Nubank credit notification',
+      parsed?.type === 'expense' &&
+        parsed.amount === '11.77' &&
+        parsed.description === 'DEEPSEERWEA' &&
+        parsed.date === toIsoDate(new Date()),
+    ];
+  })(),
+  (() => {
+    const parsed = parseNotification('Você recebeu um Pix de R$ 50,00 de JOÃO SILVA', [], null);
+    return [
+      'received Pix notification',
+      parsed?.type === 'income' && parsed.amount === '50.00' && parsed.description === 'JOÃO SILVA',
+    ];
+  })(),
+  (() => {
+    const parsed = parseNotification('Pix enviado de R$ 12,50 para MARIA SOUZA', [], null);
+    return [
+      'sent Pix notification',
+      parsed?.type === 'expense' && parsed.amount === '12.50' && parsed.description === 'MARIA SOUZA',
+    ];
+  })(),
+  ['non-financial notification is ignored', parseNotification('Bateria fraca, conecte o carregador', [], null) === null],
+];
+for (const [label, ok] of captureChecks) {
+  if (!ok) {
+    console.error(`FAIL: notification capture — ${label}`);
+    failures += 1;
+  }
+}
+if (captureChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: notification capture parsing (${captureChecks.length} cases)`);
 }
 
 // ---- transactions range control + row checkbox ------------------------------

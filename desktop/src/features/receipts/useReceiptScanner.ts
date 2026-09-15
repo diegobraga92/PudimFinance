@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
 import { saveReceipt, scanReceipt, scanReceiptOcr, isNetworkError } from '@/lib/api';
+import { toIsoDate } from '@/lib/date-input';
 
 /** One line of a parsed receipt, editable before saving. */
 export interface EditableReceiptItem {
@@ -63,7 +64,7 @@ export function useReceiptScanner() {
       setDraft({
         store_name: (result.store_name as string | undefined) ?? t('receipts.unknownStore'),
         cnpj: (result.cnpj as string | null | undefined) ?? null,
-        date: (result.date as string | undefined) ?? new Date().toISOString().slice(0, 10),
+        date: (result.date as string | undefined) ?? toIsoDate(new Date()),
         total: (result.total as string | undefined) ?? '0',
         source,
         items: items.map((item) => ({

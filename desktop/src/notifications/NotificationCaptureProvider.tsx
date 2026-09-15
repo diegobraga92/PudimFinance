@@ -68,6 +68,8 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const [pendingItems, setPendingItems] = React.useState<PendingCapture[]>([]);
   const settingsRef = React.useRef<NotificationSettings | null>(null);
   const recentImportsRef = React.useRef<Map<string, number>>(new Map());
+  const nativeUnsubscribeRef = React.useRef<(() => void) | null>(null);
+  const actionUnsubscribeRef = React.useRef<(() => void) | null>(null);
   const toastRef = React.useRef(toast);
   toastRef.current = toast;
   const tRef = React.useRef(t);
@@ -211,17 +213,45 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const importFromActionRef = React.useRef(importFromAction);
   importFromActionRef.current = importFromAction;
 
+  const subscribeLive = React.useCallback(async () => {
+    if (!nativeUnsubscribeRef.current) {
+      nativeUnsubscribeRef.current = await subscribeNativeNotifications((payload) => {
+        const settings = settingsRef.current;
+        const label = sourceLabel(payload);
+        if (!settings?.enabled) return;
+        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) return;
+        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
+        if (!text) return;
+        const parsed = parseNotification(text, [], settings.defaultCategoryId);
+        if (parsed) handleParsedRef.current(parsed, payload);
+      });
+    }
+    if (!actionUnsubscribeRef.current) {
+      actionUnsubscribeRef.current = await subscribeCaptureActions((action) => {
+        void importFromActionRef.current(action);
+      });
+    }
+  }, []);
+
+  const unsubscribeLive = React.useCallback(() => {
+    nativeUnsubscribeRef.current?.();
+    actionUnsubscribeRef.current?.();
+    nativeUnsubscribeRef.current = null;
+    actionUnsubscribeRef.current = null;
+  }, []);
+
   const drainQueuedCaptures = React.useCallback(async () => {
     const settings = settingsRef.current ?? (await getNotificationSettings());
     settingsRef.current = settings;
-    if (!settings.enabled) return;
-    for (const payload of await drainNativeNotifications()) {
-      const label = sourceLabel(payload);
-      if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) continue;
-      const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
-      if (!text) continue;
-      const parsed = parseNotification(text, [], settings.defaultCategoryId);
-      if (parsed) handleParsedRef.current(parsed, payload);
+    if (settings.enabled) {
+      for (const payload of await drainNativeNotifications()) {
+        const label = sourceLabel(payload);
+        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) continue;
+        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
+        if (!text) continue;
+        const parsed = parseNotification(text, [], settings.defaultCategoryId);
+        if (parsed) handleParsedRef.current(parsed, payload);
+      }
     }
     for (const action of await drainCaptureActions()) {
       await importFromActionRef.current(action);
@@ -231,8 +261,6 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
 
   React.useEffect(() => {
     let mounted = true;
-    let unsubscribe: (() => void) | null = null;
-    let unsubscribeActions: (() => void) | null = null;
 
     void (async () => {
       settingsRef.current = await getNotificationSettings();
@@ -241,59 +269,43 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       // Register the live listener before draining cold-start captures. This
       // closes the startup window where the native plugin is alive but JS has
       // not subscribed yet.
-      unsubscribe = await subscribeNativeNotifications((payload) => {
-        const settings = settingsRef.current;
-        if (!settings?.enabled) return;
-        const label = sourceLabel(payload);
-        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) {
-          return;
-        }
-        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
-        if (!text) return;
-        const parsed = parseNotification(text, [], settings.defaultCategoryId);
-        if (parsed) handleParsedRef.current(parsed, payload);
-      });
-      // Notifications captured while the app was killed (Android).
-      for (const payload of await drainNativeNotifications()) {
-        const settings = settingsRef.current;
-        if (!settings?.enabled) continue;
-        const label = sourceLabel(payload);
-        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) {
-          continue;
-        }
-        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
-        if (!text) continue;
-        const parsed = parseNotification(text, [], settings.defaultCategoryId);
-        if (parsed) handleParsedRef.current(parsed, payload);
-      }
-      // Import actions tapped while the app was killed (Android).
-      for (const action of await drainCaptureActions()) {
-        await importFromActionRef.current(action);
-      }
-      // Live capture-prompt action subscription.
-      unsubscribeActions = await subscribeCaptureActions((action) => {
-        void importFromActionRef.current(action);
-      });
+      await subscribeLive();
+      // Drain after both live listeners are registered. This avoids losing an
+      // event in the startup window and also refreshes the review inbox on a
+      // cold start, rather than relying on a later focus event.
+      await drainQueuedCaptures();
     })();
 
     return () => {
       mounted = false;
-      unsubscribe?.();
-      unsubscribeActions?.();
+      unsubscribeLive();
     };
-  }, []);
+  }, [drainQueuedCaptures, subscribeLive, unsubscribeLive]);
 
   React.useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void drainQueuedCaptures();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // A registered Tauri listener remains alive while Android backgrounds
+        // the Activity. Unregister so the native service persists captures for
+        // the next foreground drain instead of sending into a suspended WebView.
+        unsubscribeLive();
+      } else if (document.visibilityState === 'visible') {
+        void (async () => {
+          await subscribeLive();
+          await drainQueuedCaptures();
+        })();
+      }
     };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', onVisible);
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') void subscribeLive();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
     return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
     };
-  }, [drainQueuedCaptures]);
+  }, [drainQueuedCaptures, subscribeLive, unsubscribeLive]);
 
   const approve = React.useCallback(
     async (

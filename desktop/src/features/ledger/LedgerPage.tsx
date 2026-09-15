@@ -14,6 +14,7 @@ import {
   type MigrationResponse,
 } from '@/lib/api';
 import { DateField } from '@/components/DateField';
+import { toIsoDate } from '@/lib/date-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -82,7 +83,7 @@ export function LedgerPage() {
   const [migration, setMigration] = React.useState<MigrationResponse | null>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [description, setDescription] = React.useState('');
-  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = React.useState(() => toIsoDate(new Date()));
   const [debitAccountId, setDebitAccountId] = React.useState('');
   const [creditAccountId, setCreditAccountId] = React.useState('');
   const [amount, setAmount] = React.useState('');

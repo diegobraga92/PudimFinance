@@ -47,6 +47,10 @@ internal object PendingDeepLink {
 class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
 
     companion object {
+        private const val NOTIFICATION_CAPTURED_EVENT = "notificationCaptured"
+        private const val CAPTURE_ACTION_EVENT = "captureAction"
+        private const val DEEP_LINK_EVENT = "deepLink"
+
         @Volatile
         var instance: PudimNativePlugin? = null
         private val biometricInFlight = AtomicBoolean(false)
@@ -55,52 +59,31 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         /** Called by [NotificationListenerService] for every posted notification. */
         fun notifyPosted(payload: Map<String, Any?>): Boolean {
             val plugin = instance ?: return false
-            if (!plugin.webViewActive) return false
-            plugin.triggerObject("notificationCaptured", payload.toJSObject())
+            if (!plugin.hasListener(NOTIFICATION_CAPTURED_EVENT)) return false
+            // Use trigger(), not triggerObject(): JSObject is an org.json.JSONObject
+            // and Jackson serializes its internal `nameValuePairs` field when it
+            // is passed through triggerObject().
+            plugin.trigger(NOTIFICATION_CAPTURED_EVENT, payload.toJSObject())
             return true
         }
 
         /** Called by [CaptureActionReceiver] when an import action is tapped. */
         fun notifyCaptureAction(payload: Map<String, Any?>): Boolean {
             val plugin = instance ?: return false
-            if (!plugin.webViewActive) return false
-            plugin.triggerObject("captureAction", payload.toJSObject())
+            if (!plugin.hasListener(CAPTURE_ACTION_EVENT)) return false
+            plugin.trigger(CAPTURE_ACTION_EVENT, payload.toJSObject())
             return true
         }
     }
 
-    @Volatile
-    private var webViewActive = false
-
     override fun load(webView: WebView) {
         instance = this
-        // Tauri creates/loads the WebView during activity startup, and plugin
-        // load can happen after the Activity's first onResume callback. Treat
-        // a loaded WebView as active; later lifecycle callbacks mark it paused
-        // or stopped explicitly.
-        webViewActive = true
         super.load(webView)
         // Deep link from the home-screen widget at cold start (JS drains it via takeDeepLink).
         activity.intent?.getStringExtra(DEEP_LINK_EXTRA)?.let { PendingDeepLink.value = it }
     }
 
-    override fun onResume() {
-        super.onResume()
-        webViewActive = true
-    }
-
-    override fun onPause() {
-        webViewActive = false
-        super.onPause()
-    }
-
-    override fun onStop() {
-        webViewActive = false
-        super.onStop()
-    }
-
     override fun onDestroy(activity: AppCompatActivity) {
-        webViewActive = false
         if (instance === this) instance = null
         activeBiometricPrompt.getAndSet(null)?.cancelAuthentication()
         biometricInFlight.set(false)
@@ -118,7 +101,8 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     private fun emitDeepLink(link: String) {
         val obj = JSObject()
         obj.put("link", link)
-        triggerObject("deepLink", obj)
+        // See notifyPosted(): trigger() preserves the JSONObject's actual keys.
+        trigger(DEEP_LINK_EVENT, obj)
     }
 
     /** Returns (and clears) a deep link captured at cold start. */

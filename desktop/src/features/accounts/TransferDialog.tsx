@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { createLedgerTransaction, type AccountWithBalance } from '@/lib/api';
+import { toIsoDate } from '@/lib/date-input';
 
 interface Props {
   open: boolean;
@@ -48,7 +49,7 @@ export function TransferDialog({ open, onOpenChange, accounts, onSaved }: Props)
     setFromId(accounts[0]?.id ?? '');
     setToId(accounts[1]?.id ?? '');
     setAmount('');
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(toIsoDate(new Date()));
     setDescription('');
     setError(null);
     setSaving(false);

@@ -15,6 +15,7 @@ import {
   type TransactionFilters,
 } from '@/lib/api';
 import { DateRangeField } from '@/components/DateRangeField';
+import { toIsoDate } from '@/lib/date-input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -272,7 +273,7 @@ export function TransactionsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `transactions-${toIsoDate(new Date())}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();

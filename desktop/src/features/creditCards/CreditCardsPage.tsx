@@ -21,6 +21,7 @@ import {
   type PayCardBillRequest,
 } from '@/lib/api';
 import { DateField } from '@/components/DateField';
+import { toIsoDate } from '@/lib/date-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,7 +84,7 @@ export function CreditCardsPage() {
   const [purchaseDesc, setPurchaseDesc] = React.useState('');
   const [purchaseAmount, setPurchaseAmount] = React.useState('');
   const [purchaseCategory, setPurchaseCategory] = React.useState('');
-  const [purchaseDate, setPurchaseDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [purchaseDate, setPurchaseDate] = React.useState(() => toIsoDate(new Date()));
   const [purchaseSaving, setPurchaseSaving] = React.useState(false);
   const [purchaseError, setPurchaseError] = React.useState<string | null>(null);
 
@@ -165,7 +166,7 @@ export function CreditCardsPage() {
     setPurchaseDesc('');
     setPurchaseAmount('');
     setPurchaseCategory('');
-    setPurchaseDate(new Date().toISOString().slice(0, 10));
+    setPurchaseDate(toIsoDate(new Date()));
     setPurchaseError(null);
     setPurchaseOpen(true);
   };
@@ -250,7 +251,7 @@ export function CreditCardsPage() {
       const plans = (await fetchInstallmentPlans()).filter((p) => p.account_id === selected.id);
       // Only installments belonging to a *future* billing cycle can be
       // anticipated. Anything due within the current open bill is not.
-      const cutoff = currentBill?.due_date ?? new Date().toISOString().slice(0, 10);
+      const cutoff = currentBill?.due_date ?? toIsoDate(new Date());
       const items: AnticipatableItem[] = [];
       for (const plan of plans) {
         const detail = await fetchInstallmentPlan(plan.id);
