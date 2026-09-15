@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { TrendingUp } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { AccountWithBalance } from '@/lib/api';
 import { asAccountKind } from './account-groups';
+import { accountIcon } from '@shared/account-icons';
 
 interface Props {
   /** Balance-sheet accounts; only investment kinds are listed. */
@@ -27,6 +27,8 @@ export function InvestmentsSummaryCard({ accounts, loading }: Props) {
       .map((account) => ({
         id: account.id,
         name: account.name,
+        icon: account.icon,
+        kind: account.account_kind,
         amount: parseFloat(account.balance) || 0,
       }))
       .filter((row) => row.amount > 0)
@@ -69,7 +71,7 @@ export function InvestmentsSummaryCard({ accounts, loading }: Props) {
             {rows.map((row) => (
               <li key={row.id} className="space-y-1.5">
                 <div className="flex items-center gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 shrink-0 text-success" />
+                  <span className="text-base">{accountIcon(row.icon, row.kind)}</span>
                   <span className="min-w-0 flex-1 truncate">{row.name}</span>
                   <span className="shrink-0 font-medium tabular-nums">
                     {formatMoney(row.amount)}

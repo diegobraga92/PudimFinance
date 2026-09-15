@@ -224,6 +224,7 @@ async function pullChanges(): Promise<{
       name: a.name,
       type: a.type,
       account_kind: a.account_kind,
+      icon: a.icon ?? null,
       parent_id: a.parent_id ?? null,
       closing_day: a.closing_day ?? null,
       due_day: a.due_day ?? null,

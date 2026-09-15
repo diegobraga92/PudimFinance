@@ -172,6 +172,10 @@ pub struct TransactionListParams {
     pub end_date: Option<NaiveDate>,
     /// Filter by source account UUID.
     pub account_id: Option<Uuid>,
+    /// Sort field (`date`, `description`, `amount`, `category`, or `account`).
+    pub sort: Option<String>,
+    /// Sort direction (`asc` or `desc`).
+    pub order: Option<String>,
 }
 
 fn default_page_size() -> u32 {
@@ -760,6 +764,8 @@ pub struct Account {
     /// User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a
     /// system kind (`income`/`expense`/`equity`/`other`).
     pub account_kind: String,
+    /// Stable icon identifier selected for this account.
+    pub icon: Option<String>,
     /// Optional parent account.
     pub parent_id: Option<Uuid>,
     /// Closing day of the monthly billing cycle (credit cards only, 1-31).
@@ -786,6 +792,8 @@ pub struct CreateAccountRequest {
     /// (`bank`, `cash`, and `investment` map to asset, `card` and `loan` to liability).
     #[schema(example = "card")]
     pub account_kind: Option<String>,
+    /// Stable icon identifier selected for this account.
+    pub icon: Option<String>,
     /// Optional parent account.
     pub parent_id: Option<Uuid>,
     /// Closing day of the monthly billing cycle (credit cards only, 1-31).
@@ -795,6 +803,9 @@ pub struct CreateAccountRequest {
     /// Credit limit (credit cards only).
     #[schema(value_type = Option<String>)]
     pub credit_limit: Option<Decimal>,
+    /// Optional opening balance. It is posted against the balance-adjustment equity account.
+    #[schema(value_type = Option<String>)]
+    pub initial_balance: Option<Decimal>,
 }
 
 /// Payload for updating an existing account.
@@ -809,6 +820,8 @@ pub struct UpdateAccountRequest {
     /// User-facing kind. When set, the accounting `type` is derived from it.
     #[schema(example = "card")]
     pub account_kind: Option<String>,
+    /// Stable icon identifier selected for this account.
+    pub icon: Option<String>,
     /// Optional parent account.
     pub parent_id: Option<Uuid>,
     /// Closing day of the monthly billing cycle (credit cards only, 1-31).
@@ -832,6 +845,8 @@ pub struct AccountWithBalance {
     /// User-facing kind such as `bank`, `cash`, `card`, `loan`, `investment`, or a
     /// system kind (`income`/`expense`/`equity`/`other`).
     pub account_kind: String,
+    /// Stable icon identifier selected for this account.
+    pub icon: Option<String>,
     /// Optional parent account.
     pub parent_id: Option<Uuid>,
     /// Closing day of the monthly billing cycle (credit cards only, 1-31).
@@ -850,6 +865,20 @@ pub struct AccountWithBalance {
     pub balance: Decimal,
     /// Total number of ledger entries posting to this account.
     pub transaction_count: i64,
+}
+
+/// Request to reconcile an account to a target balance without affecting
+/// income, expenses, budgets, or reports.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AccountAdjustmentRequest {
+    /// Desired display balance. Liability balances are expressed as positive debt.
+    #[schema(value_type = String, example = "1250.00")]
+    pub target_balance: Decimal,
+    /// Date shown in the ledger entry.
+    #[schema(value_type = String, format = Date)]
+    pub date: NaiveDate,
+    /// Optional human-readable explanation.
+    pub description: Option<String>,
 }
 
 const ACCOUNT_TYPES: [&str; 5] = ["asset", "liability", "equity", "income", "expense"];

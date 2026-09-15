@@ -52,6 +52,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adjusts an account to a target balance through a balanced equity posting. */
+        post: operations["adjust_account"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/audit/events": {
         parameters: {
             query?: never;
@@ -1073,6 +1090,8 @@ export interface components {
              * @description Payment due day of the monthly billing cycle (credit cards only, 1-31).
              */
             due_day?: number | null;
+            /** @description Stable icon identifier selected for this account. */
+            icon?: string | null;
             /**
              * Format: uuid
              * @description Account ID.
@@ -1087,6 +1106,24 @@ export interface components {
             parent_id?: string | null;
             /** @description `asset`, `liability`, `equity`, `income`, or `expense`. */
             type: string;
+        };
+        /**
+         * @description Request to reconcile an account to a target balance without affecting
+         *     income, expenses, budgets, or reports.
+         */
+        AccountAdjustmentRequest: {
+            /**
+             * Format: date
+             * @description Date shown in the ledger entry.
+             */
+            date: string;
+            /** @description Optional human-readable explanation. */
+            description?: string | null;
+            /**
+             * @description Desired display balance. Liability balances are expressed as positive debt.
+             * @example 1250.00
+             */
+            target_balance: string;
         };
         /** @description Account joined with its current computed balance from ledger entries. */
         AccountWithBalance: {
@@ -1118,6 +1155,8 @@ export interface components {
              * @description Payment due day of the monthly billing cycle (credit cards only, 1-31).
              */
             due_day?: number | null;
+            /** @description Stable icon identifier selected for this account. */
+            icon?: string | null;
             /**
              * Format: uuid
              * @description Account ID.
@@ -1551,6 +1590,10 @@ export interface components {
              * @description Payment due day of the monthly billing cycle (credit cards only, 1-31).
              */
             due_day?: number | null;
+            /** @description Stable icon identifier selected for this account. */
+            icon?: string | null;
+            /** @description Optional opening balance. It is posted against the balance-adjustment equity account. */
+            initial_balance?: string | null;
             /** @description Account display name (e.g., "Nubank Credit Card"). */
             name: string;
             /**
@@ -2884,6 +2927,8 @@ export interface components {
              * @description Filter by end date (inclusive, ISO `YYYY-MM-DD`).
              */
             end_date: string;
+            /** @description Sort direction (`asc` or `desc`). */
+            order?: string | null;
             /**
              * Format: int32
              * @description Page offset (0-based).
@@ -2896,6 +2941,8 @@ export interface components {
              * @default 50
              */
             page_size: number;
+            /** @description Sort field (`date`, `description`, `amount`, `category`, or `account`). */
+            sort?: string | null;
             /**
              * Format: date
              * @description Filter by start date (inclusive, ISO `YYYY-MM-DD`).
@@ -2969,6 +3016,8 @@ export interface components {
              * @description Payment due day of the monthly billing cycle (credit cards only, 1-31).
              */
             due_day?: number | null;
+            /** @description Stable icon identifier selected for this account. */
+            icon?: string | null;
             /** @description Account display name. */
             name: string;
             /**
@@ -3218,6 +3267,31 @@ export interface operations {
             };
             /** @description Account is in use */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    adjust_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Account UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountAdjustmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Account adjustment recorded */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5086,6 +5160,12 @@ export interface operations {
                 start_date?: string;
                 /** @description Filter by end date (inclusive) */
                 end_date?: string;
+                /** @description Filter by source account UUID */
+                account_id?: string;
+                /** @description Sort by date, description, amount, category, or account */
+                sort?: string;
+                /** @description Sort direction: asc or desc */
+                order?: string;
             };
             header?: never;
             path?: never;

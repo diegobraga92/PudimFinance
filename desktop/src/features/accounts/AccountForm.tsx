@@ -18,6 +18,12 @@ import {
   type CreateAccountRequest,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import {
+  ACCOUNT_ICON_EMOJI,
+  ACCOUNT_ICON_NAMES,
+  DEFAULT_ACCOUNT_ICON,
+  type AccountIconName,
+} from '@shared/account-icons';
 
 /** User-facing account kinds (backend `account_kind`). */
 export type AccountKind = 'bank' | 'cash' | 'card' | 'loan' | 'investment';
@@ -61,6 +67,8 @@ export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved 
 
   const [name, setName] = React.useState('');
   const [kind, setKind] = React.useState<AccountKind>(initialKind);
+  const [icon, setIcon] = React.useState<AccountIconName>(DEFAULT_ACCOUNT_ICON[initialKind]);
+  const [initialBalance, setInitialBalance] = React.useState('');
   const [closingDay, setClosingDay] = React.useState('');
   const [dueDay, setDueDay] = React.useState('');
   const [creditLimit, setCreditLimit] = React.useState('');
@@ -71,6 +79,14 @@ export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved 
     if (!open) return;
     setName(editing?.name ?? '');
     setKind((editing?.account_kind as AccountKind | null) ?? initialKind);
+    const nextKind = (editing?.account_kind as AccountKind | null) ?? initialKind;
+    const savedIcon = editing?.icon;
+    setIcon(
+      savedIcon && ACCOUNT_ICON_NAMES.includes(savedIcon as AccountIconName)
+        ? (savedIcon as AccountIconName)
+        : DEFAULT_ACCOUNT_ICON[nextKind],
+    );
+    setInitialBalance('');
     setClosingDay(editing?.closing_day ? String(editing.closing_day) : '');
     setDueDay(editing?.due_day ? String(editing.due_day) : '');
     setCreditLimit(editing?.credit_limit ?? '');
@@ -92,7 +108,18 @@ export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved 
       name: trimmed,
       type: ACCOUNT_TYPE_FOR_KIND[kind],
       account_kind: kind,
+      icon,
     };
+
+    if (!isEditing && initialBalance.trim()) {
+      const normalized = initialBalance.trim().replace(',', '.');
+      const amount = Number.parseFloat(normalized);
+      if (!Number.isFinite(amount) || amount < 0) {
+        setError(t('accounts.validation.initialBalance'));
+        return;
+      }
+      payload.initial_balance = normalized;
+    }
 
     if (isCard) {
       const closing = dayValue(closingDay);
@@ -174,7 +201,10 @@ function dayValue(value: string): number | null {
                 <button
                   key={opt.key}
                   type="button"
-                  onClick={() => setKind(opt.key)}
+                  onClick={() => {
+                    setKind(opt.key);
+                    if (!isEditing) setIcon(DEFAULT_ACCOUNT_ICON[opt.key]);
+                  }}
                   className={cn(
                     'flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-center text-xs font-medium leading-tight transition-colors',
                     kind === opt.key
@@ -188,6 +218,44 @@ function dayValue(value: string): number | null {
               ))}
             </div>
           </div>
+
+          <div className="space-y-1.5">
+            <Label>{t('accounts.form.icon')}</Label>
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('accounts.form.icon')}>
+              {ACCOUNT_ICON_NAMES.map((iconName) => (
+                <button
+                  key={iconName}
+                  type="button"
+                  role="radio"
+                  aria-checked={icon === iconName}
+                  aria-label={t('accounts.form.iconAria', { icon: iconName })}
+                  onClick={() => setIcon(iconName)}
+                  className={cn(
+                    'flex h-9 w-9 items-center justify-center rounded-md border text-lg transition-colors',
+                    icon === iconName
+                      ? 'border-primary bg-accent'
+                      : 'border-border bg-surface hover:bg-surface-hover',
+                  )}
+                >
+                  {ACCOUNT_ICON_EMOJI[iconName]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!isEditing && kind !== 'card' && kind !== 'loan' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="acc-initial-balance">{t('accounts.form.initialBalance')}</Label>
+              <Input
+                id="acc-initial-balance"
+                inputMode="decimal"
+                value={initialBalance}
+                onChange={(event) => setInitialBalance(event.target.value)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-dim">{t('accounts.form.initialBalanceHint')}</p>
+            </div>
+          )}
 
           {isCard && (
             <>

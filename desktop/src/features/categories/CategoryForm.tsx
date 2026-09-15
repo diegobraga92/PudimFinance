@@ -19,18 +19,13 @@ import {
 } from '@/lib/api';
 import { CATEGORY_ICON_EMOJI, CATEGORY_ICON_NAMES } from '@shared/category-icons';
 import { cn } from '@/lib/utils';
-
-/** Color palette for categories (matches the legacy picker range). */
-export const CATEGORY_COLORS = [
-  '#22c55e', '#16a34a', '#15803d', '#a3e635', '#86efac',
-  '#ef4444', '#dc2626', '#b91c1c', '#f97316', '#eab308',
-  '#ec4899', '#8b5cf6', '#6366f1', '#3b82f6', '#06b6d4',
-  '#14b8a6', '#84cc16', '#6b7280',
-];
+import {
+  CATEGORY_COLORS,
+  firstAvailableCategoryColor,
+} from '@/lib/category-colors';
 
 const DEFAULT_EXPENSE_ICON = 'shopping-cart';
 const DEFAULT_INCOME_ICON = 'briefcase';
-const DEFAULT_COLOR = '#6366f1';
 
 interface Props {
   open: boolean;
@@ -58,7 +53,7 @@ export function CategoryForm({
   const [name, setName] = React.useState('');
   const [type, setType] = React.useState<'income' | 'expense'>(initialType);
   const [icon, setIcon] = React.useState(DEFAULT_EXPENSE_ICON);
-  const [color, setColor] = React.useState(DEFAULT_COLOR);
+  const [color, setColor] = React.useState(CATEGORY_COLORS[0]);
   const [parentId, setParentId] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -68,11 +63,12 @@ export function CategoryForm({
     setName(editing?.name ?? '');
     setType(editing?.type === 'income' ? 'income' : initialType);
     setIcon(editing?.icon || (editing?.type === 'income' ? DEFAULT_INCOME_ICON : DEFAULT_EXPENSE_ICON));
-    setColor(editing?.color || DEFAULT_COLOR);
+    const sameType = categories.filter((category) => category.type === (editing?.type ?? initialType));
+    setColor(editing?.color || firstAvailableCategoryColor(sameType));
     setParentId(editing?.parent_id ?? initialParentId ?? '');
     setError(null);
     setSaving(false);
-  }, [open, editing, initialType, initialParentId]);
+  }, [open, editing, initialType, initialParentId, categories]);
 
   // Only top-level categories of the same type can be parents.
   const parentOptions = categories.filter(
@@ -146,7 +142,16 @@ export function CategoryForm({
                   <button
                     key={opt}
                     type="button"
-                    onClick={() => setType(opt)}
+                    onClick={() => {
+                      setType(opt);
+                      if (!isEditing) {
+                        setColor(
+                          firstAvailableCategoryColor(
+                            categories.filter((category) => category.type === opt),
+                          ),
+                        );
+                      }
+                    }}
                     className={cn(
                       'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                       type === opt

@@ -77,7 +77,7 @@ pub async fn pull(
     // Accounts have no updated_at column, so return the whole list each time
     // (the list is small). Balances are computed on the fly from ledger entries.
     let accounts: Vec<AccountWithBalance> = sqlx::query_as(
-        "SELECT a.id, a.name, a.type, a.account_kind, a.parent_id, a.closing_day, a.due_day,
+        "SELECT a.id, a.name, a.type, a.account_kind, a.icon, a.parent_id, a.closing_day, a.due_day,
                 a.credit_limit, a.created_at,
                 COALESCE(SUM(e.debit_amount) - SUM(e.credit_amount), 0) AS balance,
                 COUNT(e.id) AS transaction_count

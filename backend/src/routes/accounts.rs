@@ -6,15 +6,16 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
+use chrono::NaiveDate;
 use serde_json::json;
 use tracing::error;
 use uuid::Uuid;
 
 use crate::models::{
     account_type_for_kind, is_valid_account_kind, is_valid_account_type, Account,
-    AccountWithBalance, CreateAccountRequest, UpdateAccountRequest,
+    AccountAdjustmentRequest, AccountWithBalance, CreateAccountRequest, UpdateAccountRequest,
 };
 use crate::state::AppState;
 use rust_decimal::Decimal;
@@ -27,6 +28,7 @@ pub fn router() -> Router<AppState> {
             "/api/accounts/{id}",
             get(get_account).put(update_account).delete(delete_account),
         )
+        .route("/api/accounts/{id}/adjust", post(adjust_account))
 }
 
 /// Lists all accounts with their computed balances.
@@ -42,7 +44,7 @@ pub async fn list_accounts(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<AccountWithBalance>>, (StatusCode, Json<serde_json::Value>)> {
     let accounts = sqlx::query_as::<_, AccountWithBalance>(
-        "SELECT a.id, a.name, a.type, a.account_kind, a.parent_id, a.closing_day, a.due_day,
+        "SELECT a.id, a.name, a.type, a.account_kind, a.icon, a.parent_id, a.closing_day, a.due_day,
                 a.credit_limit, a.created_at,
                 COALESCE(SUM(e.debit_amount) - SUM(e.credit_amount), 0) AS balance,
                 COUNT(e.id) AS transaction_count
@@ -90,7 +92,7 @@ pub async fn get_account(
     Path(id): Path<Uuid>,
 ) -> Result<Json<AccountWithBalance>, (StatusCode, Json<serde_json::Value>)> {
     let account = sqlx::query_as::<_, AccountWithBalance>(
-        "SELECT a.id, a.name, a.type, a.account_kind, a.parent_id, a.closing_day, a.due_day,
+        "SELECT a.id, a.name, a.type, a.account_kind, a.icon, a.parent_id, a.closing_day, a.due_day,
                 a.credit_limit, a.created_at,
                 COALESCE(SUM(e.debit_amount) - SUM(e.credit_amount), 0) AS balance,
                 COUNT(e.id) AS transaction_count
@@ -270,22 +272,63 @@ pub async fn create_account(
 
     validate_parent(&state, payload.parent_id, None).await?;
 
+    let mut db = state.pg_pool.begin().await.map_err(|e| {
+        error!("Failed to begin account creation: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to create account" })),
+        )
+    })?;
+
     let account = sqlx::query_as::<_, Account>(
-        "INSERT INTO accounts (name, type, account_kind, parent_id, closing_day, due_day, credit_limit)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id, name, type, account_kind, parent_id, closing_day, due_day, credit_limit, created_at",
+        "INSERT INTO accounts (name, type, account_kind, icon, parent_id, closing_day, due_day, credit_limit)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, name, type, account_kind, icon, parent_id, closing_day, due_day, credit_limit, created_at",
     )
     .bind(name)
     .bind(&ttype)
     .bind(&kind)
+    .bind(&payload.icon)
     .bind(payload.parent_id)
     .bind(payload.closing_day)
     .bind(payload.due_day)
     .bind(payload.credit_limit)
-    .fetch_one(&state.pg_pool)
+    .fetch_one(&mut *db)
     .await
     .map_err(|e| {
         error!("Failed to create account: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to create account" })),
+        )
+    })?;
+
+    if let Some(initial_balance) = payload.initial_balance {
+        if initial_balance < Decimal::ZERO {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "initial_balance must be greater than or equal to zero" })),
+            ));
+        }
+        if initial_balance > Decimal::ZERO {
+            let ledger_delta = if ttype == "liability" {
+                -initial_balance
+            } else {
+                initial_balance
+            };
+            post_balance_adjustment_in_tx(
+                &mut db,
+                account.id,
+                ledger_delta,
+                "Opening balance",
+                None,
+            )
+            .await?;
+        }
+    }
+
+    db.commit().await.map_err(|e| {
+        error!("Failed to commit account creation: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "error": "Failed to create account" })),
@@ -347,14 +390,15 @@ pub async fn update_account(
 
     let result = sqlx::query_as::<_, Account>(
         "UPDATE accounts
-         SET name = $1, type = $2, account_kind = $3, parent_id = $4, closing_day = $5,
-             due_day = $6, credit_limit = $7
-         WHERE id = $8
-         RETURNING id, name, type, account_kind, parent_id, closing_day, due_day, credit_limit, created_at",
+         SET name = $1, type = $2, account_kind = $3, icon = $4, parent_id = $5, closing_day = $6,
+             due_day = $7, credit_limit = $8
+         WHERE id = $9
+         RETURNING id, name, type, account_kind, icon, parent_id, closing_day, due_day, credit_limit, created_at",
     )
     .bind(name)
     .bind(&ttype)
     .bind(&kind)
+    .bind(&payload.icon)
     .bind(payload.parent_id)
     .bind(payload.closing_day)
     .bind(payload.due_day)
@@ -377,6 +421,160 @@ pub async fn update_account(
             Json(json!({ "error": "Account not found" })),
         )),
     }
+}
+
+/// Adjusts an account to a target balance through a balanced equity posting.
+#[utoipa::path(
+    post,
+    path = "/api/accounts/{id}/adjust",
+    tag = "Accounts",
+    params(("id" = Uuid, Path, description = "Account UUID")),
+    request_body = AccountAdjustmentRequest,
+    responses((status = 201, description = "Account adjustment recorded")),
+)]
+pub async fn adjust_account(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<AccountAdjustmentRequest>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    if payload.target_balance < Decimal::ZERO {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "target_balance must be greater than or equal to zero" })),
+        ));
+    }
+    let description = payload
+        .description
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("Balance adjustment");
+    let current: Option<(String, Decimal)> = sqlx::query_as(
+        "SELECT a.type, COALESCE(SUM(e.debit_amount) - SUM(e.credit_amount), 0)
+         FROM accounts a LEFT JOIN ledger_entries e ON e.account_id = a.id
+         WHERE a.id = $1 GROUP BY a.id, a.type",
+    )
+    .bind(id)
+    .fetch_optional(&state.pg_pool)
+    .await
+    .map_err(|e| internal_error("Failed to load account", e))?;
+    let Some((account_type, raw_balance)) = current else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Account not found" })),
+        ));
+    };
+    let current_display = if account_type == "liability" {
+        -raw_balance
+    } else {
+        raw_balance
+    };
+    let delta = payload.target_balance - current_display;
+    if delta == Decimal::ZERO {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Account already has this balance" })),
+        ));
+    }
+    let ledger_delta = if account_type == "liability" {
+        -delta
+    } else {
+        delta
+    };
+    post_balance_adjustment(&state, id, ledger_delta, description, Some(payload.date)).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({ "account_id": id, "target_balance": payload.target_balance })),
+    ))
+}
+
+fn internal_error(message: &str, error: sqlx::Error) -> (StatusCode, Json<serde_json::Value>) {
+    error!("{}: {}", message, error);
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "error": message })),
+    )
+}
+
+async fn post_balance_adjustment(
+    state: &AppState,
+    account_id: Uuid,
+    delta: Decimal,
+    description: &str,
+    date: Option<NaiveDate>,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let mut tx = state
+        .pg_pool
+        .begin()
+        .await
+        .map_err(|e| internal_error("Failed to begin adjustment", e))?;
+    post_balance_adjustment_in_tx(&mut tx, account_id, delta, description, date).await?;
+    tx.commit()
+        .await
+        .map_err(|e| internal_error("Failed to commit adjustment", e))?;
+    Ok(())
+}
+
+async fn post_balance_adjustment_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    account_id: Uuid,
+    delta: Decimal,
+    description: &str,
+    date: Option<NaiveDate>,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let equity_id: Uuid = if let Some(existing) = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM accounts WHERE type = 'equity' AND name = 'Balance adjustments' LIMIT 1",
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(|e| internal_error("Failed to find adjustment account", e))?
+    {
+        existing
+    } else {
+        let inserted: Option<Uuid> = sqlx::query_scalar(
+            "INSERT INTO accounts (name, type, account_kind, icon)
+             VALUES ('Balance adjustments', 'equity', 'equity', 'scale')
+             ON CONFLICT DO NOTHING
+             RETURNING id",
+        )
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(|e| internal_error("Failed to create adjustment account", e))?;
+        if let Some(inserted) = inserted {
+            inserted
+        } else {
+            sqlx::query_scalar(
+                "SELECT id FROM accounts WHERE type = 'equity' AND name = 'Balance adjustments' LIMIT 1",
+            )
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(|e| internal_error("Failed to load adjustment account", e))?
+        }
+    };
+    let tx_id = Uuid::new_v4();
+    let amount = delta.abs();
+    let account_debit = delta > Decimal::ZERO;
+    sqlx::query(
+        "INSERT INTO ledger_entries (transaction_id, account_id, debit_amount, credit_amount, description)
+         VALUES ($1, $2, $3, $4, $5), ($1, $6, $7, $8, $5)",
+    )
+    .bind(tx_id).bind(account_id)
+    .bind(if account_debit { amount } else { Decimal::ZERO })
+    .bind(if account_debit { Decimal::ZERO } else { amount })
+    .bind(description)
+    .bind(equity_id)
+    .bind(if account_debit { Decimal::ZERO } else { amount })
+    .bind(if account_debit { amount } else { Decimal::ZERO })
+    .execute(&mut **tx)
+    .await
+    .map_err(|e| internal_error("Failed to record adjustment", e))?;
+    sqlx::query(
+        "INSERT INTO events (aggregate_id, aggregate_type, event_type, payload)
+         VALUES ($1, 'Transaction', 'TransactionRecorded', jsonb_build_object('transaction_id', $1, 'description', $2, 'date', $3))",
+    ).bind(tx_id).bind(description).bind(date.unwrap_or_else(|| chrono::Utc::now().date_naive()))
+    .execute(&mut **tx)
+    .await
+    .map_err(|e| internal_error("Failed to store adjustment event", e))?;
+    Ok(())
 }
 
 /// Deletes an account.

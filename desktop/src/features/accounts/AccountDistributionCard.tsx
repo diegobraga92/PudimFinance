@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { useI18n } from '@/app/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { AccountWithBalance } from '@/lib/api';
 import { KIND_CHART_COLORS, asAccountKind, isBalanceSheet } from './account-groups';
+import { accountIcon } from '@shared/account-icons';
 
 interface Props {
   accounts: AccountWithBalance[];
@@ -22,8 +22,8 @@ interface Slice {
 /**
  * Where the money sits: asset balances grouped by account kind (bank, cash,
  * investments). Assets with a zero or negative balance contribute nothing to
- * the split, so they are left out of the chart but the centre always shows the
- * real total.
+ * the split. The segmented bar keeps the comparison readable even with a
+ * narrow accounts sidebar.
  */
 export function AccountDistributionCard({ accounts, loading }: Props) {
   const { t, formatMoney } = useI18n();
@@ -72,48 +72,40 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
           </p>
         ) : (
           <>
-            <div className="relative h-[180px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={slices}
-                    dataKey="amount"
-                    nameKey="label"
-                    innerRadius={54}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {slices.map((slice) => (
-                      <Cell key={slice.kind} fill={slice.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgb(var(--surface-elevated))',
-                      border: '1px solid rgb(var(--border))',
-                      borderRadius: 10,
-                      fontSize: 12,
-                      color: 'rgb(var(--foreground))',
-                    }}
-                    formatter={(value) => formatMoney(Number(value))}
+            <div className="space-y-4">
+              <div className="flex h-4 overflow-hidden rounded-full bg-muted" aria-label={t('accounts.distribution.title')}>
+                {slices.map((slice) => (
+                  <span
+                    key={slice.kind}
+                    className="h-full min-w-[3px] transition-[width]"
+                    style={{ width: `${(slice.amount / total) * 100}%`, backgroundColor: slice.color }}
+                    title={`${slice.label}: ${formatMoney(slice.amount)}`}
                   />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-bold tabular-nums">{formatMoney(total)}</span>
-                <span className="text-xs text-dim">{t('accounts.summary.assets')}</span>
+                ))}
+              </div>
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('accounts.summary.assets')}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold leading-none tracking-[-0.02em] tabular-nums">
+                    {formatMoney(total)}
+                  </p>
+                </div>
+                <span className="text-xs text-dim">{t('accounts.distribution.blurb')}</span>
               </div>
             </div>
 
-            <ul className="mt-4 space-y-2.5">
+            <ul className="mt-5 space-y-2.5">
               {slices.map((slice) => (
                 <li key={slice.kind} className="flex items-center gap-2.5 text-sm">
                   <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: slice.color }}
-                  />
-                  <span className="min-w-0 flex-1 truncate">{slice.label}</span>
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-base"
+                    style={{ backgroundColor: 'rgb(var(--muted))', color: slice.color }}
+                  >
+                    {accountIcon(null, slice.kind)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{slice.label}</span>
                   <span className="shrink-0 text-xs tabular-nums text-dim">
                     {Math.round((slice.amount / total) * 100)}%
                   </span>

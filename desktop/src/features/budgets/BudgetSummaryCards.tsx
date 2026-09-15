@@ -85,7 +85,7 @@ export function BudgetSummaryCards({ loading, totals, monthLabel, onSetOverall }
           </>
         ) : (
           <>
-            <p className="mt-4 truncate text-[26px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
+            <p className="mt-4 truncate text-2xl font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
               {nothingSet ? t('budgets.summary.notSet') : formatMoney(totals.limit)}
             </p>
             {nothingSet ? (
@@ -124,7 +124,7 @@ export function BudgetSummaryCards({ loading, totals, monthLabel, onSetOverall }
           </>
         ) : (
           <>
-            <p className="mt-4 truncate text-[26px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
+            <p className="mt-4 truncate text-2xl font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
               {formatMoney(totals.spent)}
             </p>
             {used === null ? (
@@ -159,7 +159,7 @@ export function BudgetSummaryCards({ loading, totals, monthLabel, onSetOverall }
           <>
             <p
               className={cn(
-                'mt-4 truncate text-[26px] font-bold leading-none tracking-[-0.02em] tabular-nums',
+                'mt-4 truncate text-2xl font-bold leading-none tracking-[-0.02em] tabular-nums',
                 remaining < 0 ? 'text-danger' : 'text-success',
               )}
             >
@@ -188,7 +188,7 @@ export function BudgetSummaryCards({ loading, totals, monthLabel, onSetOverall }
           </>
         ) : (
           <>
-            <p className="mt-4 text-[26px] font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
+            <p className="mt-4 text-2xl font-bold leading-none tracking-[-0.02em] tabular-nums text-foreground">
               {totals.alertsTotal}
             </p>
             <p className="mt-2.5 text-xs text-dim">

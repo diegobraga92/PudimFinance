@@ -181,13 +181,13 @@ function BudgetRow({
         {/* Spent */}
         <div className="flex items-center justify-between text-sm lg:block lg:text-right">
           <span className="text-xs text-dim lg:hidden">{t('budgets.table.spent')}</span>
-          <span className="tabular-nums">{formatMoney(item.actual_spent)}</span>
+          <span className="font-medium tabular-nums">{formatMoney(item.actual_spent)}</span>
         </div>
 
         {/* Limit */}
         <div className="flex items-center justify-between text-sm lg:block lg:text-right">
           <span className="text-xs text-dim lg:hidden">{t('budgets.table.limit')}</span>
-          <span className="tabular-nums text-muted-foreground">
+          <span className="font-medium tabular-nums text-muted-foreground">
             {formatMoney(item.budget.amount_limit)}
           </span>
         </div>

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Download, Filter, Pencil, Plus, ReceiptText, Search, SearchX, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Download, Filter, Pencil, Plus, ReceiptText, Search, SearchX, SlidersHorizontal, Trash2 } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
@@ -38,6 +38,7 @@ import { TransactionListRow } from './TransactionListRow';
 import { TransactionsSidebar } from './TransactionsSidebar';
 import { groupTransactionsByMonth } from './group-by-month';
 import { categoryIcon } from '@shared/category-icons';
+import { accountIcon } from '@shared/account-icons';
 import type { TranslationKey } from '@shared/i18n';
 import { refreshWidgetSpentToday } from '@/lib/widget';
 import { cn } from '@/lib/utils';
@@ -68,6 +69,8 @@ export function TransactionsPage() {
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [filterCategory, setFilterCategory] = React.useState('');
+  const [sort, setSort] = React.useState<TransactionFilters['sort']>('date');
+  const [order, setOrder] = React.useState<TransactionFilters['order']>('desc');
 
   const [items, setItems] = React.useState<Transaction[]>([]);
   const [page, setPage] = React.useState(0);
@@ -104,6 +107,8 @@ export function TransactionsPage() {
         if (startDate) filters.start_date = startDate;
         if (endDate) filters.end_date = endDate;
         if (filterCategory) filters.category_id = filterCategory;
+        filters.sort = sort;
+        filters.order = order;
         const res = await fetchTransactions(filters);
         setItems((prev) => (append ? [...prev, ...res.items] : res.items));
         setPage(res.page);
@@ -117,7 +122,7 @@ export function TransactionsPage() {
         setLoadingMore(false);
       }
     },
-    [t, filterType, startDate, endDate, filterCategory],
+    [t, filterType, startDate, endDate, filterCategory, sort, order],
   );
 
   React.useEffect(() => {
@@ -291,6 +296,34 @@ export function TransactionsPage() {
   const clearAll = () => {
     clearFilters();
     setQuery('');
+  };
+
+  const sortBy = (field: NonNullable<TransactionFilters['sort']>) => {
+    if (sort === field) {
+      setOrder((current) => (current === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSort(field);
+      setOrder(field === 'date' ? 'desc' : 'asc');
+    }
+  };
+
+  const sortHeader = (
+    field: NonNullable<TransactionFilters['sort']>,
+    label: string,
+  ) => {
+    const active = sort === field;
+    return (
+      <button
+        type="button"
+        onClick={() => sortBy(field)}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+        aria-sort={active ? (order === 'asc' ? 'ascending' : 'descending') : 'none'}
+        aria-label={`${label}: ${t(order === 'asc' ? 'transactions.sort.ascending' : 'transactions.sort.descending')}`}
+      >
+        {label}
+        {active && (order === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+      </button>
+    );
   };
   const searching = query.trim().length > 0;
 
@@ -539,6 +572,14 @@ export function TransactionsPage() {
                                 ? accounts.find((a) => a.id === tx.account_id)?.name
                                 : undefined
                             }
+                            accountIconName={
+                              tx.account_id ? accounts.find((a) => a.id === tx.account_id)?.icon : undefined
+                            }
+                            accountKind={
+                              tx.account_id
+                                ? accounts.find((a) => a.id === tx.account_id)?.account_kind
+                                : undefined
+                            }
                             onEdit={() => openEdit(tx)}
                             onDelete={() => setPendingDelete(tx)}
                           />
@@ -561,10 +602,11 @@ export function TransactionsPage() {
                             aria-label={t('transactions.selectAll')}
                           />
                         </TableHead>
-                        <TableHead>{t('transactions.table.date')}</TableHead>
-                        <TableHead>{t('transactions.table.category')}</TableHead>
-                        <TableHead>{t('transactions.table.description')}</TableHead>
-                        <TableHead className="text-right">{t('transactions.table.amount')}</TableHead>
+                        <TableHead>{sortHeader('date', t('transactions.table.date'))}</TableHead>
+                        <TableHead>{sortHeader('category', t('transactions.table.category'))}</TableHead>
+                        <TableHead>{sortHeader('description', t('transactions.table.description'))}</TableHead>
+                        <TableHead>{sortHeader('account', t('transactions.table.account'))}</TableHead>
+                        <TableHead className="text-right">{sortHeader('amount', t('transactions.table.amount'))}</TableHead>
                         <TableHead className="w-24 text-right">{t('transactions.table.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -607,6 +649,17 @@ export function TransactionsPage() {
                                   {t('transactions.installment')}
                                 </Badge>
                               )}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                              {tx.account_id ? (() => {
+                                const account = accounts.find((item) => item.id === tx.account_id);
+                                return account ? (
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="text-base">{accountIcon(account.icon, account.account_kind)}</span>
+                                    <span>{account.name}</span>
+                                  </span>
+                                ) : <span className="text-dim">—</span>;
+                              })() : <span className="text-dim">—</span>}
                             </TableCell>
                             <TableCell
                               className={cn(

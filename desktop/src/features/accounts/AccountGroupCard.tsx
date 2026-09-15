@@ -20,6 +20,7 @@ interface Props {
   onView: (account: AccountWithBalance) => void;
   onEdit: (account: AccountWithBalance) => void;
   onDelete: (account: AccountWithBalance) => void;
+  onAdjust: (account: AccountWithBalance) => void;
 }
 
 /** Signed-magnitude display for a balance: assets positive, debts prefixed `-`. */
@@ -38,7 +39,7 @@ function formatBalance(account: AccountWithBalance, formatMoney: (v: number) => 
  * filters and every group inside a single box, so the groups only draw the
  * dividers between them.
  */
-export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete }: Props) {
+export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete, onAdjust }: Props) {
   const { t, formatMoney } = useI18n();
   const [open, setOpen] = React.useState(true);
   const total = accounts.reduce((sum, a) => sum + Math.abs(parseFloat(a.balance) || 0), 0);
@@ -118,7 +119,7 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete }: P
                       appearance.tone,
                     )}
                   >
-                    <appearance.icon className="h-5 w-5" />
+                    <span className="text-lg leading-none">{appearance.glyph}</span>
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{account.name}</span>
@@ -160,6 +161,9 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete }: P
                         <DropdownMenuItem onClick={() => onEdit(account)}>
                           <Pencil className="h-4 w-4" />
                           {t('common.edit')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onAdjust(account)}>
+                          {t('accounts.adjust')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

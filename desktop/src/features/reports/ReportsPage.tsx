@@ -23,7 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CHART_COLORS } from '@/lib/chart-colors';
+import { resolveCategoryColors } from '@/lib/category-colors';
 import { categoryIcon } from '@shared/category-icons';
 import { cn } from '@/lib/utils';
 
@@ -93,6 +93,16 @@ export function ReportsPage() {
   const breakdownData = React.useMemo(
     () => breakdownQuery.data?.categories ?? [],
     [breakdownQuery.data],
+  );
+  const breakdownColors = React.useMemo(
+    () =>
+      resolveCategoryColors(
+        breakdownData.map((category, index) => ({
+          key: category.category_id ?? `uncategorised-${index}`,
+          color: category.color,
+        })),
+      ),
+    [breakdownData],
   );
 
   const trendsData = React.useMemo(
@@ -203,8 +213,11 @@ export function ReportsPage() {
                         outerRadius={100}
                         paddingAngle={2}
                       >
-                        {breakdownData.map((_, i) => (
-                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        {breakdownData.map((category, i) => (
+                          <Cell
+                            key={category.category_id ?? `uncategorised-${i}`}
+                            fill={breakdownColors.get(category.category_id ?? `uncategorised-${i}`)}
+                          />
                         ))}
                       </Pie>
                       <Tooltip
@@ -236,7 +249,9 @@ export function ReportsPage() {
                     <li key={cat.category_id ?? `uncat-${i}`} className="flex items-center gap-3 py-2.5 text-sm">
                       <span
                         className="h-3 w-3 shrink-0 rounded-full"
-                        style={{ backgroundColor: cat.color ?? CHART_COLORS[i % CHART_COLORS.length] }}
+                        style={{
+                          backgroundColor: breakdownColors.get(cat.category_id ?? `uncategorised-${i}`),
+                        }}
                       />
                       <span className="min-w-0 flex-1 truncate">
                         {categoryIcon(cat.icon)} {cat.category_name ?? t('common.uncategorised')}

@@ -20,6 +20,7 @@ import {
 import { EmptyState } from '@/components/EmptyState';
 import { TransactionForm } from '@/features/transactions/TransactionForm';
 import { categoryIcon } from '@shared/category-icons';
+import { accountIcon } from '@shared/account-icons';
 import { cn } from '@/lib/utils';
 import type { AccountWithBalance, Category, Transaction } from '@/lib/api';
 import { TransactionDetailsDialog } from './TransactionDetailsDialog';
@@ -157,7 +158,12 @@ export function RecentTransactionsCard({
                       </span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                      {account ? account.name : <span className="text-dim">—</span>}
+                      {account ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="text-base">{accountIcon(account.icon, account.account_kind)}</span>
+                          <span>{account.name}</span>
+                        </span>
+                      ) : <span className="text-dim">—</span>}
                     </TableCell>
                     <TableCell
                       className={cn(

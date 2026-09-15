@@ -4,7 +4,8 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { useI18n } from '@/app/i18n';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CHART_COLORS } from '@/lib/chart-colors';
+import { resolveCategoryColors } from '@/lib/category-colors';
+import { fitTextSize } from '@/lib/fit-text';
 import { categoryIcon } from '@shared/category-icons';
 
 /** Aggregated remainder glyph tone (muted slate). */
@@ -53,9 +54,10 @@ export function CategoryDonut({
       .filter((item) => item.amount > 0)
       .sort((a, b) => b.amount - a.amount);
 
-    const head = sorted.slice(0, MAX_ROWS).map((item, i) => ({
+    const colors = resolveCategoryColors(sorted);
+    const head = sorted.slice(0, MAX_ROWS).map((item) => ({
       ...item,
-      color: item.color ?? CHART_COLORS[i % CHART_COLORS.length],
+      color: colors.get(item.key),
       pct: total > 0 ? Math.round((item.amount / total) * 100) : 0,
     }));
 
@@ -127,8 +129,13 @@ export function CategoryDonut({
                     />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold tabular-nums">{formatMoney(total)}</span>
+                <div className="pointer-events-none absolute inset-0 flex min-w-0 flex-col items-center justify-center px-4 text-center">
+                  <span
+                    className="max-w-full break-words font-bold leading-tight tabular-nums"
+                    style={{ fontSize: `${fitTextSize(formatMoney(total), 96)}px` }}
+                  >
+                    {formatMoney(total)}
+                  </span>
                   <span className="text-xs text-dim">{centerLabel}</span>
                 </div>
               </div>

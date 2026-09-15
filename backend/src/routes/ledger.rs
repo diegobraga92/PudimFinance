@@ -106,10 +106,29 @@ pub async fn list_ledger_transactions(
         .map(|(id, desc, date)| (id, (desc, date)))
         .collect();
 
+    // Standalone ledger postings (transfers, opening balances and adjustments)
+    // keep their display metadata in the event payload rather than in the
+    // simple `transactions` table.
+    let event_rows: Vec<(Uuid, String, NaiveDate)> = sqlx::query_as(
+        "SELECT aggregate_id, payload->>'description', (payload->>'date')::date
+         FROM events
+         WHERE event_type = 'TransactionRecorded'
+           AND payload ? 'date'",
+    )
+    .fetch_all(&state.pg_pool)
+    .await
+    .unwrap_or_default();
+    let mut by_event_tx: std::collections::HashMap<Uuid, (String, NaiveDate)> = event_rows
+        .into_iter()
+        .map(|(id, desc, date)| (id, (desc, date)))
+        .collect();
+
     let mut result = Vec::with_capacity(transactions.len());
     for (txid, (desc, _date, recorded_at, entries)) in transactions {
         // Try to resolve description/date from simple transaction mapping
-        let resolved = by_simple_tx.remove(&txid);
+        let resolved = by_simple_tx
+            .remove(&txid)
+            .or_else(|| by_event_tx.remove(&txid));
         let final_desc = resolved.as_ref().map(|(d, _)| d.clone()).unwrap_or(desc);
         let final_date = resolved.map(|(_, d)| d).unwrap_or_else(|| {
             // Derive date from earliest entry recorded_at

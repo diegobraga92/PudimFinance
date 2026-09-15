@@ -3,6 +3,7 @@ import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useI18n } from '@/app/i18n';
 import type { Category, Transaction } from '@/lib/api';
 import { categoryIcon } from '@shared/category-icons';
+import { accountIcon } from '@shared/account-icons';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,6 +18,8 @@ interface Props {
   category?: Category;
   /** Account name for the second line, when the transaction has one. */
   accountName?: string;
+  accountIconName?: string | null;
+  accountKind?: string | null;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -25,7 +28,7 @@ interface Props {
  * Phone-sized transaction row: category icon, description, account/date and the
  * signed amount, with edit/delete behind an overflow menu.
  */
-export function TransactionListRow({ tx, category, accountName, onEdit, onDelete }: Props) {
+export function TransactionListRow({ tx, category, accountName, accountIconName, accountKind, onEdit, onDelete }: Props) {
   const { t, formatMoney, formatDate } = useI18n();
   const isIncome = tx.type === 'income';
 
@@ -48,7 +51,15 @@ export function TransactionListRow({ tx, category, accountName, onEdit, onDelete
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{tx.description}</span>
           <span className="mt-0.5 block truncate text-xs text-dim">
-            {[accountName, category?.name, formatDate(tx.date)].filter(Boolean).join(' · ')}
+            <>
+              {accountName && (
+                <span>
+                  {accountIcon(accountIconName, accountKind)} {accountName}
+                  {(category?.name || tx.date) && ' · '}
+                </span>
+              )}
+              {[category?.name, formatDate(tx.date)].filter(Boolean).join(' · ')}
+            </>
           </span>
         </span>
 

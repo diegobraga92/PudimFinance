@@ -26,6 +26,7 @@ import { AccountDistributionCard } from './AccountDistributionCard';
 import { InvestmentsSummaryCard } from './InvestmentsSummaryCard';
 import { AccountQuickActions } from './AccountQuickActions';
 import { TransferDialog } from './TransferDialog';
+import { AdjustBalanceDialog } from './AdjustBalanceDialog';
 import {
   ACCOUNT_GROUPS,
   accountAppearance,
@@ -107,6 +108,7 @@ export function AccountsPage() {
   const [deleting, setDeleting] = React.useState(false);
   const [detail, setDetail] = React.useState<AccountWithBalance | null>(null);
   const [transferOpen, setTransferOpen] = React.useState(false);
+  const [adjusting, setAdjusting] = React.useState<AccountWithBalance | null>(null);
   const [tab, setTab] = React.useState<TabKey>('all');
   const [search, setSearch] = React.useState('');
 
@@ -343,6 +345,7 @@ export function AccountsPage() {
                       onView={setDetail}
                       onEdit={openEdit}
                       onDelete={setPendingDelete}
+                      onAdjust={setAdjusting}
                     />
                   ))}
                 </div>
@@ -356,6 +359,7 @@ export function AccountsPage() {
               <InvestmentsSummaryCard accounts={balanceSheet} loading={loading} />
               <AccountQuickActions
                 onNewAccount={() => openCreate('bank')}
+                onNewInvestment={() => openCreate('investment')}
                 onTransfer={() => setTransferOpen(true)}
                 canTransfer={canTransfer}
                 hasCards={hasCards}
@@ -387,6 +391,19 @@ export function AccountsPage() {
         onOpenChange={setTransferOpen}
         accounts={balanceSheet}
         onSaved={() => void handleTransferSaved()}
+      />
+
+      <AdjustBalanceDialog
+        open={adjusting !== null}
+        account={adjusting}
+        onOpenChange={(open) => !open && setAdjusting(null)}
+        onSaved={() => {
+          setAdjusting(null);
+          void queryClient.invalidateQueries({ queryKey: ['accounts'] });
+          void queryClient.invalidateQueries({ queryKey: ['summary'] });
+          void queryClient.invalidateQueries({ queryKey: ['ledger'] });
+          toast({ title: t('accounts.adjust.saved'), variant: 'success' });
+        }}
       />
 
       {detail && (

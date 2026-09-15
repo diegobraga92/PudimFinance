@@ -7,6 +7,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use rust_decimal::Decimal;
 use serde_json::json;
+use sqlx::AssertSqlSafe;
 use tracing::error;
 use uuid::Uuid;
 
@@ -46,6 +47,9 @@ pub fn router() -> Router<AppState> {
         ("type" = Option<String>, Query, description = "Filter by 'income' or 'expense'"),
         ("start_date" = Option<String>, Query, description = "Filter by start date (inclusive)"),
         ("end_date" = Option<String>, Query, description = "Filter by end date (inclusive)"),
+        ("account_id" = Option<Uuid>, Query, description = "Filter by source account UUID"),
+        ("sort" = Option<String>, Query, description = "Sort by date, description, amount, category, or account"),
+        ("order" = Option<String>, Query, description = "Sort direction: asc or desc"),
     ),
     responses(
         (status = 200, description = "Paginated list of transactions", body = TransactionListResponse),
@@ -75,6 +79,24 @@ pub async fn list_transactions(
                 Json(json!({ "error": "start_date must be before or equal to end_date" })),
             ));
         }
+    }
+
+    let sort = params.sort.as_deref().unwrap_or("date");
+    if !matches!(
+        sort,
+        "date" | "description" | "amount" | "category" | "account"
+    ) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "invalid sort field" })),
+        ));
+    }
+    let order = params.order.as_deref().unwrap_or("desc");
+    if !matches!(order, "asc" | "desc") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "order must be 'asc' or 'desc'" })),
+        ));
     }
 
     // Use the nullable bind pattern `$1::uuid IS NULL OR category_id = $1`
@@ -114,11 +136,25 @@ pub async fn list_transactions(
         )
     })?;
 
-    let items: Vec<Transaction> = sqlx::query_as(
+    let sort_column = match sort {
+        "description" => "t.description",
+        "amount" => "t.amount",
+        "category" => "COALESCE(c.name, '')",
+        "account" => "COALESCE(a.name, '')",
+        _ => "effective_transaction_date(t.date, t.account_id, $8)",
+    };
+    let sort_direction = if order == "asc" { "ASC" } else { "DESC" };
+    let order_sql = format!(
+        "{} {} NULLS LAST, t.id {}",
+        sort_column, sort_direction, sort_direction
+    );
+    let query = format!(
         "SELECT t.id, t.description, t.amount, t.type, t.category_id, t.date, t.notes,
                 t.installment_plan_id, t.account_id, t.created_at, t.updated_at,
                 card_bill_due_date(t.account_id, t.date) AS card_due_date
          FROM transactions t
+         LEFT JOIN categories c ON c.id = t.category_id
+         LEFT JOIN accounts a ON a.id = t.account_id
          WHERE ($1::uuid IS NULL OR t.category_id = $1)
            AND ($2::text IS NULL OR t.type = $2)
            AND ($3::date IS NULL OR t.date >= $3 - INTERVAL '3 months')
@@ -126,26 +162,27 @@ pub async fn list_transactions(
            AND ($5::uuid IS NULL OR t.account_id = $5)
            AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8) >= $3)
            AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8) <= $4)
-         ORDER BY t.date DESC, t.created_at DESC
-         LIMIT $6 OFFSET $7",
-    )
-    .bind(params.category_id)
-    .bind(&params.r#type)
-    .bind(params.start_date)
-    .bind(params.end_date)
-    .bind(params.account_id)
-    .bind(page_size as i64)
-    .bind(offset as i64)
-    .bind(&dating)
-    .fetch_all(&state.pg_pool)
-    .await
-    .map_err(|e| {
-        error!("Failed to list transactions: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Failed to fetch transactions" })),
-        )
-    })?;
+         ORDER BY {order_sql}
+         LIMIT $6 OFFSET $7"
+    );
+    let items: Vec<Transaction> = sqlx::query_as(AssertSqlSafe(query))
+        .bind(params.category_id)
+        .bind(&params.r#type)
+        .bind(params.start_date)
+        .bind(params.end_date)
+        .bind(params.account_id)
+        .bind(page_size as i64)
+        .bind(offset as i64)
+        .bind(&dating)
+        .fetch_all(&state.pg_pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to list transactions: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to fetch transactions" })),
+            )
+        })?;
 
     Ok(Json(TransactionListResponse {
         items,

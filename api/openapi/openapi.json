@@ -187,6 +187,42 @@
         }
       }
     },
+    "/api/accounts/{id}/adjust": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Adjusts an account to a target balance through a balanced equity posting.",
+        "operationId": "adjust_account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Account UUID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountAdjustmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Account adjustment recorded"
+          }
+        }
+      }
+    },
     "/api/audit/events": {
       "get": {
         "tags": [
@@ -2533,6 +2569,34 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "description": "Filter by source account UUID",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort by date, description, amount, category, or account",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort direction: asc or desc",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2789,6 +2853,13 @@
             "format": "int32",
             "description": "Payment due day of the monthly billing cycle (credit cards only, 1-31)."
           },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable icon identifier selected for this account."
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -2809,6 +2880,33 @@
           "type": {
             "type": "string",
             "description": "`asset`, `liability`, `equity`, `income`, or `expense`."
+          }
+        }
+      },
+      "AccountAdjustmentRequest": {
+        "type": "object",
+        "description": "Request to reconcile an account to a target balance without affecting\nincome, expenses, budgets, or reports.",
+        "required": [
+          "target_balance",
+          "date"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date shown in the ledger entry."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional human-readable explanation."
+          },
+          "target_balance": {
+            "type": "string",
+            "description": "Desired display balance. Liability balances are expressed as positive debt.",
+            "example": "1250.00"
           }
         }
       },
@@ -2860,6 +2958,13 @@
             ],
             "format": "int32",
             "description": "Payment due day of the monthly billing cycle (credit cards only, 1-31)."
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable icon identifier selected for this account."
           },
           "id": {
             "type": "string",
@@ -3704,6 +3809,20 @@
             ],
             "format": "int32",
             "description": "Payment due day of the monthly billing cycle (credit cards only, 1-31)."
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable icon identifier selected for this account."
+          },
+          "initial_balance": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional opening balance. It is posted against the balance-adjustment equity account."
           },
           "name": {
             "type": "string",
@@ -6309,6 +6428,13 @@
             "format": "date",
             "description": "Filter by end date (inclusive, ISO `YYYY-MM-DD`)."
           },
+          "order": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Sort direction (`asc` or `desc`)."
+          },
           "page": {
             "type": "integer",
             "format": "int32",
@@ -6323,6 +6449,13 @@
             "default": 50,
             "maximum": 200,
             "minimum": 1
+          },
+          "sort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Sort field (`date`, `description`, `amount`, `category`, or `account`)."
           },
           "start_date": {
             "type": "string",
@@ -6468,6 +6601,13 @@
             ],
             "format": "int32",
             "description": "Payment due day of the monthly billing cycle (credit cards only, 1-31)."
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable icon identifier selected for this account."
           },
           "name": {
             "type": "string",

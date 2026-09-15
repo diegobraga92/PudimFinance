@@ -112,11 +112,12 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
                     </TableCell>
                     <TableCell
                       className={cn(
-                        'py-3 text-right text-xs tabular-nums',
+                        'py-3 text-right text-sm font-medium tabular-nums',
                         over ? 'text-danger' : 'text-muted-foreground',
                       )}
                     >
-                      {formatMoney(item.actual_spent)} / {formatMoney(item.budget.amount_limit)}
+                      <span>{formatMoney(item.actual_spent)}</span>
+                      <span className="font-normal text-dim"> / {formatMoney(item.budget.amount_limit)}</span>
                       {over && (
                         <span className="block text-[11px] font-medium text-danger">
                           {t('common.overBudget')}

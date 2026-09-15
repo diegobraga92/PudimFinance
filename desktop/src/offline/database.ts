@@ -49,6 +49,7 @@ export interface LocalAccount {
   name: string;
   type: string;
   account_kind: string;
+  icon: string | null;
   parent_id: string | null;
   closing_day: number | null;
   due_day: number | null;

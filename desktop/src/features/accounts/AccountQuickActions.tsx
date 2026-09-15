@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 interface Props {
   onNewAccount: () => void;
+  onNewInvestment: () => void;
   onTransfer: () => void;
   /** Transfer needs two balance-sheet accounts to exist. */
   canTransfer: boolean;
@@ -18,7 +19,7 @@ interface Props {
  * Shortcuts into real flows: the account form, the ledger-backed transfer
  * dialog, the credit-card screen (where bills are paid) and Reports.
  */
-export function AccountQuickActions({ onNewAccount, onTransfer, canTransfer, hasCards }: Props) {
+export function AccountQuickActions({ onNewAccount, onNewInvestment, onTransfer, canTransfer, hasCards }: Props) {
   const { t } = useI18n();
   const navigate = useNavigate();
 
@@ -30,6 +31,14 @@ export function AccountQuickActions({ onNewAccount, onTransfer, canTransfer, has
       tone: 'bg-success/15 text-success ring-success/30 hover:bg-success/25',
       disabled: false,
       onClick: onNewAccount,
+    },
+    {
+      key: 'investment',
+      icon: TrendingUp,
+      label: t('accounts.newInvestment'),
+      tone: 'bg-success/15 text-success ring-success/30 hover:bg-success/25',
+      disabled: false,
+      onClick: onNewInvestment,
     },
     {
       key: 'transfer',

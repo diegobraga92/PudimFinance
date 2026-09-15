@@ -51,6 +51,7 @@ export type Account = components['schemas']['Account'];
 export type AccountWithBalance = components['schemas']['AccountWithBalance'];
 export type CreateAccountRequest = components['schemas']['CreateAccountRequest'];
 export type UpdateAccountRequest = components['schemas']['UpdateAccountRequest'];
+export type AccountAdjustmentRequest = components['schemas']['AccountAdjustmentRequest'];
 export type CardBill = components['schemas']['CardBill'];
 export type CardOverview = components['schemas']['CardOverview'];
 export type CreateCardPurchaseRequest = components['schemas']['CreateCardPurchaseRequest'];
@@ -149,6 +150,7 @@ function localAccountToAccount(a: LocalAccount): AccountWithBalance {
     name: a.name,
     type: a.type,
     account_kind: a.account_kind,
+    icon: a.icon,
     parent_id: a.parent_id,
     closing_day: a.closing_day,
     due_day: a.due_day,
@@ -383,6 +385,8 @@ export interface TransactionFilters {
   start_date?: string;
   end_date?: string;
   account_id?: string;
+  sort?: 'date' | 'description' | 'amount' | 'category' | 'account';
+  order?: 'asc' | 'desc';
 }
 
 export async function fetchTransactions(
@@ -679,6 +683,16 @@ export async function fetchAccount(id: string): Promise<AccountWithBalance> {
   return request<AccountWithBalance>(`/api/accounts/${id}`);
 }
 
+export async function adjustAccount(
+  id: string,
+  payload: AccountAdjustmentRequest,
+): Promise<void> {
+  await request<void>(`/api/accounts/${id}/adjust`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createAccount(payload: CreateAccountRequest): Promise<Account> {
   const localId = uuid();
   const queueAndStore = async (): Promise<Account> => {
@@ -690,6 +704,7 @@ export async function createAccount(payload: CreateAccountRequest): Promise<Acco
       name: payload.name,
       type: payload.type as 'income' | 'expense',
       account_kind: payload.account_kind ?? payload.type,
+      icon: payload.icon ?? null,
       parent_id: payload.parent_id ?? null,
       closing_day: payload.closing_day ?? null,
       due_day: payload.due_day ?? null,
@@ -730,6 +745,7 @@ export async function createAccount(payload: CreateAccountRequest): Promise<Acco
       closing_day: created.closing_day ?? null,
       due_day: created.due_day ?? null,
       credit_limit: created.credit_limit ?? null,
+      icon: created.icon ?? null,
       balance: '0',
       transaction_count: 0,
       created_at: created.created_at,
@@ -757,6 +773,7 @@ export async function updateAccount(id: string, payload: UpdateAccountRequest): 
         name: payload.name,
         type: payload.type as 'income' | 'expense',
         account_kind: payload.account_kind ?? existing.account_kind,
+        icon: payload.icon ?? existing.icon,
         parent_id: payload.parent_id ?? null,
         closing_day: payload.closing_day ?? null,
         due_day: payload.due_day ?? null,
@@ -786,6 +803,7 @@ export async function updateAccount(id: string, payload: UpdateAccountRequest): 
       closing_day: updated.closing_day ?? null,
       due_day: updated.due_day ?? null,
       credit_limit: updated.credit_limit ?? null,
+      icon: updated.icon ?? null,
       balance: existing?.balance ?? '0',
       transaction_count: existing?.transaction_count ?? 0,
       created_at: updated.created_at,

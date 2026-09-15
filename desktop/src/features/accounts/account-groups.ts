@@ -11,6 +11,7 @@ import type { TranslationKey } from '@shared/i18n';
 
 import type { AccountKind } from './AccountForm';
 import type { AccountWithBalance } from '@/lib/api';
+import { accountIcon } from '@shared/account-icons';
 
 /**
  * Accounts-page grouping.
@@ -133,6 +134,7 @@ export function groupOf(account: AccountWithBalance): AccountGroupKey {
 /** Icon + tint for an account row (unknown kinds fall back to a neutral box). */
 export function accountAppearance(account: AccountWithBalance): {
   icon: LucideIcon;
+  glyph: string;
   tone: string;
   kindKey: TranslationKey | null;
   color: string;
@@ -141,6 +143,7 @@ export function accountAppearance(account: AccountWithBalance): {
   if (!kind) {
     return {
       icon: Banknote,
+      glyph: accountIcon(account.icon, account.account_kind),
       tone: 'bg-surface-hover text-muted-foreground',
       kindKey: null,
       color: 'rgb(var(--dim))',
@@ -148,6 +151,7 @@ export function accountAppearance(account: AccountWithBalance): {
   }
   return {
     icon: KIND_ICONS[kind],
+    glyph: accountIcon(account.icon, kind),
     tone: KIND_TONES[kind],
     kindKey: KIND_LABEL_KEYS[kind],
     color: KIND_CHART_COLORS[kind],
