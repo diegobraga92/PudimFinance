@@ -45,9 +45,3 @@ variable "rds_backup_retention_days" {
   type        = number
   default     = 7
 }
-
-variable "rds_multi_az" {
-  description = "Enable Multi-AZ for RDS"
-  type        = bool
-  default     = false
-}

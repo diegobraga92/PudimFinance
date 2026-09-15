@@ -177,7 +177,6 @@ export function CategoryForm({
           </div>
 
 
-          {/* Icon picker */}
           <div className="space-y-1.5">
             <Label>{t('categories.form.icon')}</Label>
             <div
@@ -232,7 +231,6 @@ export function CategoryForm({
             </div>
           </div>
 
-          {/* Subcategory */}
           <div className="space-y-1.5">
             <Label htmlFor="cat-parent">
               {t('common.subcategory')} ({t('common.optional')})

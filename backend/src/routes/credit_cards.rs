@@ -364,8 +364,6 @@ async fn fetch_current_bill(
     Ok(bill)
 }
 
-// Read endpoints
-
 /// Lists credit-card accounts with balances and their current open bill.
 #[utoipa::path(
     get,
@@ -543,8 +541,6 @@ pub async fn list_card_bills(
 
     Ok(Json(bills))
 }
-
-// Write endpoints
 
 /// Records a purchase on a credit card.
 ///

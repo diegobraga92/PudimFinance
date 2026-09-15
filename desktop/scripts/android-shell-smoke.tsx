@@ -102,7 +102,6 @@ function check(label: string, node: React.ReactNode, needles: string[], client?:
   console.log(`PASS: ${label} (${html.length} chars)`);
 }
 
-// ---- shell -----------------------------------------------------------------
 check(
   'RootLayout (phone + desktop nav)',
   <Routes>
@@ -356,7 +355,6 @@ if (dateMissing.length > 0 || dateHtml.includes('type="date"')) {
   console.log(`PASS: DateField (typed input + in-app calendar) (${dateHtml.length} chars)`);
 }
 
-// ---- date parsing ----------------------------------------------------------
 const ptOrder = dateOrder('pt-BR');
 const enOrder = dateOrder('en-US');
 const parseChecks: [string, boolean][] = [
@@ -390,7 +388,6 @@ if (parseChecks.every(([, ok]) => ok)) {
   console.log(`PASS: date parsing (${parseChecks.length} cases)`);
 }
 
-// ---- notification capture parsing ------------------------------------------
 const captureChecks: [string, boolean][] = [
   (() => {
     const parsed = parseNotification(
@@ -461,7 +458,6 @@ if (actionSettingsChecks.every(([, ok]) => ok)) {
   console.log(`PASS: capture action settings (${actionSettingsChecks.length} cases)`);
 }
 
-// ---- transactions range control + row checkbox ------------------------------
 const rangeEmptyHtml = renderToStaticMarkup(
   <Providers>
     <DateRangeField startDate="" endDate="" onChange={() => undefined} />
@@ -541,7 +537,6 @@ check('ReceiptsPage (phone capture shortcuts)', <ReceiptsPage />, [
   'w-fit max-w-full', // tab bar hugs its tabs instead of spanning the page
 ]);
 
-// ---- navigation model ------------------------------------------------------
 const tabRoutes = MOBILE_TABS.map((tab) => tab.route);
 const toolKeys = TOOL_GROUPS.flatMap((group) => group.items.map((item) => item.key));
 const navChecks: [string, boolean][] = [
@@ -564,7 +559,6 @@ for (const [label, ok] of navChecks) {
 }
 if (failures === 0) console.log(`PASS: nav model (${MOBILE_TABS.length} tabs, ${toolKeys.length} tools)`);
 
-// ---- phone month grouping --------------------------------------------------
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -597,7 +591,6 @@ if (groupingChecks.every(([, ok]) => ok)) {
   console.log(`PASS: month grouping (${grouped.map((g) => g.label).join(' / ')})`);
 }
 
-// ---- session persistence ---------------------------------------------------
 // The stored session is what lets the app skip the login screen on the next
 // launch, so a missing write here is exactly the "why am I logged out again?"
 // bug. Written through the same seam the app uses (`lib/auth`).

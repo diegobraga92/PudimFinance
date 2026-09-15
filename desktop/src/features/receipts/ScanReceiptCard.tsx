@@ -62,7 +62,6 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
           <p className="mt-0.5 text-sm text-muted-foreground">{t('receipts.scanCardBlurb')}</p>
         </div>
 
-        {/* Method switch */}
         <div className="flex gap-1 rounded-md bg-muted p-1" role="tablist">
           {(
             [

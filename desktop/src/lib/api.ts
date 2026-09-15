@@ -20,8 +20,6 @@ import {
 
 export { ApiError, isNetworkError };
 
-// Typed aliases, sourced from the generated OpenAPI spec
-
 export type Category = components['schemas']['Category'];
 export type CreateCategoryRequest = components['schemas']['CreateCategoryRequest'];
 export type UpdateCategoryRequest = components['schemas']['UpdateCategoryRequest'];
@@ -65,7 +63,6 @@ export type InstallmentPlan = components['schemas']['InstallmentPlan'];
 export type AppSettings = components['schemas']['AppSettings'];
 export type UpdateAppSettingsRequest = components['schemas']['UpdateAppSettingsRequest'];
 
-// Receipts, products and stores (price tracking)
 export type SaveReceiptBody = components['schemas']['SaveReceiptBody'];
 export type NewReceiptItem = components['schemas']['NewReceiptItem'];
 export type ReceiptSummary = components['schemas']['ReceiptSummary'];
@@ -112,8 +109,6 @@ function qs(params: Record<string, unknown> | undefined): string {
   const s = search.toString();
   return s ? `?${s}` : '';
 }
-
-// Offline-first helpers (local mirror <-> server shapes)
 
 function localTxToTransaction(t: LocalTransaction): Transaction {
   return {
@@ -164,8 +159,6 @@ function localAccountToAccount(a: LocalAccount): AccountWithBalance {
 
 export type SyncPushRequest = components['schemas']['SyncPushRequest'];
 export type SyncPushResponse = components['schemas']['SyncPushResponse'];
-
-// Auth
 
 export interface AuthResponse {
   access_token: string;
@@ -234,8 +227,6 @@ export async function fetchMe(token: string): Promise<{ id: string; email: strin
     headers: { Authorization: `Bearer ${token}` },
   });
 }
-
-// Categories
 
 export async function fetchCategories(): Promise<Category[]> {
   if (!(await isOnline())) {
@@ -374,8 +365,6 @@ export async function deleteCategory(id: string): Promise<void> {
     throw err;
   }
 }
-
-// Transactions
 
 export interface TransactionFilters {
   page?: number;
@@ -557,14 +546,10 @@ async function getLocalTransactionByAnyId(id: string): Promise<LocalTransaction>
   return found;
 }
 
-// Summary
-
 export async function fetchSummary(params?: { month?: number; year?: number }): Promise<SummaryResponse> {
   return request<SummaryResponse>(`/api/summary${qs(params as Record<string, unknown>)}`);
 }
 
-
-// Budgets
 
 export async function fetchBudgets(): Promise<BudgetWithCategory[]> {
   return request<BudgetWithCategory[]>('/api/budgets');
@@ -605,8 +590,6 @@ export async function fetchBudgetSummary(year: number, month: number): Promise<B
     `/api/budgets/summary${qs({ year, month })}`,
   );
 }
-
-// Reports
 
 export async function fetchMonthlyReport(
   startYear: number,
@@ -669,8 +652,6 @@ export async function updateSettings(payload: UpdateAppSettingsRequest): Promise
     body: JSON.stringify(payload),
   });
 }
-
-// Accounts
 
 export async function fetchAccountsWithBalance(): Promise<AccountWithBalance[]> {
   if (!(await isOnline())) {
@@ -924,8 +905,6 @@ export async function payInstallment(id: string, number: number): Promise<PayIns
   });
 }
 
-// Ledger
-
 export async function fetchLedgerTransactions(): Promise<LedgerTransaction[]> {
   return request<LedgerTransaction[]>('/api/ledger/transactions');
 }
@@ -945,8 +924,6 @@ export async function migrateSingleToDouble(): Promise<MigrationResponse> {
   });
 }
 
-
-// Reconciliation
 
 export interface ReconciliationHistoryItem {
   id: string;
@@ -992,12 +969,6 @@ export async function uploadReconciliationFile(
 export async function fetchReconciliationHistory(): Promise<{ items: ReconciliationHistoryItem[] }> {
   return request<{ items: ReconciliationHistoryItem[] }>('/api/reconciliation/history');
 }
-
-// Receipts, products and stores.
-//
-// Receipts are not part of the offline mirror: scanning, OCR parsing and price
-// history all need the server, so these calls fail loudly when it is down
-// instead of pretending to work.
 
 export async function scanReceipt(qrData: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('/api/receipts/scan', {

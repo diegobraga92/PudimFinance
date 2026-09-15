@@ -121,7 +121,6 @@ export function AuditPage() {
           </Button>
         </div>
 
-        {/* Filters: event type and date range are what the API supports. */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full min-w-[12rem] sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -300,7 +299,6 @@ export function AuditPage() {
             </div>
           </div>
         )}
-        {/* Event detail: complete, but visually secondary. */}
         <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>

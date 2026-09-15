@@ -7,14 +7,6 @@ terraform {
     }
   }
 
-  # Production would use S3 + DynamoDB for state
-  # backend "s3" {
-  #   bucket         = "pudimfinance-terraform-state"
-  #   key            = "infra/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   encrypt        = true
-  #   dynamodb_table = "pudimfinance-terraform-locks"
-  # }
 }
 
 provider "aws" {
@@ -32,10 +24,10 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count             = length(var.availability_zones)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
-  availability_zone = var.availability_zones[count.index]
+  count                   = length(var.availability_zones)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
+  availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
 
   tags = {
@@ -94,9 +86,9 @@ resource "aws_db_instance" "postgres" {
   engine_version = "16.3"
   instance_class = var.rds_instance_class
 
-  allocated_storage     = var.rds_allocated_storage
-  storage_type          = "gp3"
-  storage_encrypted     = true
+  allocated_storage = var.rds_allocated_storage
+  storage_type      = "gp3"
+  storage_encrypted = true
 
   db_name  = "pudimfinance"
   username = var.rds_username

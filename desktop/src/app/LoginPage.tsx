@@ -113,7 +113,6 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Brand panel */}
       <div className="relative hidden w-[44%] flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-950 p-10 text-white lg:flex">
         <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-indigo-500/20 blur-3xl" />
         <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
@@ -135,7 +134,6 @@ export function LoginPage() {
         <p className="relative text-xs text-indigo-200/60">Open source · Self-hosted · Private</p>
       </div>
 
-      {/* Form panel */}
       <div className="flex flex-1 items-center justify-center p-6">
         <div className="absolute top-4 right-4">
           <LanguageToggle />

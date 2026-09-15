@@ -31,6 +31,6 @@ export async function refreshWidgetSpentToday(): Promise<void> {
     const total = res.items.reduce((sum, tx) => sum + (parseFloat(tx.amount) || 0), 0);
     await setWidgetSpentToday(formatBRL(total));
   } catch {
-    // Non-fatal. The widget keeps its last known value.
+    // Widget updates are best effort.
   }
 }

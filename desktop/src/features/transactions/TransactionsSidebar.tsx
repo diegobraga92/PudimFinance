@@ -62,7 +62,6 @@ export function TransactionsSidebar() {
       .filter((row) => row.amount > 0)
       .sort((a, b) => b.amount - a.amount);
 
-    // Percentages are shares of the month's expenses, so they add up to 100%.
     const total = rows.reduce((sum, row) => sum + row.amount, 0) || expenses;
     return rows
       .slice(0, MAX_CATEGORIES)
@@ -71,7 +70,6 @@ export function TransactionsSidebar() {
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      {/* Month totals — the selected month defaults to the current one. */}
       <Card className="border-border bg-surface shadow-card">
         <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 p-5 pb-3">
           <CardTitle className="text-base font-semibold">
@@ -130,7 +128,6 @@ export function TransactionsSidebar() {
         </CardContent>
       </Card>
 
-      {/* Where the month's money went, biggest first. */}
       <Card className="border-border bg-surface shadow-card">
         <CardHeader className="p-5 pb-3">
           <CardTitle className="text-base font-semibold">

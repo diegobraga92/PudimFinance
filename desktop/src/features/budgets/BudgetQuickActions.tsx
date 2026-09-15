@@ -58,8 +58,6 @@ export function BudgetQuickActions({
       <CardHeader className="p-5 pb-3">
         <CardTitle className="text-lg font-semibold">{t('dashboard.quickActions')}</CardTitle>
       </CardHeader>
-      {/* Compact tiles: two across in the sidebar, four across when the column
-       * is full width, so wide screens never stretch them. */}
       <CardContent className="grid grid-cols-2 gap-2.5 p-5 pt-0 sm:grid-cols-4 xl:grid-cols-2">
         {tiles.map((tile) => (
           <button

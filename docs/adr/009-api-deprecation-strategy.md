@@ -1,45 +1,37 @@
-# ADR 009: API Deprecation Strategy
+# ADR 009: API deprecation strategy
 
 **Status:** Accepted
 **Date:** 2026-08-06
 
 ## Context
 
-As the PudimFinance API evolves through Layers 1-4, breaking changes may be required (schema changes, auth model, error format). Currently the API is an implicit single version. We need a documented strategy to retire old endpoints gracefully while keeping clients working during a transition.
+The API currently uses unversioned `/api/...` paths. Future breaking changes
+need a migration path that does not immediately break desktop, Android, or
+browser clients.
 
 ## Decision
 
-### 1. The API uses an implicit `v1`, with new major versions under `/api/v2/...`
+Treat current paths as implicit v1. Introduce a new prefix such as `/api/v2/...`
+for breaking changes; additive changes remain on the current path.
 
-- Current endpoints remain at their existing paths (`/api/transactions`, `/api/ledger/...`).
-- Any breaking change introduces a new versioned prefix (`/api/v2/...`).
-- Additive changes (new fields, new endpoints) never require a new version.
+Deprecated endpoints use:
 
-### 2. Deprecated endpoints send standard `Sunset`, `Deprecation`, and `Link` headers
+- `Sunset` with the planned removal date;
+- `Deprecation: true`; and
+- `Link: <...>; rel="successor-version"` pointing to the replacement.
 
-When an endpoint is deprecated but still served, responses include:
-- `Sunset: <RFC 1123 date>` — when the endpoint will return 410 Gone.
-- `Deprecation: true` — indicates deprecation (per draft standard).
-- `Link: </api/v2/...>; rel="successor-version"` — points to the replacement.
+Provide at least six months between the first deprecation header and removal.
 
-After the Sunset date, the endpoint returns **410 Gone** with a JSON error.
+## Current scope
 
-### 3. Minimum 6-month notice period
-
-From the first `Sunset` header issuance to actual removal must be at least 6 months, giving clients time to migrate.
-
-### 4. Simulated migration drives the process
-
-Layer 4 includes a simulated `/api/v2/ledger/transactions` route alias to exercise the policy end-to-end: old path stays, new path added, headers attached, then old path marked for removal.
+The backend currently attaches those headers to
+`/api/ledger/transactions` with a sunset date of 2027-01-01. This is a policy
+simulation: no `/api/v2` successor or post-sunset `410 Gone` response exists yet.
 
 ## Consequences
 
-- Clients can migrate gracefully using `Link` headers.
-- OpenAPI spec can mark deprecated paths (utoipa supports `deprecated`).
-- A runtime header-checking test can verify `Sunset`/`Deprecation`/`Link` are present on deprecated routes.
-- Maintaining both v1 and v2 paths adds surface area; pruned after the sunset period.
+- Clients can discover a successor programmatically.
+- OpenAPI remains the contract for both versions.
+- Maintaining two versions temporarily increases route and test surface.
 
-## Related ADRs
-
-- ADR 002: API Contract Strategy (how the OpenAPI contract is managed)
-- ADR 005: Ledger Design (the resource being versioned in the simulation)
+See [`docs/api-deprecation-policy.md`](../api-deprecation-policy.md).

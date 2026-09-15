@@ -36,7 +36,6 @@ export function PageHeader({ titleKey, subtitleKey, mobileLead, actions, classNa
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
 
-      {/* Phones: compact lead + scrollable actions */}
       <div className="flex items-center gap-2 md:hidden">
         {mobileLead ? (
           <div className="min-w-0 flex-1">{mobileLead}</div>

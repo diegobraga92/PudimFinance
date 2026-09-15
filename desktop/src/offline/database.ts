@@ -1,14 +1,4 @@
-/**
- * Local offline mirror for the desktop app (offline-first).
- *
- * IndexedDB is available both in the Tauri webview and in a plain browser dev
- * tab, so the whole offline layer stays in TypeScript (no native compile risk).
- * The schema mirrors the React Native app's SQLite mirror.
- *
- *   local_transactions / local_categories / local_accounts   (the mirror)
- *   pending_operations                                       (mutation queue)
- *   sync_metadata                                            (last-sync stamp)
- */
+/** IndexedDB mirror and mutation queue used by the offline-first client. */
 
 const DB_NAME = 'pudimfinance.db';
 const DB_VERSION = 1;
@@ -180,8 +170,6 @@ export function isOfflineSupported(): boolean {
   return typeof indexedDB !== 'undefined';
 }
 
-// Transactions
-
 export async function getLocalTransactions(): Promise<LocalTransaction[]> {
   const rows = await getAll<LocalTransaction>('local_transactions');
   return rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -223,8 +211,6 @@ export async function markTransactionSynced(localId: string, serverId: string): 
   await upsertLocalTransaction({ ...existing, server_id: serverId, synced: 1 });
 }
 
-// Categories
-
 export async function getLocalCategories(): Promise<LocalCategory[]> {
   const rows = await getAll<LocalCategory>('local_categories');
   return rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -252,8 +238,6 @@ export async function markCategorySynced(localId: string, serverId: string): Pro
   await upsertLocalCategory({ ...existing, server_id: serverId, synced: 1 });
 }
 
-// Accounts
-
 export async function getLocalAccounts(): Promise<LocalAccount[]> {
   const rows = await getAll<LocalAccount>('local_accounts');
   return rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -269,8 +253,6 @@ export async function deleteLocalAccount(id: string): Promise<void> {
     await tx('local_accounts', 'readwrite', (store) => store.delete(existing.id));
   }
 }
-
-// Pending operations
 
 export async function addPendingOperation(op: Omit<PendingOperation, 'id' | 'created_at'>): Promise<void> {
   await tx('pending_operations', 'readwrite', (store) =>

@@ -149,9 +149,6 @@ check_desktop_rust() {
         || fail "Clippy found issues"
 }
 
-# ──────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────
 usage() {
     echo "Usage: $(basename "$0") <command>"
     echo ""

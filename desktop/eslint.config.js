@@ -5,10 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  // Generated OpenAPI types and build output are not authored by hand.
   { ignores: ['dist', 'src/lib/api-types.ts', 'src-tauri'] },
 
-  // Node-side build/config files.
   {
     files: ['*.config.{js,ts}', 'scripts/**/*.{js,ts}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -19,7 +17,6 @@ export default tseslint.config(
     },
   },
 
-  // Application sources (browser).
   {
     files: ['src/**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

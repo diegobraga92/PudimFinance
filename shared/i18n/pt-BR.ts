@@ -1,19 +1,11 @@
-/**
- * Brazilian Portuguese translation dictionary.
- *
- * Every key mirrors `en.ts` exactly, which TypeScript enforces via
- * `Record<TranslationKey, string>` (see index.ts), so a missing/extra key
- * fails the build on both platforms.
- */
+/** Brazilian Portuguese strings; keys are checked against `en.ts`. */
 export const ptBR = {
-  // ---- App shell ----------------------------------------------------------
   'app.name': 'PudimFinance',
   'app.footer': 'PudimFinance • Controle de finanças pessoais',
   'app.language': 'Idioma',
   'app.languageEn': 'English',
   'app.languagePt': 'Português (Brasil)',
 
-  // ---- Common --------------------------------------------------------------
   'common.loading': 'Carregando…',
   'common.retry': 'Tentar novamente',
   'common.cancel': 'Cancelar',
@@ -78,7 +70,6 @@ export const ptBR = {
   'common.bill': 'Fatura {amount}',
   'common.of': 'de',
 
-  // ---- Navigation ----------------------------------------------------------
   'nav.dashboard': 'Painel',
   'nav.transactions': 'Transações',
   'nav.accounts': 'Contas',
@@ -130,14 +121,12 @@ export const ptBR = {
   'nav.ariaCloseMenu': 'Fechar menu',
   'nav.ariaOpenMenu': 'Abrir menu',
 
-  // ---- Header / a11y -------------------------------------------------------
   'header.signedInAs': 'Conectado como {email} — clique para sair',
   'header.addTransaction': 'Adicionar transação',
   'header.darkMode': 'Mudar para o modo escuro',
   'header.lightMode': 'Mudar para o modo claro',
   'header.loadingAria': 'Carregando',
 
-  // ---- Login ---------------------------------------------------------------
   'login.subtitle': 'Entre no seu painel de finanças pessoais',
   'login.registerSubtitle': 'Crie uma conta para começar a controlar seu dinheiro',
   'login.displayName': 'Nome de exibição (opcional)',
@@ -161,7 +150,6 @@ export const ptBR = {
   'login.googleUnavailable': 'O login com Google não está disponível neste servidor',
   'common.or': 'ou',
 
-  // ---- Dashboard -----------------------------------------------------------
   'dashboard.greetingMorning': 'Bom dia, {name}!',
   'dashboard.greetingAfternoon': 'Boa tarde, {name}!',
   'dashboard.greetingEvening': 'Boa noite, {name}!',
@@ -210,7 +198,6 @@ export const ptBR = {
   'dashboard.budgetAlertMore_one': '{count} outro orçamento em/no máximo 80% · ',
   'dashboard.budgetAlertMore_other': '{count} outros orçamentos em/no máximo 80% · ',
 
-  // ---- Transactions ---------------------------------------------------------
   'transactions.title': 'Transações',
   'transactions.subtitle': 'Acompanhe, filtre e edite todas as suas receitas e despesas.',
   'transactions.newTransaction': 'Adicionar transação',
@@ -306,7 +293,6 @@ export const ptBR = {
   'transactions.bulkDeleted_one': '{count} transação excluída',
   'transactions.bulkDeleted_other': '{count} transações excluídas',
 
-  // ---- Accounts --------------------------------------------------------------
   'accounts.title': 'Contas',
   'accounts.new': '+ Nova Conta',
   'accounts.search': 'Buscar contas…',
@@ -445,7 +431,6 @@ export const ptBR = {
   'accounts.detail.viewExpenses': 'Despesas e resumo mensal',
   'accounts.detail.lastMonths': 'Últimos {count} meses',
 
-  // ---- Categories -----------------------------------------------------------
   'categories.title': 'Categorias',
   'categories.subtitle': 'Organize suas receitas e despesas.',
   'categories.expensesSectionBlurb': 'Para onde seu dinheiro vai.',
@@ -498,7 +483,6 @@ export const ptBR = {
   'categories.deleteMessage':
     'Isso removerá a categoria permanentemente. Ela só pode ser excluída se nenhuma transação a utilizar.',
 
-  // ---- Budgets ----------------------------------------------------------------
   'budgets.title': 'Orçamentos',
   'budgets.subtitle': 'Defina limites mensais de gastos por categoria',
   'budgets.add': '+ Adicionar Orçamento',
@@ -540,7 +524,6 @@ export const ptBR = {
   'budgets.failedDelete': 'Falha ao excluir o orçamento',
   'budgets.failedLoad': 'Falha ao carregar os orçamentos',
 
-  // ---- Budgets & Categories (unified screen) -------------------------------
   'budgets.pageTitle': 'Orçamentos e Categorias',
   'budgets.pageSubtitle': 'Planeje seus gastos e organize para onde seu dinheiro vai.',
   'budgets.addBudget': 'Adicionar orçamento',
@@ -588,7 +571,6 @@ export const ptBR = {
   'budgets.form.overallHint':
     'Um limite único de gastos para {period}, além dos orçamentos por categoria.',
 
-  // ---- Credit cards -----------------------------------------------------------
   'creditCards.title': 'Cartões de Crédito',
   'creditCards.dating.title': 'Data dos gastos no cartão',
   'creditCards.dating.desc':
@@ -642,7 +624,6 @@ export const ptBR = {
   'creditCards.failedLoad': 'Falha ao carregar os cartões de crédito',
   'creditCards.failedLoadInstallments': 'Falha ao carregar as parcelas',
 
-  // ---- Ledger ----------------------------------------------------------------
   'ledger.title': 'Contabilidade',
   'ledger.subtitle': 'Inspecione os lançamentos de partidas dobradas por trás da sua atividade.',
   'ledger.searchPlaceholder': 'Buscar lançamentos…',
@@ -694,7 +675,6 @@ export const ptBR = {
   'ledger.validation.fill': 'Preencha a descrição, as duas contas e um valor positivo',
   'ledger.validation.different': 'As contas de débito e crédito devem ser diferentes',
 
-  // ---- Receipts ---------------------------------------------------------------
   'receipts.title': 'Leitor de Notas Fiscais',
   'receipts.subtitle': 'Cole o QR code da NFC-e para extrair os dados da nota (sem OCR).',
   'receipts.scanQr': 'Ler QR da NFC-e',
@@ -747,7 +727,6 @@ export const ptBR = {
   'receipts.mergeSource': 'Mesclar em (origem)',
   'receipts.merge': 'Mesclar',
 
-  // ---- Receipts & price tracking (redesigned screen) ------------------------
   'receipts.pageTitle': 'Notas fiscais',
   'receipts.pageSubtitle':
     'Escaneie, guarde e analise suas notas. Acompanhe preços e compre melhor.',
@@ -921,7 +900,6 @@ export const ptBR = {
     'Mescle dois registros do mesmo produto. Preços e itens vão para o que você mantiver.',
   'common.remove': 'Remover',
 
-  // ---- Reconciliation ----------------------------------------------------------
   'recon.title': 'Conciliação',
   'recon.subtitle': 'Combine seu extrato bancário com as transações do PudimFinance.',
   'recon.uploadTitle': 'Enviar extrato bancário',
@@ -1001,7 +979,6 @@ export const ptBR = {
   'recon.failedFile': 'Falha ao enviar o arquivo de extrato',
   'recon.bankStatement': 'Extrato Bancário',
 
-  // ---- Audit --------------------------------------------------------------------
   'audit.title': 'Trilha de Auditoria',
   'audit.subtitle': 'Histórico imutável de eventos do sistema.',
   'audit.adminTitle': 'Acesso de administrador necessário',
@@ -1025,7 +1002,6 @@ export const ptBR = {
   'audit.eventAria': 'Evento {type}',
   'audit.failedLoad': 'Falha ao carregar os eventos de auditoria',
 
-  // ---- Reports ------------------------------------------------------------------
   'reports.title': 'Relatórios e Análises',
   'reports.loading': 'Carregando relatórios…',
   'reports.overview': 'Visão Mensal',
@@ -1061,7 +1037,6 @@ export const ptBR = {
   'reports.failedLoad': 'Falha ao carregar os relatórios',
   'reports.currentMonth': 'Mês atual',
 
-  // ---- Server / settings ----------------------------------------------------------
   'server.title': 'Servidor',
   'server.backendAddress': 'Endereço do backend',
   'server.hint':
@@ -1082,7 +1057,6 @@ export const ptBR = {
   'server.failedSave': 'Falha ao salvar o servidor',
   'server.addressRequired': 'O endereço do servidor não pode ficar vazio',
 
-  // ---- Notifications -----------------------------------------------------------
   'notifications.title': 'Captura de Notificações',
   'notifications.permissionDenied':
     'O acesso às notificações foi negado. Habilite-o nas configurações do dispositivo para capturar transações automaticamente.',
@@ -1150,7 +1124,6 @@ export const ptBR = {
   'notifications.fromApp': 'De {app}',
   'notifications.undo': 'Desfazer',
 
-  // ---- Offline --------------------------------------------------------------------
   'offline.offline': '🔴 Off-line',
   'offline.pending_one': '🔴 Off-line — {count} alteração pendente',
   'offline.pending_other': '🔴 Off-line — {count} alterações pendentes',
@@ -1158,7 +1131,6 @@ export const ptBR = {
   'offline.syncPending_one': '🟢 {count} alteração pendente — toque para sincronizar',
   'offline.syncPending_other': '🟢 {count} alterações pendentes — toque para sincronizar',
 
-  // ---- Onboarding ------------------------------------------------------------------
   'onboarding.skip': 'Pular',
   'onboarding.next': 'Próximo',
   'onboarding.getStarted': 'Começar',
@@ -1172,13 +1144,11 @@ export const ptBR = {
   'onboarding.step3Desc':
     'Desbloqueie o app com Face ID ou impressão digital. Busque, exporte para CSV e concilie extratos bancários quando precisar.',
 
-  // ---- Biometric lock ----------------------------------------------------------------
   'biometric.promptMessage': 'Desbloquear PudimFinance',
   'biometric.lockedTitle': 'O PudimFinance está bloqueado',
   'biometric.lockedSubtitle': 'Autentique-se para ver suas finanças',
   'biometric.unlock': 'Desbloquear',
 
-  // ---- Quick add --------------------------------------------------------------------
   'quickAdd.income': 'Receita',
   'quickAdd.expense': 'Despesa',
   'quickAdd.incomeDescription': 'Descrição da receita…',
@@ -1193,16 +1163,13 @@ export const ptBR = {
   'quickAdd.quick': '{type} rápida',
   'quickAdd.plus': '+ {type}',
 
-  // ---- Toast / Snackbar ---------------------------------------------------------------
   'toast.notifications': 'Notificações',
   'toast.dismissNotification': 'Dispensar notificação',
   'toast.dismiss': 'Dispensar',
 
-  // ---- Confirm dialog defaults ---------------------------------------------------------
   'confirm.cancel': 'Cancelar',
   'confirm.delete': 'Excluir',
 
-  // ---- Fallback load errors (web) -------------------------------------------------------
   'errors.loadData': 'Falha ao carregar os dados',
   'errors.loadCategories': 'Falha ao carregar as categorias',
   'errors.loadAccounts': 'Falha ao carregar as contas',

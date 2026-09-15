@@ -70,7 +70,6 @@ export function ReceiptsPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="max-md:hidden">
         <h1 className="text-[30px] font-bold leading-tight tracking-[-0.02em]">
           {t('receipts.pageTitle')}
@@ -80,7 +79,6 @@ export function ReceiptsPage() {
         </p>
       </div>
 
-      {/* Phone: the scan CTA is the header action. */}
       <div className="flex items-center justify-between gap-2 md:hidden">
         <h1 className="min-w-0 truncate text-xl font-bold tracking-[-0.01em]">
           {t('receipts.pageTitle')}
@@ -181,7 +179,6 @@ export function ReceiptsPage() {
       {tab === 'items' && <ItemsPricesTab />}
       {tab === 'stores' && <StoresTab />}
 
-      {/* Cross-tab dialogs, so any tab can complete a receipt/product/store path. */}
       <ReceiptDetailDialog
         receiptId={receiptId}
         onOpenChange={(open) => !open && setReceiptId(null)}

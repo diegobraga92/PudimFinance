@@ -197,7 +197,6 @@ export function ReconciliationPage() {
   return (
     <ToolsWorkspace>
       <div className="space-y-4">
-        {/* Screen header */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="max-md:hidden">
             <h2 className="text-xl font-semibold">{t('recon.title')}</h2>
@@ -216,7 +215,6 @@ export function ReconciliationPage() {
           </Button>
         </div>
 
-        {/* Phones: three-step wizard */}
         <ReconStepper step={step} hasResult={Boolean(result)} onSelect={setStep} />
 
         {error && (
@@ -229,7 +227,6 @@ export function ReconciliationPage() {
         )}
 
         <div className="grid gap-4 xl:grid-cols-2">
-          {/* Upload column */}
           <Card className={cn('border-border bg-surface shadow-card', step !== 1 && 'max-md:hidden')}>
             <CardContent className="space-y-4 p-5">
               <div>
@@ -359,7 +356,6 @@ export function ReconciliationPage() {
               </div>
             </CardContent>
           </Card>
-          {/* History column */}
           <Card className={cn('border-border bg-surface shadow-card', step !== 1 && 'max-md:hidden')}>
             <CardContent className="space-y-3 p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -430,7 +426,6 @@ export function ReconciliationPage() {
             </CardContent>
           </Card>
         </div>
-        {/* Results: counts, progress and the rows needing attention */}
         {result && (
           <Card
             className={cn(
@@ -494,7 +489,6 @@ export function ReconciliationPage() {
           </Card>
         )}
 
-        {/* Row-level results */}
         {result && (
           <Card
             className={cn(
@@ -552,7 +546,6 @@ export function ReconciliationPage() {
                     className="hidden md:block"
                   />
 
-                  {/* Phones: one card per statement row */}
                   <ul className="space-y-2 md:hidden">
                     {shownRows.map((row) => {
                       const isMatched = row.match_status === 'matched';
@@ -634,7 +627,6 @@ export function ReconciliationPage() {
           </Card>
         )}
 
-        {/* History entry summary (per-row data is not stored server-side) */}
         <Dialog open={viewing !== null} onOpenChange={(open) => !open && setViewing(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -680,7 +672,6 @@ export function ReconciliationPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Matched transaction viewer */}
         <Dialog
           open={matchedTransaction !== null}
           onOpenChange={(open) => !open && setMatchedTransaction(null)}

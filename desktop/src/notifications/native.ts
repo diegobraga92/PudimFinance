@@ -136,7 +136,7 @@ export async function showCapturePrompt(prompt: CapturePrompt): Promise<void> {
       appLabel: prompt.appLabel,
     });
   } catch {
-    // Non-fatal: the capture is still queued in the review inbox.
+    // The capture remains available in the review inbox.
   }
 }
 
@@ -146,7 +146,7 @@ export async function cancelCapturePrompt(id: string): Promise<void> {
   try {
     await invoke('plugin:pudim-native|cancel_capture_prompt', { id });
   } catch {
-    // Non-fatal.
+    // Notification dismissal is best effort.
   }
 }
 
@@ -223,7 +223,6 @@ export async function syncCaptureSettings(settings: {
     });
   } catch (error) {
     recordNativeError('set_capture_settings', error);
-    // Non-fatal: while the app is alive JS still drives capture/prompting.
   }
 }
 
@@ -266,7 +265,7 @@ export async function setWidgetSpentToday(value: string): Promise<void> {
   try {
     await invoke('plugin:pudim-native|set_widget_spent_today', { value });
   } catch {
-    // Non-fatal (no widget on desktop).
+    // Widgets are unavailable on desktop.
   }
 }
 

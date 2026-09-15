@@ -44,7 +44,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(ONBOARDING_KEY, '1');
     } catch {
-      // Non-fatal. Proceed to the app regardless.
+      // Continue without persisting the completion flag.
     }
     setOnboarded(true);
   }, []);

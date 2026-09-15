@@ -58,7 +58,6 @@ export function TransactionsPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Quick Add navigates to /transactions?add=1. Open the form once, then clear.
   const [formOpen, setFormOpen] = React.useState(false);
   const [formType, setFormType] = React.useState<'income' | 'expense'>('expense');
   const [editing, setEditing] = React.useState<Transaction | null>(null);
@@ -113,7 +112,7 @@ export function TransactionsPage() {
         setItems((prev) => (append ? [...prev, ...res.items] : res.items));
         setPage(res.page);
         setHasMore(res.page * PAGE_SIZE + res.items.length < res.total);
-        // A new search/filter starts a fresh tick selection.
+        // Reset bulk selection when the query starts over.
         if (!append) setSelectedIds(new Set());
       } catch (err) {
         setError(err instanceof Error ? err.message : t('errors.loadTransactions'));
@@ -129,7 +128,6 @@ export function TransactionsPage() {
     void load(0, false);
   }, [load]);
 
-  // Handle the ?add=1 deep link exactly once.
   React.useEffect(() => {
     if (searchParams.get('add') === '1') {
       setEditing(null);
@@ -141,7 +139,6 @@ export function TransactionsPage() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Client-side search, since the backend has no `q` filter. Matches legacy behavior.
   const visible = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
@@ -193,8 +190,6 @@ export function TransactionsPage() {
     setDeleting(true);
     try {
       await Promise.all(ids.map((id) => deleteTransaction(id)));
-      // Close first so the dialog's count stays put while it animates out;
-      // the reload below resets the tick selection.
       setBulkConfirmOpen(false);
       await refreshAll();
       toast({
@@ -327,11 +322,9 @@ export function TransactionsPage() {
   };
   const searching = query.trim().length > 0;
 
-  // Row ticks for bulk deletion; the header box mirrors the rows in view.
   const allSelected = visible.length > 0 && visible.every((tx) => selectedIds.has(tx.id));
   const someSelected = !allSelected && visible.some((tx) => selectedIds.has(tx.id));
 
-  // Phones show the list under month headings ("SEPTEMBER 2026").
   const monthGroups = React.useMemo(
     () => groupTransactionsByMonth(visible, monthNames),
     [visible, monthNames],
@@ -353,7 +346,6 @@ export function TransactionsPage() {
               <Download className="h-4 w-4" />
               <span className="max-md:hidden">{t('transactions.export')}</span>
             </Button>
-            {/* The FAB covers "new transaction" on phones. */}
             <Button className="max-md:hidden" onClick={() => openCreate('expense')}>
               <Plus className="h-4 w-4" />
               {t('transactions.newTransaction')}
@@ -371,11 +363,9 @@ export function TransactionsPage() {
       <div className="grid gap-4 md:gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex min-w-0 flex-col gap-4 md:gap-6">
 
-          {/* Search + filters: their own box, above the table. */}
           {(items.length > 0 || hasFilters || searching) && (
             <Card className="shadow-card">
               <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-3 md:p-5">
-                {/* Search — on phones the only control until the filter toggle. */}
                 <div className="flex min-w-0 items-center gap-2 md:max-w-xs md:flex-1">
                   <div className="relative min-w-0 flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -399,7 +389,6 @@ export function TransactionsPage() {
                   </Button>
                 </div>
 
-                {/* Type + category share the search's row on desktop. */}
                 <div
                   className={cn(
                     'flex flex-col gap-2 md:flex-row md:items-center md:gap-2',
@@ -437,7 +426,6 @@ export function TransactionsPage() {
                   )}
                 </div>
 
-                {/* The whole range is one labelled control, last on the right. */}
                 <div className={cn('flex md:ml-auto', !mobileFiltersOpen && 'max-md:hidden')}>
                   <DateRangeField
                     startDate={startDate}
@@ -451,7 +439,6 @@ export function TransactionsPage() {
                 </div>
               </div>
 
-              {/* Phones: quick type chips, always available. */}
               <div className="flex items-center gap-2 px-4 pb-4 md:hidden">
                 <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-0.5">
                   {TYPE_CHIPS.map((chip) => (
@@ -485,7 +472,6 @@ export function TransactionsPage() {
             </Card>
           )}
 
-          {/* Results */}
           <Card className="overflow-hidden shadow-card">
             {selectedIds.size > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-primary/5 px-4 py-2.5 md:px-5">
@@ -554,7 +540,6 @@ export function TransactionsPage() {
               </div>
             ) : (
               <>
-                {/* Phones: grouped list with month headings */}
                 <div className="md:hidden">
                   {monthGroups.map((group) => (
                     <section key={group.key}>
@@ -589,7 +574,6 @@ export function TransactionsPage() {
                   ))}
                 </div>
 
-                {/* Desktop: table */}
                 <div className="hidden md:block">
                   <Table className="[&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-7 [&_th:last-child]:pr-7">
                     <TableHeader>
@@ -719,13 +703,11 @@ export function TransactionsPage() {
           </Card>
         </div>
 
-        {/* Month summary + where the money went, beside the table. */}
         <div className="min-w-0">
           <TransactionsSidebar />
         </div>
       </div>
 
-      {/* Add / edit dialog */}
       <TransactionForm
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -741,7 +723,6 @@ export function TransactionsPage() {
         }}
       />
 
-      {/* Delete confirmation */}
       <ConfirmDialog
         open={pendingDelete !== null}
         title={t('transactions.deleteTitle')}
@@ -759,7 +740,6 @@ export function TransactionsPage() {
         onCancel={() => setPendingDelete(null)}
       />
 
-      {/* Bulk delete confirmation */}
       <ConfirmDialog
         open={bulkConfirmOpen}
         title={t('transactions.bulkDeleteTitle')}

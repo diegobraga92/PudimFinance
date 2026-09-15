@@ -230,7 +230,7 @@ export function RootLayout() {
         await syncSilently();
         void refreshWidgetSpentToday();
       } catch {
-        // Non-fatal.
+        // The local mirror remains available when sync fails.
       }
     };
     void run();
@@ -268,7 +268,6 @@ export function RootLayout() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-screen flex-col overflow-hidden bg-background">
-        {/* Desktop top navigation */}
         <header className="relative z-30 flex h-[68px] shrink-0 items-center gap-3 border-b border-border bg-surface px-4 lg:gap-5 lg:px-6 max-md:hidden">
           <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
@@ -347,7 +346,6 @@ export function RootLayout() {
           </div>
         </header>
 
-        {/* Android app bar */}
         <MobileTopBar
           titleKey={mobileTitle}
           isRoot={mobileIsRoot}
@@ -359,7 +357,6 @@ export function RootLayout() {
         {/* Routed content. Extra bottom room on phones for the tab bar + FAB. */}
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="px-4 pb-28 pt-4 sm:px-6 md:pb-12 md:pt-6 lg:px-8 lg:pt-7">
-            {/* Remounts per route, so navigating away clears a crashed screen. */}
             <ErrorBoundary key={pathname}>
               <Outlet />
             </ErrorBoundary>

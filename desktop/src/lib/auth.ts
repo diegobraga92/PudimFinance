@@ -48,8 +48,6 @@ function notify(): void {
   }
 }
 
-// Storage primitives. Keyring first, localStorage as fallback and migration.
-
 export async function storeGet(key: string): Promise<string | null> {
   if (isTauri()) {
     try {
@@ -87,7 +85,7 @@ export async function storeSet(key: string, value: string): Promise<void> {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // Non-fatal.
+    // localStorage is optional in restricted webviews.
   }
 }
 
@@ -103,11 +101,9 @@ export async function storeDelete(key: string): Promise<void> {
   try {
     localStorage.removeItem(key);
   } catch {
-    // Non-fatal.
+    // localStorage is optional in restricted webviews.
   }
 }
-
-// Public API
 
 /** Loads the session into the in-memory cache (idempotent). */
 export async function loadSession(): Promise<void> {

@@ -97,7 +97,6 @@ export function CategoryBudgetsCard({
         </div>
       ) : (
         <>
-          {/* Column headings (desktop) */}
           <div
             className={cn(
               'hidden border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-dim lg:grid lg:grid-cols-[minmax(0,2fr)_0.9fr_0.9fr_1.5fr_1fr_2.5rem] lg:gap-4',
@@ -155,7 +154,6 @@ function BudgetRow({
   return (
     <li className="transition-colors hover:bg-primary/[0.045]">
       <div className={cn('flex flex-col gap-2.5 px-4 py-3', ROW_COLUMNS)}>
-        {/* Category */}
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md text-base"
@@ -182,13 +180,11 @@ function BudgetRow({
           </span>
         </div>
 
-        {/* Spent */}
         <div className="flex items-center justify-between text-sm lg:block lg:text-right">
           <span className="text-xs text-dim lg:hidden">{t('budgets.table.spent')}</span>
           <span className="font-medium tabular-nums">{formatMoney(item.actual_spent)}</span>
         </div>
 
-        {/* Limit */}
         <div className="flex items-center justify-between text-sm lg:block lg:text-right">
           <span className="text-xs text-dim lg:hidden">{t('budgets.table.limit')}</span>
           <span className="font-medium tabular-nums text-muted-foreground">
@@ -196,7 +192,6 @@ function BudgetRow({
           </span>
         </div>
 
-        {/* Progress */}
         <div className="flex items-center gap-2">
           <Progress
             value={Math.min(pct, 100)}
@@ -213,7 +208,6 @@ function BudgetRow({
           </span>
         </div>
 
-        {/* Remaining */}
         <div className="flex items-center justify-between text-sm lg:block lg:text-right">
           <span className="text-xs text-dim lg:hidden">{t('budgets.remaining')}</span>
           <span
@@ -226,7 +220,6 @@ function BudgetRow({
           </span>
         </div>
 
-        {/* Actions */}
         <div className="flex justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

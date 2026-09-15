@@ -98,7 +98,6 @@ export function AccountDetail({ account, categories, open, onClose }: Props) {
           </p>
         ) : (
           <div className="space-y-6">
-            {/* Monthly summary */}
             <section>
               <h4 className="mb-2 text-sm font-semibold">{t('accounts.detail.monthlySummary')}</h4>
               {!hasActivity ? (
@@ -142,7 +141,6 @@ export function AccountDetail({ account, categories, open, onClose }: Props) {
               )}
             </section>
 
-            {/* Transactions */}
             <section>
               <h4 className="mb-2 text-sm font-semibold">{t('accounts.detail.transactions')}</h4>
               {transactions.length === 0 ? (

@@ -1,123 +1,81 @@
-# Runbook — Deployment
+# Deployment runbook
 
-> How to deploy and operate the PudimFinance stack.
-> Layer 4: Deployment.
-
----
+The supported deployment is Docker Compose on a host reachable by the clients.
+The Terraform directory is a separate, incomplete AWS foundation; it does not
+replace this runbook.
 
 ## Prerequisites
 
-- Docker + Docker Compose (v2)
-- Ports available: 5432 (PG), 5672 (RMQ), 15672 (RMQ mgmt), 3000 (backend), 5173 (web), 9090 (Prometheus), 3001 (Grafana)
+- Docker and Docker Compose v2
+- Available host ports, or values configured in `.env`
+- A persistent backup destination
+- HTTPS/reverse-proxy controls before exposing the service to the internet
 
----
-
-## Full Stack Startup
+## Start
 
 ```bash
+cp .env.example .env
+$EDITOR .env
 docker compose up -d --build
 ```
 
-This starts, in order:
-1. `postgres` (wait for healthy)
-2. `rabbitmq` (wait for healthy)
-3. `backend` (runs DB migrations on startup, connects RMQ)
-4. `web` (nginx serving the `desktop/` frontend as a SPA, proxying `/api` + `/health` to the backend)
-5. `prometheus` (scrapes backend:3000/metrics)
-6. `grafana` (provisioned datasource + dashboard)
-
-### Verify
+Compose starts PostgreSQL and RabbitMQ, then the backend, browser client,
+Prometheus, and Grafana. Verify the services:
 
 ```bash
-# Health
-curl -s http://localhost:3000/health | jq .
-# Expect: {"status":"ok","database":"connected","rabbitmq":"connected",...}
-
-# Web client (SPA shell served, same-origin API proxy)
-curl -s http://localhost:5173 | grep -i 'id="root"'
-curl -s http://localhost:5173/health | jq .
-
-# Metrics
-curl -s http://localhost:3000/metrics | grep pudim_
-
-# Grafana (login admin/admin)
-open http://localhost:3001
+docker compose ps
+curl -fsS http://localhost:3000/health | jq .
+curl -fsS http://localhost:5173 | grep 'id="root"'
+curl -fsS http://localhost:3000/metrics | grep pudim_
 ```
 
----
+The default local ports are 3000 (backend), 5173 (web), 5432 (PostgreSQL),
+5672/15672 (RabbitMQ), 9090 (Prometheus), and 3001 (Grafana). Set `BACKEND_PORT`,
+`WEB_PORT`, `PG_PORT`, `RABBIT_PORT`, `RABBIT_MGMT_PORT`, `PROMETHEUS_PORT`, and
+`GRAFANA_PORT` to avoid conflicts.
 
-## First-Run Setup
+## First account
 
-After first start, a database is created with migrations. Register an admin user:
+Register through the client or API:
 
 ```bash
-# Register a user (first user gets role 'user'; promote to admin manually if needed)
-curl -s -X POST http://localhost:3000/api/auth/register \
+curl -fsS -X POST http://localhost:3000/api/auth/register \
   -H 'Content-Type: application/json' \
-  -d '{"email":"admin@example.com","password":"changeme123","display_name":"Admin"}'
-
-# Promote to admin (via psql)
-docker compose exec postgres psql -U pudim -d pudimfinance \
-  -c "UPDATE users SET role='admin' WHERE email='admin@example.com';"
+  -d '{"email":"user@example.com","password":"change-this-password"}'
 ```
 
----
+The first registered user is not automatically an admin. Promote an account
+only through a controlled database operation when admin access is required.
 
-## Backup
+## Backups
 
-Automated daily backups via `scripts/backup.sh`:
+Create a dump manually or from an external scheduler:
+
 ```bash
 ./scripts/backup.sh
 ```
-This dumps `transactions`, `categories`, `budgets`, `ledger_entries`, `events`,
-`stores`, `receipts` etc. into `backups/` with a timestamp.
 
----
+The script writes `backups/pudimfinance-<timestamp>.sql`. Protect the directory,
+apply retention/encryption outside the repository, and test restores with
+[`docs/runbooks/db-recovery.md`](db-recovery.md).
 
-## Shutdown
+## Shutdown and upgrade
 
 ```bash
-docker compose down          # stop containers (keep volume)
-docker compose down -v       # destroy volume (DANGER: loses data)
+docker compose down       # stop containers, preserve volumes
+docker compose up -d --build
 ```
 
----
-
-## Scaling Notes
-
-- Single instance is the target for this personal finance app.
-- For higher scale: move PostgreSQL to managed RDS, RabbitMQ to managed broker,
-  and run the backend behind a load balancer with multiple replicas.
-
----
-
-## Environment Variables
-
-| Variable | Default | Required |
-|----------|---------|----------|
-| `DATABASE_URL` | — | ✅ |
-| `RABBITMQ_URL` | `amqp://pudim:pudim@localhost:5672` | — (falls back to log-only) |
-| `JWT_SECRET` | `dev-secret-change-me-in-production` | ⚠️ Change in prod |
-| `GOOGLE_CLIENT_IDS` | — | — (comma-separated Android/Desktop/server-audience OAuth client IDs) |
-| `GOOGLE_CLIENT_SECRET_CLIENT_ID` | — | — (exact client ID paired with the confidential-client secret) |
-| `GOOGLE_CLIENT_SECRET` | — | ⚠️ Set only in the ignored deployment `.env` when the Desktop client requires it |
-| `SERVER_HOST` | `0.0.0.0` | — |
-| `SERVER_PORT` | `3000` | — |
-| `RUST_LOG` | `backend=debug,tower_http=debug` | — |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | — |
-| `VITE_API_BASE_URL` | *empty* → same-origin via the nginx proxy | — (baked into the web bundle when the image is built) |
-| `WEB_PORT` | `5173` | — (web client host port) |
-
----
+Do not use `docker compose down -v` unless the database volume is intentionally
+being destroyed and a restore path has been verified.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| Backend can't connect to DB | Ensure `postgres` is healthy: `docker compose ps`; check `DATABASE_URL` |
-| Backend can't connect to RMQ | App still works (events skipped); `docker compose restart rabbitmq` |
-| CORS errors in web | Serve the SPA through the `web` service (empty `VITE_API_BASE_URL` = same-origin nginx proxy). If the bundle was baked to an absolute URL, that origin must be reachable/allowed |
-| Web client says the backend is unreachable | The `web` container resolves `backend` by service name: check `docker compose ps` and `curl http://localhost:5173/health` |
-| Old SPA still on :5173 | Remove the pre-Tauri `web` container: `docker compose down --remove-orphans`, then `up --build` |
-| Migrations fail | Run `docker compose exec backend /app/backend` once; check `backend/migrations/` |
-| `/metrics` empty | Backend metrics recorder registered on startup; hit `curl localhost:3000/metrics` |
+| Symptom | Check |
+|---|---|
+| Backend cannot connect to PostgreSQL | `docker compose ps`; `DATABASE_URL`; PostgreSQL health logs |
+| RabbitMQ unavailable | `docker compose logs rabbitmq backend`; writes should still commit |
+| Browser cannot reach API | Use the Compose `web` service or verify `VITE_API_BASE_URL` was baked into the build |
+| Port conflict | Set the host-port variables in `.env` |
+| Migration failure | Inspect `docker compose logs backend` and `backend/migrations/` |
+| Empty metrics | Query `http://localhost:3000/metrics`; Prometheus uses `backend:3000/metrics` internally |

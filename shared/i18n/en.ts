@@ -1,21 +1,11 @@
-/**
- * English translation dictionary. It is the source of truth for every user-facing string
- * in the web and mobile apps. Flat dotted keys so both Vite and Metro can import
- * this module with zero bundler configuration.
- *
- * Interpolation uses `{placeholder}` tokens, substituted by the `t()` helper
- * (e.g. `t('common.appliesTo', { month, year })`). Pluralization is handled by
- * picking the right key in the caller (`..._one` / `..._other`).
- */
+/** Canonical user-facing strings shared by the web and mobile clients. */
 export const en = {
-  // ---- App shell ----------------------------------------------------------
   'app.name': 'PudimFinance',
   'app.footer': 'PudimFinance • Personal finance tracking',
   'app.language': 'Language',
   'app.languageEn': 'English',
   'app.languagePt': 'Português (Brasil)',
 
-  // ---- Common --------------------------------------------------------------
   'common.loading': 'Loading…',
   'common.retry': 'Retry',
   'common.cancel': 'Cancel',
@@ -80,7 +70,6 @@ export const en = {
   'common.bill': 'Bill {amount}',
   'common.of': 'of',
 
-  // ---- Navigation ----------------------------------------------------------
   'nav.dashboard': 'Dashboard',
   'nav.transactions': 'Transactions',
   'nav.accounts': 'Accounts',
@@ -132,14 +121,12 @@ export const en = {
   'nav.ariaCloseMenu': 'Close menu',
   'nav.ariaOpenMenu': 'Open menu',
 
-  // ---- Header / a11y -------------------------------------------------------
   'header.signedInAs': 'Signed in as {email} — click to sign out',
   'header.addTransaction': 'Add transaction',
   'header.darkMode': 'Switch to dark mode',
   'header.lightMode': 'Switch to light mode',
   'header.loadingAria': 'Loading',
 
-  // ---- Login ---------------------------------------------------------------
   'login.subtitle': 'Sign in to your personal finance dashboard',
   'login.registerSubtitle': 'Create an account to start tracking your money',
   'login.displayName': 'Display name (optional)',
@@ -163,7 +150,6 @@ export const en = {
   'login.googleUnavailable': 'Google sign-in is unavailable on this server',
   'common.or': 'or',
 
-  // ---- Dashboard -----------------------------------------------------------
   'dashboard.greetingMorning': 'Good morning, {name}!',
   'dashboard.greetingAfternoon': 'Good afternoon, {name}!',
   'dashboard.greetingEvening': 'Good evening, {name}!',
@@ -211,7 +197,6 @@ export const en = {
   'dashboard.budgetAlertMore_one': '{count} more budget at/over 80% · ',
   'dashboard.budgetAlertMore_other': '{count} more budgets at/over 80% · ',
 
-  // ---- Transactions ---------------------------------------------------------
   'transactions.title': 'Transactions',
   'transactions.subtitle': 'Track, filter and edit every income and expense.',
   'transactions.newTransaction': 'Add transaction',
@@ -307,7 +292,6 @@ export const en = {
   'transactions.bulkDeleted_one': '{count} transaction deleted',
   'transactions.bulkDeleted_other': '{count} transactions deleted',
 
-  // ---- Accounts --------------------------------------------------------------
   'accounts.title': 'Accounts',
   'accounts.new': '+ New Account',
   'accounts.search': 'Search accounts…',
@@ -446,7 +430,6 @@ export const en = {
   'accounts.detail.viewExpenses': 'Expenses & monthly summary',
   'accounts.detail.lastMonths': 'Last {count} months',
 
-  // ---- Categories -----------------------------------------------------------
   'categories.title': 'Categories',
   'categories.subtitle': 'Organize your income and expenses.',
   'categories.expensesSectionBlurb': 'Where your money goes.',
@@ -499,7 +482,6 @@ export const en = {
   'categories.deleteMessage':
     'This will permanently remove the category. It can only be deleted if no transactions use it.',
 
-  // ---- Budgets ----------------------------------------------------------------
   'budgets.title': 'Budgets',
   'budgets.subtitle': 'Set monthly spending limits per category',
   'budgets.add': '+ Add Budget',
@@ -541,7 +523,6 @@ export const en = {
   'budgets.failedDelete': 'Failed to delete budget',
   'budgets.failedLoad': 'Failed to load budgets',
 
-  // ---- Budgets & Categories (unified screen) -------------------------------
   'budgets.pageTitle': 'Budgets & Categories',
   'budgets.pageSubtitle': 'Plan your spending and organize where your money goes.',
   'budgets.addBudget': 'Add budget',
@@ -589,7 +570,6 @@ export const en = {
   'budgets.form.overallHint':
     'One spending limit for {period}, on top of the category budgets.',
 
-  // ---- Credit cards -----------------------------------------------------------
   'creditCards.title': 'Credit Cards',
   'creditCards.dating.title': 'Card expense dating',
   'creditCards.dating.desc':
@@ -643,7 +623,6 @@ export const en = {
   'creditCards.failedLoad': 'Failed to load credit cards',
   'creditCards.failedLoadInstallments': 'Failed to load installments',
 
-  // ---- Ledger ----------------------------------------------------------------
   'ledger.title': 'Accounting Ledger',
   'ledger.subtitle': 'Inspect the double-entry records behind your financial activity.',
   'ledger.searchPlaceholder': 'Search ledger…',
@@ -694,7 +673,6 @@ export const en = {
   'ledger.validation.fill': 'Fill in description, both accounts and a positive amount',
   'ledger.validation.different': 'Debit and credit accounts must be different',
 
-  // ---- Receipts ---------------------------------------------------------------
   'receipts.title': 'Receipt Scanner',
   'receipts.subtitle': 'Paste an NFC-e QR code to parse its receipt data (no OCR).',
   'receipts.scanQr': 'Scan NFC-e QR',
@@ -746,7 +724,6 @@ export const en = {
   'receipts.mergeSource': 'Merge into (source)',
   'receipts.merge': 'Merge',
 
-  // ---- Receipts & price tracking (redesigned screen) ------------------------
   'receipts.pageTitle': 'Receipts',
   'receipts.pageSubtitle':
     'Scan, store and analyze your receipts. Track prices and make smarter purchasing decisions.',
@@ -920,7 +897,6 @@ export const en = {
     'Merge two entries that describe the same product. Prices and items move to the one you keep.',
   'common.remove': 'Remove',
 
-  // ---- Reconciliation ----------------------------------------------------------
   'recon.title': 'Reconciliation',
   'recon.subtitle': 'Match your bank statement with your PudimFinance transactions.',
   'recon.uploadTitle': 'Upload bank statement',
@@ -1000,7 +976,6 @@ export const en = {
   'recon.failedFile': 'Failed to upload statement file',
   'recon.bankStatement': 'Bank Statement',
 
-  // ---- Audit --------------------------------------------------------------------
   'audit.title': 'Audit Log',
   'audit.subtitle': 'Immutable system event history.',
   'audit.adminTitle': 'Admin access required',
@@ -1024,7 +999,6 @@ export const en = {
   'audit.eventAria': '{type} event',
   'audit.failedLoad': 'Failed to load audit events',
 
-  // ---- Reports ------------------------------------------------------------------
   'reports.title': 'Reports & Insights',
   'reports.loading': 'Loading reports…',
   'reports.overview': 'Monthly Overview',
@@ -1060,7 +1034,6 @@ export const en = {
   'reports.failedLoad': 'Failed to load reports',
   'reports.currentMonth': 'Current month',
 
-  // ---- Server / settings ----------------------------------------------------------
   'server.title': 'Server',
   'server.backendAddress': 'Backend address',
   'server.hint':
@@ -1081,7 +1054,6 @@ export const en = {
   'server.failedSave': 'Failed to save server',
   'server.addressRequired': 'Server address cannot be empty',
 
-  // ---- Notifications -----------------------------------------------------------
   'notifications.title': 'Notification Capture',
   'notifications.permissionDenied':
     'Notification access was denied. Enable it in your device settings to capture transactions automatically.',
@@ -1149,7 +1121,6 @@ export const en = {
   'notifications.fromApp': 'From {app}',
   'notifications.undo': 'Undo',
 
-  // ---- Offline --------------------------------------------------------------------
   'offline.offline': '🔴 Offline',
   'offline.pending_one': '🔴 Offline — {count} change pending',
   'offline.pending_other': '🔴 Offline — {count} changes pending',
@@ -1157,7 +1128,6 @@ export const en = {
   'offline.syncPending_one': '🟢 {count} change pending — tap to sync',
   'offline.syncPending_other': '🟢 {count} changes pending — tap to sync',
 
-  // ---- Onboarding ------------------------------------------------------------------
   'onboarding.skip': 'Skip',
   'onboarding.next': 'Next',
   'onboarding.getStarted': 'Get Started',
@@ -1171,13 +1141,11 @@ export const en = {
   'onboarding.step3Desc':
     'Unlock the app with Face ID or fingerprint. Search, export to CSV, and reconcile bank statements whenever you need.',
 
-  // ---- Biometric lock ----------------------------------------------------------------
   'biometric.promptMessage': 'Unlock PudimFinance',
   'biometric.lockedTitle': 'PudimFinance is locked',
   'biometric.lockedSubtitle': 'Authenticate to view your finances',
   'biometric.unlock': 'Unlock',
 
-  // ---- Quick add --------------------------------------------------------------------
   'quickAdd.income': 'Income',
   'quickAdd.expense': 'Expense',
   'quickAdd.incomeDescription': 'Income description…',
@@ -1192,16 +1160,13 @@ export const en = {
   'quickAdd.quick': 'Quick {type}',
   'quickAdd.plus': '+ {type}',
 
-  // ---- Toast / Snackbar ---------------------------------------------------------------
   'toast.notifications': 'Notifications',
   'toast.dismissNotification': 'Dismiss notification',
   'toast.dismiss': 'Dismiss',
 
-  // ---- Confirm dialog defaults ---------------------------------------------------------
   'confirm.cancel': 'Cancel',
   'confirm.delete': 'Delete',
 
-  // ---- Fallback load errors (web) -------------------------------------------------------
   'errors.loadData': 'Failed to load data',
   'errors.loadCategories': 'Failed to load categories',
   'errors.loadAccounts': 'Failed to load accounts',

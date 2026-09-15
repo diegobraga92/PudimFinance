@@ -2,21 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---------------------------------------------------------------------------
- * PudimFinance design tokens.
- *
- * Colors are RGB triplets consumed by Tailwind via `rgb(var(--token) / alpha)`.
- * The `.dark` class on <html> swaps every token in one pass, so the same
- * semantic name (`success`, `danger`, `surface`, ...) works in both themes.
- *
- * Spacing follows Tailwind's default 4px scale (1→4px … 12→48px); the dashboard
- * uses 16px between cards and 20px of internal card padding.
- * ------------------------------------------------------------------------- */
+/* Shared RGB design tokens; `.dark` swaps the theme values. */
 :root {
-  /* Native controls (select, date pickers, scrollbars) follow the light theme. */
   color-scheme: light;
-  --background: 246 249 253; /* soft blue-tinted paper */
-  --foreground: 15 23 42; /* slate-900 ink */
+  --background: 246 249 253;
+  --foreground: 15 23 42;
   --surface: 255 255 255;
   --surface-elevated: 255 255 255;
   --surface-hover: 241 245 249;
@@ -25,24 +15,24 @@
   --muted: 241 245 249;
   --muted-foreground: 100 116 139;
   --dim: 148 163 184;
-  --primary: 5 150 105; /* emerald-600 */
-  --primary-hover: 4 120 87; /* emerald-700 */
+  --primary: 5 150 105;
+  --primary-hover: 4 120 87;
   --primary-foreground: 255 255 255;
-  --accent: 209 250 229; /* emerald-100 */
-  --accent-foreground: 6 78 59; /* emerald-900 */
-  --destructive: 220 38 38; /* red-600 */
+  --accent: 209 250 229;
+  --accent-foreground: 6 78 59;
+  --destructive: 220 38 38;
   --destructive-foreground: 255 255 255;
-  --ring: 16 185 129; /* emerald-500 */
-  --income: 5 150 105; /* emerald-600 */
-  --expense: 220 38 38; /* red-600 */
-  --warning: 180 83 9; /* amber-700 */
-  --success: 5 150 105; /* emerald-600 */
+  --ring: 16 185 129;
+  --income: 5 150 105;
+  --expense: 220 38 38;
+  --warning: 180 83 9;
+  --success: 5 150 105;
   --success-foreground: 255 255 255;
-  --danger: 220 38 38; /* red-600 */
+  --danger: 220 38 38;
   --danger-foreground: 255 255 255;
-  --purple: 124 58 237; /* violet-600 */
-  --info: 37 99 235; /* blue-600 — charts only */
-  --radius: 1rem; /* 16px — major cards */
+  --purple: 124 58 237;
+  --info: 37 99 235;
+  --radius: 1rem;
   --shadow-card: 0 2px 12px -4px rgb(15 23 42 / 0.12);
 }
 
@@ -50,33 +40,33 @@
   /* Without this, native `<select>`/date controls keep the light UA look and
    * render as white boxes inside dialogs even though `bg-surface` is dark. */
   color-scheme: dark;
-  --background: 11 14 20; /* #0B0E14 */
-  --foreground: 226 232 240; /* #E2E8F0 */
-  --surface: 21 26 34; /* #151A22 */
-  --surface-elevated: 24 30 39; /* #181E27 */
-  --surface-hover: 28 34 45; /* #1C222D */
-  --border: 35 42 53; /* #232A35 */
-  --input: 45 55 72; /* #2D3748 */
-  --muted: 28 34 45; /* #1C222D */
-  --muted-foreground: 148 163 184; /* #94A3B8 */
-  --dim: 100 116 139; /* #64748B */
-  --primary: 16 185 129; /* #10B981 */
-  --primary-hover: 5 150 105; /* #059669 */
-  --primary-foreground: 11 14 20; /* #0B0E14 */
-  --accent: 45 55 72; /* #2D3748 — active pill */
+  --background: 11 14 20;
+  --foreground: 226 232 240;
+  --surface: 21 26 34;
+  --surface-elevated: 24 30 39;
+  --surface-hover: 28 34 45;
+  --border: 35 42 53;
+  --input: 45 55 72;
+  --muted: 28 34 45;
+  --muted-foreground: 148 163 184;
+  --dim: 100 116 139;
+  --primary: 16 185 129;
+  --primary-hover: 5 150 105;
+  --primary-foreground: 11 14 20;
+  --accent: 45 55 72;
   --accent-foreground: 226 232 240;
-  --destructive: 239 68 68; /* #EF4444 */
+  --destructive: 239 68 68;
   --destructive-foreground: 250 250 250;
   --ring: 16 185 129;
-  --income: 16 185 129; /* #10B981 */
-  --expense: 239 68 68; /* #EF4444 */
-  --warning: 245 158 11; /* #F59E0B */
-  --success: 16 185 129; /* #10B981 */
+  --income: 16 185 129;
+  --expense: 239 68 68;
+  --warning: 245 158 11;
+  --success: 16 185 129;
   --success-foreground: 11 14 20;
-  --danger: 239 68 68; /* #EF4444 */
+  --danger: 239 68 68;
   --danger-foreground: 250 250 250;
-  --purple: 139 92 246; /* #8B5CF6 */
-  --info: 59 130 246; /* #3B82F6 — charts only */
+  --purple: 139 92 246;
+  --info: 59 130 246;
   --shadow-card: 0 4px 20px rgb(0 0 0 / 0.2);
 }
 
@@ -112,7 +102,6 @@
     @apply bg-primary/20 text-primary;
   }
 
-  /* Subtle themed scrollbars */
   * {
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--border)) transparent;
@@ -134,7 +123,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Reusable surface card */
   .card-surface {
     @apply rounded-lg border border-border bg-surface shadow-card;
   }

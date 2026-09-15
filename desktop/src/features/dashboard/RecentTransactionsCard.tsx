@@ -182,7 +182,6 @@ export function RecentTransactionsCard({
         )}
       </CardContent>
 
-      {/* Click-through: details first, then the shared edit form. */}
       <TransactionDetailsDialog
         transaction={selected}
         category={selected?.category_id ? categoryById.get(selected.category_id) : undefined}

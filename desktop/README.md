@@ -1,35 +1,30 @@
-# PudimFinance Desktop (Tauri 2)
+# PudimFinance client
 
-The unified PudimFinance client, replacing the previous `web/` (React SPA) and
-`mobile/` (React Native) frontends. A single codebase targets both **desktop**
-(Linux/macOS/Windows) and **Android** through Tauri 2. The UI is rebuilt from
-scratch on a new design system — it does not reuse the legacy UI code, only the
-shared non-visual modules (`shared/i18n`, `shared/category-icons`, the
-OpenAPI-generated types).
+The `desktop/` package contains the React frontend rendered by Tauri on desktop
+and Android, and served by nginx for the browser build. Native capabilities live
+in `src-tauri/`; shared translations and icon identifiers live in `../shared/`.
 
 ## Stack
 
-- **Shell**: Tauri 2 (Rust core + system webview) — desktop and Android
-- **UI**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn-style Radix primitives
-- **Data**: TanStack Query (server cache) + Zustand (client state) + React Router
-- **Charts**: Recharts
-- **Native (desktop)**: OS keyring (session tokens, `auth_store_*` commands)
-- **Native (Android)**: `pudim-android-native` plugin — `NotificationListenerService`
-  (bank push-notification capture), Android Keystore secure token storage,
-  `BiometricPrompt` lock, and the home-screen Quick Add widget
-- **Offline**: IndexedDB local mirror + sync engine (pending queue, pull/push,
-  circuit breaker)
+- Tauri 2 and Rust
+- React 18, TypeScript, Vite, Tailwind CSS
+- TanStack Query, Zustand, React Router
+- Radix primitives and Recharts
+- IndexedDB offline mirror and sync queue
+- Android plugin for notification capture, secure storage, biometrics, and widget support
 
 ## Development
 
 ```bash
 cd desktop
-npm install
-npm run dev            # Vite dev server on :1420 (frontend only)
-npm run tauri dev      # Tauri window + HMR (requires Linux system deps, see below)
+npm ci
+npm run dev
+npm run tauri dev
 ```
 
-### Linux system dependencies (Tauri build)
+The Vite server runs on port `1420`. The Tauri command requires the platform
+dependencies documented by the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+On Debian/Ubuntu, CI installs:
 
 ```bash
 sudo apt-get install libwebkit2gtk-4.1-dev build-essential curl wget file \
@@ -37,166 +32,89 @@ sudo apt-get install libwebkit2gtk-4.1-dev build-essential curl wget file \
   libgtk-3-dev libsoup-3.0-dev javascriptcoregtk-4.1-dev patchelf
 ```
 
-### Android target
+## Android
 
 ```bash
-npm run tauri android init      # generates src-tauri/gen/android (gitignored)
-python3 ../scripts/android-release-setup.py  # run after init; configures release build
-npm run tauri android build     # needs Android SDK + NDK + JDK 17
+npm run tauri android init
+python3 ../scripts/android-release-setup.py
+npm run tauri android build -- --target aarch64 --apk
 ```
 
-CI (`.github/workflows/desktop-ci.yml`) builds the Android app on an
-SDK-equipped runner (`tauri android init` + `tauri android build --target
-aarch64 --apk`), signs it and uploads the APK as the `pudimfinance-android-apk`
-workflow artifact. `../scripts/android-release-setup.py` injects the release
-config into the generated project (both `gen/android/keystore.properties` and
-`gen/android/app/build.gradle.kts` are gitignored and re-created by
-`android init`, so they cannot be committed): the upload keystore from the CI
-secrets (falling back to the debug keystore, so a build without the secret is
-still installable) and `usesCleartextTraffic=true`, without which Android blocks
-the `http://<lan-ip>:3000` calls the app targets. It also aligns the generated
-project's Kotlin Gradle plugin to 2.1.20, required by the Credential Manager
-dependencies. Google Sign-In on Android is implemented with Credential Manager
-in the native `pudim-android-native` plugin;
-configure the Android OAuth client for package `com.pudimfinance.app` and every
-APK signing certificate SHA-1, and keep the matching server audience in
-`google-oauth-clients.json` and the backend `GOOGLE_CLIENT_IDS`. See the root
-[README](../README.md#installing-the-android-app-ci-built-apk) for the secrets.
+`src-tauri/gen/android` is generated and ignored. The setup script injects
+release signing, the optional cleartext-HTTP policy, and the Kotlin version
+required by Credential Manager.
 
-### Regenerating API types
+CI builds the arm64 APK with the same commands and publishes the
+`pudimfinance-android-apk` artifact for main pushes and manual runs. See the
+root [Android release instructions](../README.md#android-release-builds) for
+signing secrets and OAuth configuration.
+
+## Browser build
+
+`desktop/Dockerfile.web` builds the frontend and `desktop/nginx.conf` serves it.
+The Compose `web` service uses an empty `VITE_API_BASE_URL`, so nginx proxies
+`/api`, `/health`, `/metrics`, `/swagger-ui`, and `/api-docs/` to `backend:3000`.
 
 ```bash
-npm run generate-types   # reads ../api/openapi/openapi.json → src/lib/api-types.ts
+docker compose up --build web
 ```
 
-## Web client (LAN server)
-
-The frontend doubles as a browser app: `desktop/Dockerfile.web` runs
-`npm ci && npm run build` and serves the static bundle with
-`desktop/nginx.conf`. The root `docker-compose.yml` wires it up as the `web`
-service (`WEB_PORT`, default `5173`) — it replaces the retired `web/` React SPA.
-
-- The bundle is built with an **empty** `VITE_API_BASE_URL`
-  (`src/lib/serverConfig.ts` treats that as *same-origin*), and nginx proxies
-  `/api`, `/health`, `/metrics`, `/swagger-ui` and `/api-docs/` to
-  `backend:3000`, so a browser on the LAN needs no server configuration.
-- Pass `VITE_API_BASE_URL=http://host:3000` as a build arg to bake direct API
-  calls instead (rebuild required when the address changes).
-- Browser-specific behaviour: `isTauri()` is false, so session tokens are kept
-  in `localStorage` instead of the OS keyring and every native bridge
-  (`src/notifications/native.ts`) no-ops, which makes the capture/biometric
-  screens show their "Android only" notice.
+To preview the static build without Docker:
 
 ```bash
-# From the repo root
-docker compose up --build web           # → http://localhost:5173
-
-# Without Docker (uses the local dev backend on :3000)
-npm run build && npm run preview -- --host
+npm run build
+npm run preview -- --host
 ```
 
-CI builds the image and smoke-tests the served SPA in the `web` job of
-`.github/workflows/desktop-ci.yml`.
+Browser mode uses `localStorage` for session persistence and disables native-only
+features with a user-visible Android-only message.
+
+## Generated API types
+
+The source contract is `../api/openapi/openapi.json`. Regenerate the generated
+TypeScript definitions after changing backend API annotations:
+
+```bash
+npm run generate-types
+```
 
 ## Verification
 
 ```bash
-npm run typecheck        # tsc -b
-npm run build            # tsc -b && vite build
-npm run tauri build      # full desktop bundle (deb/appimage/rpm on Linux)
-npm run test:offline     # offline-first smoke tests (fake-indexeddb + live backend)
+npm run lint
+npm run typecheck
+npm run build
+npm run test:offline
+npm run test:android
 ```
 
-CI: `.github/workflows/desktop-ci.yml` runs typecheck, frontend build, Rust
-clippy/rustfmt for the app and the plugin, the full `tauri build`, and the
-Android build — which also signs and uploads the APK as the
-`pudimfinance-android-apk` artifact.
+`test:offline` uses `fake-indexeddb` and requires a reachable backend. The
+Android smoke test server-side renders the shell and screens without a browser,
+backend, or emulator.
 
-## Layout
+Native Rust checks run separately:
 
-```
-src/
-├── app/                 # providers (i18n, theme, auth), router, shell (RootLayout)
-├── components/ui/       # design-system primitives (button, card, dialog, ...)
-├── features/            # one folder per screen (dashboard, transactions, ...)
-├── notifications/       # capture parser/settings/inbox + native bridge + provider
-├── offline/             # IndexedDB mirror, sync engine, connectivity probe
-└── lib/                 # api-types.ts (generated), api.ts (typed client), auth, utils
-src-tauri/               # Rust core + pudim-android-native plugin (Rust + Kotlin/Gradle)
+```bash
+cd src-tauri
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+
+cd plugins/pudim-android-native
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 ```
 
-## Migration status
+## Source layout
 
-| Phase | Scope | Status |
-|-------|-------|--------|
-| 1 | Scaffold (Tauri 2 + React/Vite/TS, design system, shell, API client, CI) | ✅ |
-| 2 | Design system + shell polish, i18n/theme | ✅ |
-| 3 | Auth + server settings (keyring tokens) | ✅ |
-| 4 | Core data (Transactions, Categories) | ✅ |
-| 5 | Money (Accounts, Credit Cards) | ✅ |
-| 6 | Insights (Budgets, Reports) | ✅ |
-| 7 | Power tools (Ledger, Reconciliation, Receipts, Audit) | ✅ |
-| 8 | Offline-first (IndexedDB mirror + sync engine) | ✅ |
-| 9 | Notification capture (Android), onboarding, Android target + token storage | ✅ |
-| 10 | Cutover (retire web/ + mobile/, Android CI) | ✅ |
+```text
+src/app/             providers, router, and application shell
+src/components/      reusable UI and design-system primitives
+src/features/        screen-specific components and state
+src/notifications/   capture parser, inbox, provider, native bridge
+src/offline/         IndexedDB mirror, connectivity probe, sync engine
+src/lib/             API client, auth, server config, utilities
+src-tauri/            Rust core and Android plugin
+```
 
-## Backend fixes (pre-existing bugs found & fixed while validating)
-
-- `transaction_ledger.rs` — `resolve_posting_account` decoded the nullable
-  `categories.ledger_account_id` as a non-`Option<Uuid>` (sqlx `fetch_optional`
-  already wraps in `Option`), so **creating any transaction with a category
-  returned 500** ("unexpected null"). Fixed with
-  `query_scalar::<_, Option<Uuid>>(...)` + `.flatten()`.
-- `routes/transactions.rs` — `delete_transaction` didn't remove the
-  `installment_transactions` FK rows, so **deleting an installment transaction
-  returned 500**. Fixed by unlinking the schedule before the DELETE.
-
-These were required to validate the new Transactions flow end-to-end.
-
-## Notification capture (Android target)
-
-The Android build reads other apps' bank notifications through a native
-`NotificationListenerService` (the `pudim-android-native` Tauri plugin, ported
-from the retired Expo module). The user grants **Notification access**
-(Settings → Special app access → Notification access); notifications captured
-while the app runs are streamed to the webview, and notifications captured
-while it was killed are drained on the next launch. The parser/settings/inbox
-live in `src/notifications/` (Settings → Notification Capture; ask mode queues
-entries in **Pending review**). Desktop platforms have no equivalent OS API,
-so those screens render an "Android only" notice there.
-
-In ask mode, `NotificationCaptureProvider` also posts an import prompt through
-the plugin (`show_capture_prompt`): a heads-up notification with **Income /
-Debit / Credit** action buttons (`CapturePromptNotifier` +
-`CaptureActionReceiver`). A tapped action is delivered live via the
-`captureAction` event, or persisted in `PendingCaptureActions` and drained with
-`drain_capture_actions` when the app was dead. Debit and credit expenses post to
-the accounts chosen in the settings screen; the prompt is cancelled whenever the
-capture is imported or skipped from the in-app inbox.
-
-Because Android keeps a `NotificationListenerService` bound (and restarts it
-after process death), the listener posts the prompt itself when the webview is
-gone: `set_capture_settings` mirrors the settings to `CaptureSettingsStore`, the
-listener resolves the source app's label via `PackageManager`, checks for an
-amount, and embeds the raw notification in the action so the tap can be replayed
-on the next launch. Drained notifications carry a `capture_id`/`prompted` flag so
-each capture is only prompted once. (Foreground services can't help here — a
-Tauri webview needs an Activity, so the JS parser can't run in the background.)
-
-## Offline-first (Phase 8)
-
-- `src/offline/database.ts` — IndexedDB mirror (transactions/categories/accounts),
-  mutation queue and sync metadata. IndexedDB was chosen over a native SQLite
-  module because it keeps the whole offline layer in TypeScript (zero native
-  compile risk) while behaving identically in the Tauri webview and plain
-  browser dev.
-- `src/offline/net.ts` — circuit-breaker `/health` probe.
-- `src/offline/sync-engine.ts` — push pending mutations, pull changed rows,
-  single-flight sync, pending-count subscription.
-- `src/lib/api.ts` — the CRUD functions are offline-first: when the server is
-  unreachable they queue the mutation and update the mirror optimistically;
-  reads fall back to the mirror.
-- `src/components/OfflineBanner.tsx` — live offline/pending/syncing status.
-- Validation: `npm run test:offline` (fake-indexeddb) exercises the real
-  offline path against a live backend (offline create → sync → server, offline
-  delete → sync → server).
+The OpenAPI-generated `src/lib/api-types.ts` file should be regenerated rather
+than edited manually.

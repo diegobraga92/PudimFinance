@@ -1,102 +1,72 @@
-# Architecture — C4 Model
+# Architecture
 
-> C4 model diagrams for PudimFinance (Context, Container, Component).
-> Layer 4 final documentation.
+The diagrams describe the current Compose deployment and the runtime boundaries
+between the client, API, data stores, and observability services.
 
----
-
-## Level 1 — Context
+## Context
 
 ```mermaid
 graph TB
-    User[User] --> Client[PudimFinance Client<br/>desktop + Android app, or browser]
-    Client -->|HTTPS /api| API[PudimFinance API]
+    User[User] --> Client[PudimFinance client<br/>Tauri desktop/Android or browser]
+    Client -->|HTTP /api| API[PudimFinance API]
     API -->|SQL| Postgres[(PostgreSQL)]
     API -->|AMQP| RabbitMQ[(RabbitMQ)]
-    API -->|HTTP scrape| Prometheus[Prometheus]
-    Prometheus -->|scrape targets| API
-    Grafana[Grafana] -->|query| Prometheus
+    Prometheus[Prometheus] -->|scrape /metrics| API
+    Grafana[Grafana] -->|PromQL| Prometheus
 ```
 
----
-
-## Level 2 — Container
+## Containers
 
 ```mermaid
 graph LR
     subgraph Client
-        SPA[Web client<br/>desktop/ SPA · nginx:80]
-        TauriApp[Tauri 2 app<br/>desktop + Android]
+        SPA[Browser SPA<br/>nginx:80]
+        Tauri[Tauri 2 app<br/>desktop + Android]
     end
     subgraph Backend
-        Axum[Axum Server<br/>:3000]
+        API[Axum API<br/>:3000]
     end
     subgraph Data
         PG[(PostgreSQL<br/>:5432)]
         RMQ[(RabbitMQ<br/>:5672)]
     end
     subgraph Observability
-        Prom[Prometheus :9090]
-        Graf[Grafana :3001]
+        Prom[Prometheus<br/>:9090]
+        Graf[Grafana<br/>:3001]
     end
-    SPA -->|/api, /health<br/>same-origin proxy| Axum
-    TauriApp -->|/api, /health| Axum
-    Axum -->|ledger CRUD + migrations| PG
-    Axum -->|event publish| RMQ
-    Prom -->|/metrics scrape| Axum
-    Graf -->|PromQL| Prom
+    SPA -->|same-origin proxy| API
+    Tauri -->|/api| API
+    API --> PG
+    API --> RMQ
+    Prom -->|/metrics| API
+    Graf --> Prom
 ```
 
----
-
-## Level 3 — Component (Backend)
+## Backend components
 
 ```mermaid
 graph TB
-    subgraph Backend Components
-        Routes[Routes]
-        AuthMW[Auth Middleware]
-        RateLimit[Rate Limiter]
-        Ledger[Ledger Engine]
-        Receipts[Receipt Scanner]
-        Events[Event Publisher]
-        Audit[Audit Handler]
-        Metrics[Prometheus Metrics]
-    end
-    Routes --> AuthMW
-    AuthMW --> RateLimit
-    Routes --> Ledger
-    Routes --> Receipts
-    Routes --> Audit
-    Ledger --> Events
-    Events -->|deadpool-lapin| RMQ[(RabbitMQ)]
-    Ledger -->|sqlx| PG[(PostgreSQL)]
-    Receipts -->|NFC-e QR parse| ReceiptEngine[receipt_scanner]
-    Metrics -->|render| Prom[/metrics/]
+    Routes[Route handlers] --> Auth[JWT middleware]
+    Auth --> Rate[Write-endpoint rate limiter]
+    Routes --> Ledger[Ledger and transaction services]
+    Routes --> Receipts[Receipt parsers]
+    Routes --> Audit[Audit handlers]
+    Ledger --> PG[(PostgreSQL)]
+    Ledger --> Events[Event publisher]
+    Events --> RMQ[(RabbitMQ)]
+    Metrics[Prometheus recorder] --> Prom[/metrics/]
 ```
 
----
+## Compose services
 
-## Deployment (Docker Compose Services)
+| Service | Image/source | Host port | Role |
+|---|---|---:|---|
+| `postgres` | `postgres:16-alpine` | 5432 | Primary data store |
+| `rabbitmq` | `rabbitmq:3.13-management-alpine` | 5672, 15672 | Event broker and management UI |
+| `backend` | `backend/Dockerfile` | 3000 | API, migrations, metrics |
+| `web` | `desktop/Dockerfile.web` | 5173 | Browser SPA and same-origin proxy |
+| `prometheus` | `prom/prometheus:v2.53.0` | 9090 | Metrics storage |
+| `grafana` | `grafana/grafana:11.1.0` | 3001 | Provisioned dashboard |
 
-| Service | Image | Port(s) | Purpose |
-|---------|-------|---------|---------|
-| `postgres` | postgres:16-alpine | 5432 | Primary data store |
-| `rabbitmq` | rabbitmq:3.13-management | 5672, 15672 | Event broker |
-| `backend` | local (rust) | 3000 | Axum API + metrics |
-| `web` | local (nginx + `desktop/` build) | 5173→80 | Client SPA served to browsers; proxies `/api` + `/health` to the backend |
-| `prometheus` | prom/prometheus:v2.53 | 9090 | Metrics collection |
-| `grafana` | grafana/grafana:11.1 | 3001 | Dashboards |
-
----
-
-## Key Dependencies
-
-- **Axum** — HTTP framework
-- **sqlx** — async PostgreSQL (runtime-tokio, tls-rustls)
-- **lapin + deadpool-lapin** — AMQP client for event publishing
-- **jsonwebtoken + argon2** — auth
-- **metrics + metrics-exporter-prometheus** — observability
-- **utoipa** — OpenAPI generation
-- **recharts** — client charts
-- **Tauri 2 + React/Vite/Tailwind** — desktop + Android client (the same frontend is also served as the browser client)
+The AWS Terraform directory is intentionally separate and currently provides
+only a partial foundation. See [`../infra/README.md`](../infra/README.md).

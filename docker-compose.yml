@@ -59,8 +59,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Web client — the `desktop/` frontend built as a static SPA behind nginx
-  # (replaces the retired `web/` React SPA). Open http://<PUBLIC_HOST>:<WEB_PORT>.
+  # Web client — the `desktop/` frontend built as a static SPA behind nginx.
+  # Open http://<PUBLIC_HOST>:<WEB_PORT>.
   # The bundle is built with an empty VITE_API_BASE_URL, so the SPA talks to the
   # backend on the same origin: nginx proxies /api and /health to `backend:3000`.
   web:

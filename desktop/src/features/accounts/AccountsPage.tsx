@@ -288,7 +288,6 @@ export function AccountsPage() {
           />
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,1fr)]">
-            {/* One box holds the filters and every account group. */}
             <Card className="overflow-hidden shadow-card">
               <div className="flex flex-wrap items-center gap-3 border-b border-border p-4 md:p-5">
                 <div className="-mx-1 flex gap-1 overflow-x-auto rounded-md bg-muted p-1 px-1 max-md:w-full md:flex-wrap">
@@ -352,8 +351,6 @@ export function AccountsPage() {
               )}
             </Card>
 
-            {/* Sidebar: distribution, investments and shortcuts. Recent activity
-             * is not repeated here — the dashboard already shows it. */}
             <div className="flex flex-col gap-4">
               <AccountDistributionCard accounts={balanceSheet} loading={loading} />
               <InvestmentsSummaryCard accounts={balanceSheet} loading={loading} />

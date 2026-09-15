@@ -166,7 +166,6 @@ pub async fn rate_limit_middleware(
         .map(|s| s.split(',').next().unwrap_or("unknown").trim().to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
-    // Limits are per minute. Login is stricter to slow brute-force attempts.
     let (limit, window) = if path == "/api/auth/login" {
         (10, 60u64)
     } else {

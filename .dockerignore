@@ -3,12 +3,10 @@
 # so everything here would otherwise be uploaded to the Docker daemon on every
 # build.
 
-# VCS
 .git
 .github
 .gitignore
 
-# Rust build artifacts (backend/target alone is ~14 GB)
 backend/target/
 **/target/
 
@@ -16,7 +14,6 @@ backend/target/
 # (gen/ is the generated Android project, ~600 MB)
 desktop/src-tauri/
 
-# Node
 **/node_modules/
 **/dist/
 **/*.tsbuildinfo

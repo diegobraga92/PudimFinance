@@ -197,7 +197,6 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
                 </div>
               )}
             </div>
-
             {/* Recent purchases: the actual recorded prices (not averages). */}
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">{t('receipts.recentPurchases')}</h3>
@@ -233,7 +232,6 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
               )}
             </div>
 
-            {/* Where is it cheaper? */}
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">{t('receipts.cheaperTitle')}</h3>
               {byStore.length === 0 ? (

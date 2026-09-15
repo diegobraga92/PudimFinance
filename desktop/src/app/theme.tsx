@@ -39,7 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(THEME_KEY, next);
     } catch {
-      // Non-fatal.
+      // Keep the selected theme for the current session.
     }
     applyTheme(next);
   }, []);
@@ -50,7 +50,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       try {
         localStorage.setItem(THEME_KEY, next);
       } catch {
-        // Non-fatal.
+        // Keep the in-memory theme when storage is unavailable.
       }
       applyTheme(next);
       return next;

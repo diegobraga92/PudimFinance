@@ -265,7 +265,6 @@ export function BudgetsTab({
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2.1fr)_minmax(300px,1fr)]">
-        {/* Category limits */}
         <CategoryBudgetsCard
           items={items}
           loading={loading}
@@ -278,7 +277,6 @@ export function BudgetsTab({
           onViewCategory={onViewCategory}
         />
 
-        {/* Sidebar: distribution, alerts, shortcuts */}
         <div className="flex flex-col gap-4">
           <BudgetOverviewCard
             items={summaryQuery.data?.by_category ?? []}

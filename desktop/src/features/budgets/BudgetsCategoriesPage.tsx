@@ -105,7 +105,6 @@ export function BudgetsCategoriesPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-md:hidden">
           <h1 className="text-[30px] font-bold leading-tight tracking-[-0.02em]">
@@ -145,7 +144,6 @@ export function BudgetsCategoriesPage() {
         )}
       </div>
 
-      {/* Tabs + primary action */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 rounded-md bg-muted p-1" role="tablist">
           {(['budgets', 'categories'] as const).map((key) => (

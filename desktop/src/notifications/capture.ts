@@ -1,17 +1,4 @@
-/**
- * Notification to transaction capture for PudimFinance.
- *
- * The parsing/settings/review logic is target-agnostic and shared by both
- * Tauri targets. The *listening* is platform-specific.
- *
- *   On Android a native `NotificationListenerService` (Tauri Android plugin,
- *   `src-tauri/plugins/pudim-android-native`) observes other apps' bank
- *   notifications while the app is backgrounded or killed and forwards them to
- *   the webview via the `notification-captured` event. Desktop is not supported
- *   (no OS API to read other apps' notifications).
- *
- * Settings and the pending-review inbox are persisted in localStorage.
- */
+/** Shared notification parsing and review logic; Android supplies the listener. */
 
 import { toIsoDate } from '@/lib/date-input';
 
@@ -106,11 +93,9 @@ export async function saveNotificationSettings(settings: NotificationSettings): 
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch {
-    // Non-fatal.
+    // Settings persistence is best effort.
   }
 }
-
-// Notification parsing
 
 export interface ParsedTransaction {
   /** `income` or `expense`. */
@@ -341,7 +326,7 @@ async function writeInbox(items: PendingCapture[]): Promise<void> {
   try {
     localStorage.setItem(INBOX_KEY, JSON.stringify(items));
   } catch {
-    // Non-fatal.
+    // The review inbox is best effort when storage is unavailable.
   }
 }
 

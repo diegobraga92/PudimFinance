@@ -45,7 +45,6 @@ export function ReceiptReviewCard({ scanner, onSaved }: Props) {
           <SourceBadge source={draft.source} />
         </div>
 
-        {/* Header fields */}
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="review-store">{t('receipts.store')}</Label>
@@ -79,7 +78,6 @@ export function ReceiptReviewCard({ scanner, onSaved }: Props) {
           {t('receipts.reviewSummary', { count: itemCount, total: formatMoney(draft.total || '0') })}
         </p>
 
-        {/* Items */}
         <div className="space-y-2">
           <div className={`${ITEM_GRID} px-1 text-[11px] font-semibold uppercase tracking-wide text-dim`}>
             <span>{t('receipts.item')}</span>

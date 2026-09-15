@@ -46,7 +46,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(LOCALE_KEY, next);
     } catch {
-      // Non-fatal.
+      // Keep the selected locale for the current session.
     }
     document.documentElement.lang = next;
   }, []);

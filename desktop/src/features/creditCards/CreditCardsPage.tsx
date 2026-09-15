@@ -339,7 +339,6 @@ export function CreditCardsPage() {
         )}
       </div>
 
-      {/* How card expenses are dated in the dashboard, budgets and reports */}
       <Card>
         <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -398,7 +397,6 @@ export function CreditCardsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-3">
-          {/* Card list */}
           <div className="space-y-2">
             {cards.map((card) => (
               <button
@@ -446,7 +444,6 @@ export function CreditCardsPage() {
           </div>
 
 
-          {/* Billing cycles */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -503,7 +500,6 @@ export function CreditCardsPage() {
       )}
 
 
-      {/* Record purchase */}
       <Dialog open={purchaseOpen} onOpenChange={(next) => !purchaseSaving && setPurchaseOpen(next)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -570,7 +566,6 @@ export function CreditCardsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pay bill */}
       <Dialog open={payOpen} onOpenChange={(next) => !paySaving && setPayOpen(next)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -616,7 +611,6 @@ export function CreditCardsPage() {
       </Dialog>
 
 
-      {/* Anticipate installments */}
       <Dialog open={anticipateOpen} onOpenChange={(next) => !anticipateSaving && setAnticipateOpen(next)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>

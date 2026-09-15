@@ -192,7 +192,6 @@ export function LedgerPage() {
   return (
     <ToolsWorkspace>
       <div className="space-y-4">
-        {/* Screen header */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">{t('ledger.title')}</h2>
@@ -209,7 +208,6 @@ export function LedgerPage() {
           </div>
         </div>
 
-        {/* Migration result */}
         {migration && (
           <Card className="border-border bg-surface shadow-card">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -230,7 +228,6 @@ export function LedgerPage() {
           </Card>
         )}
 
-        {/* Filters + balance indicator */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full min-w-[12rem] sm:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -406,7 +403,6 @@ export function LedgerPage() {
             </ul>
           </Card>
         )}
-        {/* Entry detail */}
         <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
@@ -488,7 +484,6 @@ export function LedgerPage() {
             )}
           </DialogContent>
         </Dialog>
-
         {/* Migration confirmation (advanced, secondary action) */}
         <Dialog open={migrateOpen} onOpenChange={(open) => !migrating && setMigrateOpen(open)}>
           <DialogContent className="sm:max-w-md">
@@ -507,7 +502,6 @@ export function LedgerPage() {
           </DialogContent>
         </Dialog>
 
-        {/* New ledger entry */}
         <Dialog open={formOpen} onOpenChange={(next) => !saving && setFormOpen(next)}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
