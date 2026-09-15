@@ -45,6 +45,8 @@ services:
       # JWT signing secret. Override with a long random value in production.
       # Changing it invalidates all existing sessions.
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-in-production}
+      # Comma-separated public Google OAuth client IDs (Android and Desktop).
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
       RUST_LOG: backend=debug,tower_http=debug
     depends_on:
       postgres:

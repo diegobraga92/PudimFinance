@@ -44,7 +44,11 @@ PudimFinance/
 ### Local Development (Docker)
 
 ```bash
-# Start the full stack (PostgreSQL, RabbitMQ, backend API, web client)
+# Create the single local/deployment configuration file once.
+cp .env.example .env
+
+# Start the full stack (PostgreSQL, RabbitMQ, backend API, web client).
+# Docker Compose automatically reads the root .env file.
 docker compose up --build
 
 # Services:
@@ -58,6 +62,27 @@ docker compose up --build
 > there and subsequent visits keep you signed in (tokens live in the OS
 > keyring / Android Keystore; the web build falls back to `localStorage`, and
 > every client auto-refreshes for 7 days).
+
+#### Google Sign-In (Android and Tauri desktop)
+
+Google Sign-In is optional and is enabled on the backend with `GOOGLE_CLIENT_IDS`.
+Set it in the root `.env` file; `docker-compose.yml` forwards it to the backend
+container, and `scripts/run.sh` exposes it to a locally run backend.
+Set it to the comma-separated Android and Desktop app client IDs from Google Cloud
+(the Web client ID is intentionally deferred until the app has a real HTTPS web
+origin):
+
+```dotenv
+GOOGLE_CLIENT_IDS=416078507672-hvo7chlndcefmks9loeigg1kvtueikho.apps.googleusercontent.com,416078507672-tfalhei9jo0954el9demikrs09hsnsid.apps.googleusercontent.com
+```
+
+The implementation uses `openid email profile`, PKCE, the system browser, and a
+server-side authorization-code exchange. The Google OAuth consent screen may stay
+in **Testing** mode; add permitted Google accounts under **Test users**. The
+backend host must be able to make outbound HTTPS requests to Google's token and
+JWKS endpoints. Google accounts are auto-provisioned and linked by verified email;
+they do not receive a password login unless a password is subsequently assigned
+by a future account-management feature.
 
 Running on a shared LAN server where Docker ports may conflict? See
 [LAN Server Deployment](#lan-server-deployment).
@@ -102,7 +127,7 @@ docker compose up --build web        # build + serve the SPA
   so **no per-browser server address is needed** (it also sidesteps CORS).
 - To bake direct API calls instead, build with
   `VITE_API_BASE_URL=http://192.168.1.100:3000` (build arg, or the variable in
-  `.env.docker`) — the client then calls that backend directly (CORS is
+  `.env`) — the client then calls that backend directly (CORS is
   permissive). This requires rebuilding the image when the address changes.
 - Tauri-only features degrade gracefully in a browser: tokens fall back to
   `localStorage` (no OS keyring) and notification capture / biometrics / widget
@@ -457,8 +482,9 @@ All host ports are configurable via environment variables, so you never need to
 edit `docker-compose.yml`:
 
 ```bash
-cp .env.docker .env.docker.local
-$EDITOR .env.docker.local
+# If .env does not exist yet, create it from the tracked template.
+test -f .env || cp .env.example .env
+$EDITOR .env
 ```
 
 ```dotenv
@@ -471,7 +497,7 @@ VITE_API_BASE_URL=          # empty = same-origin (recommended)
 Then start and open the clients:
 
 ```bash
-docker compose --env-file .env.docker.local up --build -d
+docker compose up --build -d
 # Web UI:  http://192.168.1.100:5180
 # Apps:    Settings → Server → http://192.168.1.100:3100
 ```
@@ -498,7 +524,7 @@ docker compose down --remove-orphans
 git pull
 
 # 3) Start again — this builds the new `web` image from desktop/.
-docker compose --env-file .env.docker.local up --build -d
+docker compose up --build -d
 
 # 4) Optional: drop the now-dangling old web image.
 docker image prune -f

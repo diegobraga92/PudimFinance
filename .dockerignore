@@ -25,4 +25,3 @@ desktop/src-tauri/
 .env
 .env.*
 !.env.example
-!.env.docker

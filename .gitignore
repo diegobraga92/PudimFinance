@@ -17,9 +17,6 @@ backend/**/*.rs.bk
 # Docker
 *.env
 !*.env.example
-!*.env.docker
-# Local LAN deployment override (cp .env.docker .env.docker.local)
-.env.*.local
 
 # Terraform
 infra/.terraform/
