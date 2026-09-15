@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "access_granted",
     "open_settings",
     "open_external",
+    "google_sign_in",
     "drain_pending",
     "show_capture_prompt",
     "cancel_capture_prompt",

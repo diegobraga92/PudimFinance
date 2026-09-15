@@ -172,7 +172,7 @@ jobs:
       # one. It also allows cleartext HTTP, without which Android blocks the
       # `http://<lan-ip>:3000` servers the client targets ("Could not reach the
       # server"); set PUDIM_ALLOW_CLEARTEXT=false to keep Android's safe default.
-      - name: Prepare the Android release build (signing + cleartext HTTP + Google OAuth redirect)
+      - name: Prepare the Android release build (signing + cleartext HTTP + Credential Manager)
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 || secrets.ANDROID_KEY_BASE64 || secrets.RELEASE_KEYSTORE_BASE64 }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.RELEASE_KEY_ALIAS }}

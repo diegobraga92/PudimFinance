@@ -202,6 +202,17 @@ export async function loginWithGoogle(payload: {
   });
 }
 
+export async function loginWithGoogleIdToken(payload: {
+  id_token: string;
+  nonce: string;
+}): Promise<AuthResponse> {
+  return request<AuthResponse>('/api/auth/google', {
+    method: 'POST',
+    withAuth: false,
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchAuthProviders(): Promise<{ google: boolean }> {
   return request<{ google: boolean }>('/api/auth/providers', { withAuth: false });
 }

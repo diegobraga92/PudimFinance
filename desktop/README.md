@@ -41,6 +41,7 @@ sudo apt-get install libwebkit2gtk-4.1-dev build-essential curl wget file \
 
 ```bash
 npm run tauri android init      # generates src-tauri/gen/android (gitignored)
+python3 ../scripts/android-release-setup.py  # run after init; configures release build
 npm run tauri android build     # needs Android SDK + NDK + JDK 17
 ```
 
@@ -53,7 +54,13 @@ config into the generated project (both `gen/android/keystore.properties` and
 `android init`, so they cannot be committed): the upload keystore from the CI
 secrets (falling back to the debug keystore, so a build without the secret is
 still installable) and `usesCleartextTraffic=true`, without which Android blocks
-the `http://<lan-ip>:3000` servers the app targets. See the root
+the `http://<lan-ip>:3000` calls the app targets. It also aligns the generated
+project's Kotlin Gradle plugin to 2.1.20, required by the Credential Manager
+dependencies. Google Sign-In on Android is implemented with Credential Manager
+in the native `pudim-android-native` plugin;
+configure the Android OAuth client for package `com.pudimfinance.app` and every
+APK signing certificate SHA-1, and keep the matching server audience in
+`google-oauth-clients.json` and the backend `GOOGLE_CLIENT_IDS`. See the root
 [README](../README.md#installing-the-android-app-ci-built-apk) for the secrets.
 
 ### Regenerating API types

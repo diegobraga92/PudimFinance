@@ -28,6 +28,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::access_granted,
             commands::open_settings,
             commands::open_external,
+            commands::google_sign_in,
             commands::drain_pending,
             commands::show_capture_prompt,
             commands::cancel_capture_prompt,

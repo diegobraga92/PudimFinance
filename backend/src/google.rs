@@ -35,6 +35,9 @@ pub struct GoogleIdToken {
     pub exp: usize,
     /// Optional display name.
     pub name: Option<String>,
+    /// Optional nonce bound to a native Credential Manager sign-in request.
+    #[serde(default)]
+    pub nonce: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

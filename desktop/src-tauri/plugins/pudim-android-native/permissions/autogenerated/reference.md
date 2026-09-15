@@ -8,6 +8,7 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-access-granted`
 - `allow-open-settings`
 - `allow-open-external`
+- `allow-google-sign-in`
 - `allow-drain-pending`
 - `allow-show-capture-prompt`
 - `allow-cancel-capture-prompt`
@@ -187,6 +188,32 @@ Enables the drain_pending command without any pre-configured scope.
 <td>
 
 Denies the drain_pending command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-google-sign-in`
+
+</td>
+<td>
+
+Enables the google_sign_in command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-google-sign-in`
+
+</td>
+<td>
+
+Denies the google_sign_in command without any pre-configured scope.
 
 </td>
 </tr>

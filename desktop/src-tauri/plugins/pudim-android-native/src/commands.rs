@@ -73,6 +73,12 @@ struct NullableStringResult {
     value: Option<String>,
 }
 
+#[cfg(mobile)]
+#[derive(Debug, Deserialize)]
+struct GoogleSignInResult {
+    id_token: String,
+}
+
 /// Handle to the native Android plugin, stored in app state during setup.
 /// On non-mobile targets this is empty and every command degrades to a default.
 pub struct CaptureHandle<R: Runtime> {
@@ -185,6 +191,40 @@ pub fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), S
             .spawn()
             .map(|_| ())
             .map_err(|e| format!("Could not open system browser: {e}"))
+    }
+}
+
+/// Shows Android Credential Manager's Google account picker.
+#[tauri::command]
+pub fn google_sign_in<R: Runtime>(
+    app: AppHandle<R>,
+    server_client_id: String,
+    nonce: String,
+) -> Result<String, String> {
+    if server_client_id.trim().is_empty() || nonce.trim().is_empty() {
+        return Err("Google sign-in requires a server client ID and nonce".to_string());
+    }
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Err("Native Android plugin is unavailable".to_string());
+        };
+        handle
+            .run_mobile_plugin::<GoogleSignInResult>(
+                "googleSignIn",
+                serde_json::json!({
+                    "serverClientId": server_client_id,
+                    "nonce": nonce,
+                }),
+            )
+            .map(|result| result.id_token)
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = (&state, server_client_id, nonce);
+        Err("Google Credential Manager is only available on Android".to_string())
     }
 }
 

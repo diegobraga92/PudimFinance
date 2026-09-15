@@ -1,11 +1,13 @@
-import { invoke, addPluginListener } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import clients from '../../google-oauth-clients.json';
-import { loginWithGoogle } from '@/lib/api';
+import { loginWithGoogle, loginWithGoogleIdToken } from '@/lib/api';
 import { storeDelete, storeGet, storeSet } from '@/lib/auth';
-import { openExternal, takeAuthRedirect } from '@/notifications/native';
+import { openExternal } from '@/notifications/native';
 
 const ANDROID_CLIENT_ID = clients.androidClientId;
 const DESKTOP_CLIENT_ID = clients.desktopClientId;
+const ANDROID_SERVER_CLIENT_ID = clients.androidServerClientId;
+const GOOGLE_SIGN_IN_CANCELLED = 'GOOGLE_SIGN_IN_CANCELLED';
 const PENDING_KEY = 'pudim_google_oauth_pending';
 const PENDING_TTL_MS = 10 * 60 * 1000;
 
@@ -46,10 +48,6 @@ function encodeParams(params: Record<string, string>): string {
   return new URLSearchParams(params).toString();
 }
 
-function androidRedirectUri(): string {
-  return `com.googleusercontent.apps.${ANDROID_CLIENT_ID.replace('.apps.googleusercontent.com', '')}:/oauth2redirect`;
-}
-
 function parseRedirect(link: string): { code: string; state: string } {
   const url = new URL(link);
   const error = url.searchParams.get('error');
@@ -58,33 +56,6 @@ function parseRedirect(link: string): { code: string; state: string } {
   const state = url.searchParams.get('state');
   if (!code || !state) throw new Error('Google did not return an authorization code');
   return { code, state };
-}
-
-async function waitForAndroidRedirect(): Promise<string> {
-  let resolveLink: ((link: string) => void) | undefined;
-  let rejectLink: ((error: Error) => void) | undefined;
-  const result = new Promise<string>((resolve, reject) => {
-    resolveLink = resolve;
-    rejectLink = reject;
-  });
-  const unlisten = await addPluginListener<{ link: string }>('pudim-native', 'deepLink', (payload) => {
-    if (payload.link.startsWith('com.googleusercontent.apps.')) resolveLink?.(payload.link);
-  });
-  try {
-    const pending = await takeAuthRedirect();
-    if (pending) return pending;
-    return await Promise.race([
-      result,
-      new Promise<string>((_, reject) => {
-        window.setTimeout(() => reject(new Error('Timed out waiting for Google sign-in')), 300_000);
-      }),
-    ]);
-  } catch (error) {
-    rejectLink?.(error instanceof Error ? error : new Error(String(error)));
-    throw error;
-  } finally {
-    unlisten.unregister();
-  }
 }
 
 async function waitForDesktopRedirect(redirectUri: string): Promise<string> {
@@ -96,14 +67,20 @@ async function waitForDesktopRedirect(redirectUri: string): Promise<string> {
 export async function signInWithGoogle(): Promise<Awaited<ReturnType<typeof loginWithGoogle>>> {
   if (!isTauri()) throw new Error('Google sign-in requires the native app');
 
+  if (isAndroid()) {
+    const nonce = randomValue(32);
+    const idToken = await invoke<string>('plugin:pudim-native|google_sign_in', {
+      serverClientId: ANDROID_SERVER_CLIENT_ID,
+      nonce,
+    });
+    return loginWithGoogleIdToken({ id_token: idToken, nonce });
+  }
+
   const verifier = randomValue(32);
   const state = randomValue(16);
   const challenge = await pkceChallenge(verifier);
-  const android = isAndroid();
-  const clientId = android ? ANDROID_CLIENT_ID : DESKTOP_CLIENT_ID;
-  const redirectUri = android
-    ? androidRedirectUri()
-    : `http://127.0.0.1:${await invoke<number>('oauth_loopback_start')}/oauth2redirect`;
+  const clientId = DESKTOP_CLIENT_ID;
+  const redirectUri = `http://127.0.0.1:${await invoke<number>('oauth_loopback_start')}/oauth2redirect`;
   const pending: PendingOAuth = {
     state,
     verifier,
@@ -125,16 +102,16 @@ export async function signInWithGoogle(): Promise<Awaited<ReturnType<typeof logi
     prompt: 'select_account',
   })}`;
 
-  if (android) {
-    const redirectPromise = waitForAndroidRedirect();
-    await openExternal(authorizeUrl);
-    const redirect = await redirectPromise;
-    return completeGoogleSignIn(redirect, pending);
-  }
-
   await openExternal(authorizeUrl);
   const redirect = await waitForDesktopRedirect(redirectUri);
   return completeGoogleSignIn(redirect, pending);
+}
+
+export function isGoogleSignInCancelled(error: unknown): boolean {
+  return (
+    error === GOOGLE_SIGN_IN_CANCELLED ||
+    (error instanceof Error && error.message === GOOGLE_SIGN_IN_CANCELLED)
+  );
 }
 
 async function completeGoogleSignIn(
@@ -155,4 +132,4 @@ async function completeGoogleSignIn(
   });
 }
 
-export { ANDROID_CLIENT_ID, DESKTOP_CLIENT_ID };
+export { ANDROID_CLIENT_ID, ANDROID_SERVER_CLIENT_ID, DESKTOP_CLIENT_ID };

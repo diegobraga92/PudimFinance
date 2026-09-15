@@ -8,10 +8,21 @@ import android.webkit.WebView
 import android.net.Uri
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.credentials.CredentialManager
+import androidx.credentials.CredentialManagerCallback
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
@@ -24,6 +35,12 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Intent extra carrying the home-screen widget deep link. */
 const val DEEP_LINK_EXTRA = "pudim_deep_link"
+
+private const val GOOGLE_SIGN_IN_CANCELLED = "GOOGLE_SIGN_IN_CANCELLED"
+private const val GOOGLE_SIGN_IN_NO_ACCOUNT =
+    "No Google account is available on this device. Add a Google account in Android Settings and try again."
+private const val GOOGLE_SIGN_IN_UNAVAILABLE =
+    "Google sign-in is unavailable. Check your Google account and try again."
 
 /** Last deep link delivered by the widget, for cold-start reads. */
 internal object PendingDeepLink {
@@ -256,6 +273,63 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve()
     }
 
+    /**
+     * Shows the Android Credential Manager account picker and returns a Google
+     * ID token. The caller supplies a nonce so the backend can bind the token
+     * to this sign-in request.
+     */
+    @Command
+    fun googleSignIn(invoke: Invoke) {
+        val args = invoke.parseArgs(GoogleSignInArgs::class.java)
+        val option = GetGoogleIdOption.Builder()
+            .setServerClientId(args.serverClientId)
+            .setFilterByAuthorizedAccounts(false)
+            .setAutoSelectEnabled(false)
+            .setNonce(args.nonce)
+            .build()
+        val request = GetCredentialRequest(listOf(option))
+        val manager = CredentialManager.create(activity)
+        manager.getCredentialAsync(
+            activity,
+            request,
+            null,
+            ContextCompat.getMainExecutor(activity),
+            object : CredentialManagerCallback<GetCredentialResponse, GetCredentialException> {
+                override fun onResult(result: GetCredentialResponse) {
+                    val credential = result.credential
+                    if (credential !is CustomCredential ||
+                        credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                    ) {
+                        invoke.reject("Google returned an unsupported credential")
+                        return
+                    }
+                    try {
+                        val token = GoogleIdTokenCredential.createFrom(credential.data).idToken
+                        invoke.resolveObject(mapOf("id_token" to token))
+                    } catch (error: GoogleIdTokenParsingException) {
+                        invoke.reject("Google returned an invalid ID token", error)
+                    }
+                }
+
+                override fun onError(error: GetCredentialException) {
+                    when {
+                        error is GetCredentialCancellationException -> {
+                            // Cancellation is a normal outcome, not an authentication error.
+                            invoke.reject(GOOGLE_SIGN_IN_CANCELLED)
+                        }
+                        error is NoCredentialException ||
+                            error.errorMessage?.toString()?.contains("28433") == true -> {
+                            // Play Services may report the missing-account case as the opaque
+                            // bvip: 28433 message instead of NoCredentialException.
+                            invoke.reject(GOOGLE_SIGN_IN_NO_ACCOUNT, error)
+                        }
+                        else -> invoke.reject(GOOGLE_SIGN_IN_UNAVAILABLE, error)
+                    }
+                }
+            },
+        )
+    }
+
     /** Returns (and clears) notifications captured while the app was killed. */
     @Command
     fun drainPending(invoke: Invoke) {
@@ -393,4 +467,10 @@ internal class SecureDeleteArgs {
 @InvokeArg
 internal class ExternalUrlArgs {
     lateinit var url: String
+}
+
+@InvokeArg
+internal class GoogleSignInArgs {
+    lateinit var serverClientId: String
+    lateinit var nonce: String
 }

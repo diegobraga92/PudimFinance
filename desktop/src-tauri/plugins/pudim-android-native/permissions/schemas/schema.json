@@ -367,6 +367,18 @@
           "markdownDescription": "Denies the drain_pending command without any pre-configured scope."
         },
         {
+          "description": "Enables the google_sign_in command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-google-sign-in",
+          "markdownDescription": "Enables the google_sign_in command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the google_sign_in command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-google-sign-in",
+          "markdownDescription": "Denies the google_sign_in command without any pre-configured scope."
+        },
+        {
           "description": "Enables the is_supported command without any pre-configured scope.",
           "type": "string",
           "const": "allow-is-supported",
@@ -547,10 +559,10 @@
           "markdownDescription": "Denies the take_deep_link command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-google-sign-in`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-google-sign-in`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spent-today`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

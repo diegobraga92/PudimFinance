@@ -9,6 +9,7 @@
     "pudim-native:allow-access-granted",
     "pudim-native:allow-open-settings",
     "pudim-native:allow-open-external",
+    "pudim-native:allow-google-sign-in",
     "pudim-native:allow-drain-pending",
     "pudim-native:allow-show-capture-prompt",
     "pudim-native:allow-cancel-capture-prompt",

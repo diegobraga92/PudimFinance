@@ -70,11 +70,10 @@ Set it in the root `.env` file; `docker-compose.yml` forwards it to the backend
 container, and `scripts/run.sh` exposes it to a locally run backend. The current
 Desktop OAuth client also requires `GOOGLE_CLIENT_SECRET`; set that secret and its
 matching `GOOGLE_CLIENT_SECRET_CLIENT_ID` only in the ignored `.env` on the
-deployment server, never in `.env.example` or source control. Android's public
-client does not require a secret.
-Set it to the comma-separated Android and Desktop app client IDs from Google Cloud
-(the Web client ID is intentionally deferred until the app has a real HTTPS web
-origin):
+deployment server, never in `.env.example` or source control. Android uses the
+public Google client through Android Credential Manager and never needs a secret.
+Set `GOOGLE_CLIENT_IDS` to the comma-separated Android, Desktop, and Android
+server-client audience IDs from Google Cloud:
 
 ```dotenv
 GOOGLE_CLIENT_IDS=416078507672-hvo7chlndcefmks9loeigg1kvtueikho.apps.googleusercontent.com,416078507672-tfalhei9jo0954el9demikrs09hsnsid.apps.googleusercontent.com
@@ -82,9 +81,22 @@ GOOGLE_CLIENT_IDS=416078507672-hvo7chlndcefmks9loeigg1kvtueikho.apps.googleuserc
 # GOOGLE_CLIENT_SECRET=<server-only secret for the Desktop client>
 ```
 
-The implementation uses `openid email profile`, PKCE, the system browser, and a
-server-side authorization-code exchange. The Google OAuth consent screen may stay
-in **Testing** mode; add permitted Google accounts under **Test users**. The
+`desktop/google-oauth-clients.json` contains `androidServerClientId`, which is
+passed to Credential Manager as `serverClientId`. Google recommends a Web
+application OAuth client for this server audience; if one is created, replace
+that JSON value and add the same ID to `GOOGLE_CLIENT_IDS`. The Android OAuth
+client must be configured for package `com.pudimfinance.app` with the SHA-1
+fingerprint of every signing certificate used by the APK (debug, CI upload, and
+Play App Signing certificates as applicable).
+
+Android uses Credential Manager, a random nonce, and a direct ID-token exchange;
+it does not open a browser or use a custom redirect URI. Desktop continues to use
+PKCE, the system browser, and a server-side authorization-code exchange. Google
+blocked the old browser/custom-scheme Android flow (`Custom URI scheme is not
+enabled for your Android client`) and also blocks loopback redirects for Android;
+the loopback flow remains supported for the Desktop client. The Google OAuth
+consent screen may stay in **Testing** mode; add permitted Google accounts under
+**Test users**. The
 backend host must be able to make outbound HTTPS requests to Google's token and
 JWKS endpoints. Google accounts are auto-provisioned and linked by verified email;
 they do not receive a password login unless a password is subsequently assigned

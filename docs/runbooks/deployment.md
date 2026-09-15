@@ -98,7 +98,7 @@ docker compose down -v       # destroy volume (DANGER: loses data)
 | `DATABASE_URL` | — | ✅ |
 | `RABBITMQ_URL` | `amqp://pudim:pudim@localhost:5672` | — (falls back to log-only) |
 | `JWT_SECRET` | `dev-secret-change-me-in-production` | ⚠️ Change in prod |
-| `GOOGLE_CLIENT_IDS` | — | — (comma-separated Android/Desktop OAuth client IDs) |
+| `GOOGLE_CLIENT_IDS` | — | — (comma-separated Android/Desktop/server-audience OAuth client IDs) |
 | `GOOGLE_CLIENT_SECRET_CLIENT_ID` | — | — (exact client ID paired with the confidential-client secret) |
 | `GOOGLE_CLIENT_SECRET` | — | ⚠️ Set only in the ignored deployment `.env` when the Desktop client requires it |
 | `SERVER_HOST` | `0.0.0.0` | — |
