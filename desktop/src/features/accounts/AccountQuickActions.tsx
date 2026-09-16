@@ -13,13 +13,21 @@ interface Props {
   canTransfer: boolean;
   /** The "pay card" shortcut only makes sense when a card exists. */
   hasCards: boolean;
+  onPayCard: () => void;
 }
 
 /**
  * Shortcuts into real flows: the account form, the ledger-backed transfer
- * dialog, the credit-card screen (where bills are paid) and Reports.
+ * dialog, the card-payment workspace and Reports.
  */
-export function AccountQuickActions({ onNewAccount, onNewInvestment, onTransfer, canTransfer, hasCards }: Props) {
+export function AccountQuickActions({
+  onNewAccount,
+  onNewInvestment,
+  onTransfer,
+  canTransfer,
+  hasCards,
+  onPayCard,
+}: Props) {
   const { t } = useI18n();
   const navigate = useNavigate();
 
@@ -54,10 +62,10 @@ export function AccountQuickActions({ onNewAccount, onNewInvestment, onTransfer,
           {
             key: 'pay-card',
             icon: CreditCard,
-            label: t('accounts.actions.payCard'),
+            label: t('creditCards.payBill'),
             tone: 'bg-purple/15 text-purple ring-purple/30 hover:bg-purple/25',
             disabled: false,
-            onClick: () => navigate('/credit-cards'),
+            onClick: onPayCard,
           },
         ]
       : []),

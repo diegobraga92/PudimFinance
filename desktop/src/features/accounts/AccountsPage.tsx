@@ -9,6 +9,7 @@ import {
   fetchAccountsWithBalance,
   fetchCategories,
   fetchSummary,
+  type CardBill,
   type AccountWithBalance,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,9 @@ import { InvestmentsSummaryCard } from './InvestmentsSummaryCard';
 import { AccountQuickActions } from './AccountQuickActions';
 import { TransferDialog } from './TransferDialog';
 import { AdjustBalanceDialog } from './AdjustBalanceDialog';
+import { CardPurchaseDialog } from '@/features/creditCards/CardPurchaseDialog';
+import { PayCardBillDialog } from '@/features/creditCards/PayCardBillDialog';
+import { AnticipateInstallmentsDialog } from '@/features/creditCards/AnticipateInstallmentsDialog';
 import {
   ACCOUNT_GROUPS,
   accountAppearance,
@@ -110,6 +114,16 @@ export function AccountsPage() {
   const [pendingDelete, setPendingDelete] = React.useState<AccountWithBalance | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   const [detail, setDetail] = React.useState<AccountWithBalance | null>(null);
+  const [initialCardAction, setInitialCardAction] = React.useState<'pay' | null>(null);
+  const [purchaseCard, setPurchaseCard] = React.useState<AccountWithBalance | null>(null);
+  const [payTarget, setPayTarget] = React.useState<{
+    card: AccountWithBalance;
+    bill: CardBill;
+  } | null>(null);
+  const [anticipateTarget, setAnticipateTarget] = React.useState<{
+    card: AccountWithBalance;
+    bill: CardBill | null;
+  } | null>(null);
   const [transferOpen, setTransferOpen] = React.useState(false);
   const [adjusting, setAdjusting] = React.useState<AccountWithBalance | null>(null);
   const [tab, setTab] = React.useState<TabKey>('all');
@@ -148,7 +162,14 @@ export function AccountsPage() {
   const monthlyExpenses = summaryQuery.data ? parseFloat(summaryQuery.data.expense_total) : null;
   const monthlyNet =
     monthlyIncome !== null && monthlyExpenses !== null ? monthlyIncome - monthlyExpenses : null;
-  const hasCards = balanceSheet.some((account) => account.account_kind === 'card');
+  const cards = React.useMemo(
+    () => balanceSheet.filter((account) => account.account_kind === 'card'),
+    [balanceSheet],
+  );
+  const sourceAccounts = React.useMemo(
+    () => balanceSheet.filter((account) => account.type === 'asset'),
+    [balanceSheet],
+  );
 
   const tabCounts = React.useMemo(() => {
     const counts: Record<TabKey, number> = {
@@ -196,6 +217,24 @@ export function AccountsPage() {
   const openEdit = (account: AccountWithBalance) => {
     setEditing(account);
     setFormOpen(true);
+  };
+
+  const openDetail = (account: AccountWithBalance, action: 'pay' | null = null) => {
+    setInitialCardAction(action);
+    setDetail(account);
+  };
+
+  const refreshCard = async (cardId: string) => {
+    await queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    await queryClient.invalidateQueries({ queryKey: ['card', cardId] });
+    await queryClient.invalidateQueries({ queryKey: ['card-bills', cardId] });
+    void queryClient.invalidateQueries({ queryKey: ['summary'] });
+    void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+  };
+
+  const openPayCard = () => {
+    const card = cards[0];
+    if (card) openDetail(card, 'pay');
   };
 
   const handleDelete = async () => {
@@ -346,7 +385,7 @@ export function AccountsPage() {
                       key={group.meta.key}
                       meta={group.meta}
                       accounts={group.accounts}
-                      onView={setDetail}
+                      onView={(account) => openDetail(account)}
                       onEdit={openEdit}
                       onDelete={setPendingDelete}
                       onAdjust={setAdjusting}
@@ -364,7 +403,8 @@ export function AccountsPage() {
                 onNewInvestment={() => openCreate('investment')}
                 onTransfer={() => setTransferOpen(true)}
                 canTransfer={canTransfer}
-                hasCards={hasCards}
+                hasCards={cards.length > 0}
+                onPayCard={openPayCard}
               />
             </div>
           </div>
@@ -408,12 +448,64 @@ export function AccountsPage() {
         }}
       />
 
+      <CardPurchaseDialog
+        open={purchaseCard !== null}
+        onOpenChange={(open) => !open && setPurchaseCard(null)}
+        card={purchaseCard}
+        categories={categories}
+        onSaved={() => {
+          if (purchaseCard) void refreshCard(purchaseCard.id);
+          setPurchaseCard(null);
+        }}
+      />
+
+      <PayCardBillDialog
+        open={payTarget !== null}
+        onOpenChange={(open) => !open && setPayTarget(null)}
+        card={payTarget?.card ?? null}
+        bill={payTarget?.bill ?? null}
+        sourceAccounts={sourceAccounts}
+        onSaved={() => {
+          if (payTarget) void refreshCard(payTarget.card.id);
+          setPayTarget(null);
+        }}
+      />
+
+      <AnticipateInstallmentsDialog
+        open={anticipateTarget !== null}
+        onOpenChange={(open) => !open && setAnticipateTarget(null)}
+        cardId={anticipateTarget?.card.id ?? null}
+        currentBill={anticipateTarget?.bill ?? null}
+        onSaved={() => {
+          if (anticipateTarget) void refreshCard(anticipateTarget.card.id);
+          setAnticipateTarget(null);
+        }}
+      />
+
       {detail && (
         <AccountDetail
           account={detail}
           categories={categories}
           open
-          onClose={() => setDetail(null)}
+          onClose={() => {
+            setDetail(null);
+            setInitialCardAction(null);
+          }}
+          onCardPurchase={() => {
+            setDetail(null);
+            setPurchaseCard(detail);
+          }}
+          onCardPay={(bill) => {
+            setDetail(null);
+            setInitialCardAction(null);
+            setPayTarget({ card: detail, bill });
+          }}
+          onCardAnticipate={(bill) => {
+            setDetail(null);
+            setInitialCardAction(null);
+            setAnticipateTarget({ card: detail, bill });
+          }}
+          initialCardAction={initialCardAction}
         />
       )}
 

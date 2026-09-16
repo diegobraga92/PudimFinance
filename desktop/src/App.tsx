@@ -7,7 +7,6 @@ import { LoginPage } from '@/app/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { TransactionsPage } from '@/features/transactions/TransactionsPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
-import { CreditCardsPage } from '@/features/creditCards/CreditCardsPage';
 import { BudgetsCategoriesPage } from '@/features/budgets/BudgetsCategoriesPage';
 import { MorePage } from '@/features/more/MorePage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
@@ -55,7 +54,8 @@ export function App() {
             {/* Categories now live in the Budgets tab switcher. */}
             <Route path="/categories" element={<Navigate to="/budgets?tab=categories" replace />} />
             <Route path="/audit" element={<AuditPage />} />
-            <Route path="/credit-cards" element={<CreditCardsPage />} />
+            {/* Credit-card workflows now live in the Accounts detail dialog. */}
+            <Route path="/credit-cards" element={<Navigate to="/accounts" replace />} />
             <Route path="/notifications" element={<NotificationSettingsPage />} />
             <Route path="/pending-review" element={<PendingCapturesPage />} />
             <Route path="/server" element={<ServerPage />} />

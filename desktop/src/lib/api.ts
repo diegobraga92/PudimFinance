@@ -829,10 +829,6 @@ export async function deleteAccount(id: string): Promise<void> {
 
 // Credit cards
 
-export async function fetchCreditCards(): Promise<CardOverview[]> {
-  return request<CardOverview[]>('/api/credit-cards');
-}
-
 export async function fetchCard(id: string): Promise<CardOverview> {
   return request<CardOverview>(`/api/credit-cards/${id}`);
 }

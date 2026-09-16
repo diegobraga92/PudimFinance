@@ -8,7 +8,6 @@ import {
   BookOpen,
   ReceiptText,
   ShieldCheck,
-  CreditCard,
   Bell,
   Inbox,
   Server,
@@ -93,13 +92,6 @@ export const TOOL_GROUPS: NavGroup[] = [
     labelKey: 'nav.groupOther',
     items: [
       {
-        key: 'creditCards',
-        labelKey: 'nav.creditCards',
-        icon: CreditCard,
-        route: '/credit-cards',
-        descKey: 'nav.descCreditCards',
-      },
-      {
         key: 'notifications',
         labelKey: 'nav.notifications',
         descKey: 'nav.descNotifications',
@@ -159,7 +151,6 @@ const SECONDARY_SCREENS: { prefix: string; labelKey: TranslationKey }[] = [
   { prefix: '/reconciliation', labelKey: 'nav.reconciliation' },
   { prefix: '/ledger', labelKey: 'nav.ledger' },
   { prefix: '/audit', labelKey: 'nav.audit' },
-  { prefix: '/credit-cards', labelKey: 'nav.creditCards' },
   { prefix: '/reports', labelKey: 'nav.reports' },
   { prefix: '/categories', labelKey: 'nav.categories' },
   { prefix: '/notifications', labelKey: 'nav.notifications' },
