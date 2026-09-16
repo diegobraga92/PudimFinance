@@ -47,7 +47,7 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
     .slice(0, MAX_BUDGETS);
 
   return (
-    <Card className="flex h-full flex-col border-border bg-surface shadow-card">
+    <Card className="flex h-full min-w-0 flex-col border-border bg-surface shadow-card">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0 p-5 pb-3">
         <CardTitle className="text-lg font-semibold">{t('nav.budgets')}</CardTitle>
         <Link

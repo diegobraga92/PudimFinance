@@ -256,6 +256,8 @@ check(
 check('DashboardPage (phone lead + month nav)', <DashboardPage />, [
   'aria-label="Previous month"',
   'aria-label="Next month"',
+  'order-3 grid min-w-0 grid-cols-1 gap-4 md:order-4',
+  'order-4 grid min-w-0 grid-cols-1 gap-4 md:order-3',
   'md:order-3',
 ]);
 

@@ -44,7 +44,7 @@ export function QuickActions({ newBudgetLink }: QuickActionsProps) {
   ];
 
   return (
-    <Card className="border-border bg-surface shadow-card">
+    <Card className="min-w-0 border-border bg-surface shadow-card">
       <CardHeader className="p-5 pb-3">
         <CardTitle className="text-lg font-semibold">{t('dashboard.quickActions')}</CardTitle>
       </CardHeader>

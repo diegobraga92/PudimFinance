@@ -134,7 +134,7 @@ export function RecentTransactionsCard({
   };
 
   return (
-    <Card className="flex h-full flex-col border-border bg-surface shadow-card">
+    <Card className="flex h-full min-w-0 flex-col border-border bg-surface shadow-card">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0 p-5 pb-2">
         <CardTitle className="text-lg font-semibold">
           {t('dashboard.recentTransactions')}
