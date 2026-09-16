@@ -21,6 +21,43 @@ export class ApiError extends Error {
   }
 }
 
+/** Maximum time a normal API request may wait for a response. */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
+
+/**
+ * Fetches with a client-side timeout and converts transport failures into the
+ * error type used by the offline fallbacks. A caller signal is forwarded and
+ * remains able to cancel the request; caller aborts are intentionally treated
+ * as network errors because callers do not currently use request cancellation
+ * for an expected application flow.
+ */
+function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  const abortFromCaller = () => controller.abort();
+
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener('abort', abortFromCaller, { once: true });
+  }
+
+  const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+
+  return Promise.resolve()
+    .then(() => fetch(input, { ...init, signal: controller.signal }))
+    .catch(() => {
+      throw new ApiError('Could not reach the server', 0, 'Network Error');
+    })
+    .finally(() => {
+      if (timer !== undefined) clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', abortFromCaller);
+    });
+}
+
 /** True when the failure is a transport-level problem (server unreachable). */
 export function isNetworkError(err: unknown): boolean {
   return err instanceof TypeError || (err instanceof ApiError && err.status === 0);
@@ -30,18 +67,22 @@ export function isNetworkError(err: unknown): boolean {
 // hammering the backend.
 let refreshPromise: Promise<boolean> | null = null;
 
-async function performRefresh(): Promise<boolean> {
+async function performRefresh(timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): Promise<boolean> {
   const refreshToken = await getRefreshToken();
   if (!refreshToken) {
     await clearAuthSession();
     return false;
   }
   try {
-    const res = await fetch(`${await getApiBaseUrl()}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
+    const res = await fetchWithTimeout(
+      `${await getApiBaseUrl()}/api/auth/refresh`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      },
+      timeoutMs,
+    );
     if (!res.ok) {
       await clearAuthSession();
       return false;
@@ -59,9 +100,9 @@ async function performRefresh(): Promise<boolean> {
   }
 }
 
-function refreshOnce(): Promise<boolean> {
+function refreshOnce(timeoutMs: number): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = performRefresh().finally(() => {
+    refreshPromise = performRefresh(timeoutMs).finally(() => {
       refreshPromise = null;
     });
   }
@@ -73,11 +114,13 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
   token?: string | null;
   /** Set false to disable the automatic 401-refresh-and-retry flow. */
   withAuth?: boolean;
+  /** Request timeout in milliseconds. Set to 0 to disable the timeout. */
+  timeoutMs?: number;
   body?: BodyInit;
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { token, withAuth = true, headers, ...rest } = options;
+  const { token, withAuth = true, headers, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...rest } = options;
   const url = `${await getApiBaseUrl()}${path}`;
   const accessToken = withAuth ? await getAccessToken() : null;
 
@@ -90,16 +133,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     if (withAuth && authToken) {
       finalHeaders.set('Authorization', `Bearer ${authToken}`);
     }
-    return fetch(url, { ...rest, headers: finalHeaders });
+    return fetchWithTimeout(url, { ...rest, headers: finalHeaders }, timeoutMs);
   };
 
-  let res = await doFetch(accessToken).catch(() => {
-    throw new ApiError('Could not reach the server', 0, 'Network Error');
-  });
+  let res = await doFetch(accessToken);
 
   // Single retry after a successful token refresh.
   if (res.status === 401 && withAuth && token === undefined) {
-    const refreshed = await refreshOnce();
+    const refreshed = await refreshOnce(timeoutMs);
     if (refreshed) {
       res = await doFetch(await getAccessToken());
     }

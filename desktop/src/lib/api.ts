@@ -943,6 +943,7 @@ export async function uploadReconciliation(
   return request<ReconciliationUploadResponse>('/api/reconciliation', {
     method: 'POST',
     body: JSON.stringify(payload),
+    timeoutMs: 30_000,
   });
 }
 
@@ -965,6 +966,7 @@ export async function uploadReconciliationFile(
   return request<ReconciliationUploadResponse>('/api/reconciliation/upload', {
     method: 'POST',
     body: form,
+    timeoutMs: 30_000,
   });
 }
 

@@ -7,12 +7,13 @@ import { I18nProvider } from './i18n';
 import { AuthProvider } from './auth';
 import { Toaster } from '@/components/ui/toaster';
 import { NotificationCaptureProvider } from '@/notifications/NotificationCaptureProvider';
+import { isNetworkError } from '@/lib/request';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
-      retry: 1,
+      retry: (failureCount, error) => !isNetworkError(error) && failureCount < 1,
       refetchOnWindowFocus: false,
     },
   },

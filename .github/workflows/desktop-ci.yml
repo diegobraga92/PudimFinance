@@ -82,6 +82,10 @@ jobs:
         working-directory: desktop
         run: npm run test:android
 
+      - name: Request timeout smoke
+        working-directory: desktop
+        run: npm run test:request-timeout
+
       - name: Build frontend
         working-directory: desktop
         run: npm run build

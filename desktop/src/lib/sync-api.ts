@@ -26,6 +26,7 @@ export async function syncPull(lastSyncedAt: string): Promise<SyncPullResponse> 
   return request<SyncPullResponse>('/api/sync/pull', {
     method: 'POST',
     body: JSON.stringify({ last_synced_at: lastSyncedAt } satisfies SyncPullRequest),
+    timeoutMs: 30_000,
   });
 }
 
@@ -34,5 +35,6 @@ export async function syncPush(operations: SyncPushOperation[]): Promise<SyncPus
   return request<SyncPushResponse>('/api/sync/push', {
     method: 'POST',
     body: JSON.stringify({ operations } satisfies SyncPushRequest),
+    timeoutMs: 30_000,
   });
 }
