@@ -62,6 +62,10 @@ export interface PendingOperation {
   /** JSON request body for create/update. */
   payload: string;
   created_at: string;
+  /** Number of failed push attempts. Older rows default to zero. */
+  attempts?: number;
+  /** Last server/transport error returned for this operation. */
+  last_error?: string | null;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -269,12 +273,41 @@ export async function removePendingOperation(id: number): Promise<void> {
   await tx('pending_operations', 'readwrite', (store) => store.delete(id));
 }
 
+/** Records a failed push without losing the operation from the outbox. */
+export async function recordPendingOperationFailure(id: number, error: string): Promise<void> {
+  const operation = (await getPendingOperations()).find((item) => item.id === id);
+  if (!operation) return;
+  await tx('pending_operations', 'readwrite', (store) =>
+    store.put({
+      ...operation,
+      attempts: (operation.attempts ?? 0) + 1,
+      last_error: error,
+    } as PendingOperation),
+  );
+}
+
+/** Allows an explicit user retry to re-enable failed operations. */
+export async function resetPendingOperationFailures(): Promise<void> {
+  const operations = await getPendingOperations();
+  for (const operation of operations) {
+    if ((operation.attempts ?? 0) === 0 && !operation.last_error) continue;
+    await tx('pending_operations', 'readwrite', (store) =>
+      store.put({ ...operation, attempts: 0, last_error: null } as PendingOperation),
+    );
+  }
+}
+
 export async function clearPendingOperations(): Promise<void> {
   await clearAll('pending_operations');
 }
 
 export async function countPendingOperations(): Promise<number> {
   return (await getAll<PendingOperation>('pending_operations')).length;
+}
+
+/** Returns operations that have exhausted the automatic retry budget. */
+export async function getFailedPendingOperations(): Promise<PendingOperation[]> {
+  return (await getPendingOperations()).filter((operation) => (operation.attempts ?? 0) >= 3);
 }
 
 // Sync metadata

@@ -376,11 +376,16 @@ pub fn request_notification_permission<R: Runtime>(app: AppHandle<R>) -> Result<
 /// Mirrors the webview's capture settings to the Android listener, so it can
 /// keep prompting for detected transactions while the app process is dead.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn set_capture_settings<R: Runtime>(
     app: AppHandle<R>,
     enabled: bool,
     push_prompt: bool,
     monitored_apps: Vec<String>,
+    mode: String,
+    default_category_id: Option<String>,
+    debit_account_id: Option<String>,
+    credit_account_id: Option<String>,
 ) -> Result<(), String> {
     let state = app.state::<CaptureHandle<R>>();
     #[cfg(mobile)]
@@ -395,13 +400,162 @@ pub fn set_capture_settings<R: Runtime>(
                     "enabled": enabled,
                     "pushPrompt": push_prompt,
                     "monitoredApps": monitored_apps,
+                    "mode": mode,
+                    "defaultCategoryId": default_category_id,
+                    "debitAccountId": debit_account_id,
+                    "creditAccountId": credit_account_id,
                 }),
             )
             .map_err(|e| e.to_string())
     }
     #[cfg(not(mobile))]
     {
-        let _ = (&state, enabled, push_prompt, &monitored_apps);
+        let _ = (
+            &state,
+            enabled,
+            push_prompt,
+            &monitored_apps,
+            mode,
+            default_category_id,
+            debit_account_id,
+            credit_account_id,
+        );
+        Ok(())
+    }
+}
+
+/// Configures the API URL used by the closed-app Android sync worker.
+#[tauri::command]
+pub fn set_sync_config<R: Runtime>(app: AppHandle<R>, base_url: String) -> Result<(), String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(());
+        };
+        handle
+            .run_mobile_plugin::<()>("setSyncConfig", serde_json::json!({ "baseUrl": base_url }))
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = (&state, base_url);
+        Ok(())
+    }
+}
+
+/// Mirrors an IndexedDB mutation into the encrypted native outbox.
+#[tauri::command]
+pub fn sync_outbox_put<R: Runtime>(
+    app: AppHandle<R>,
+    operation_type: String,
+    entity_type: String,
+    client_id: String,
+    server_id: Option<String>,
+    payload_json: String,
+) -> Result<(), String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(());
+        };
+        handle
+            .run_mobile_plugin::<()>(
+                "syncOutboxPut",
+                serde_json::json!({
+                    "operationType": operation_type,
+                    "entityType": entity_type,
+                    "clientId": client_id,
+                    "serverId": server_id,
+                    "payloadJson": payload_json,
+                }),
+            )
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = (
+            &state,
+            operation_type,
+            entity_type,
+            client_id,
+            server_id,
+            payload_json,
+        );
+        Ok(())
+    }
+}
+
+/// Removes a native operation settled by the foreground sync engine.
+#[tauri::command]
+pub fn sync_outbox_remove<R: Runtime>(app: AppHandle<R>, client_id: String) -> Result<(), String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(());
+        };
+        handle
+            .run_mobile_plugin::<()>(
+                "syncOutboxRemove",
+                serde_json::json!({ "clientId": client_id }),
+            )
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = (&state, client_id);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NativeSyncResult {
+    pub client_id: String,
+    pub status: String,
+    #[serde(default)]
+    pub server_id: Option<String>,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+/// Returns and clears closed-app sync results for JS/IndexedDB reconciliation.
+#[tauri::command]
+pub fn drain_sync_results<R: Runtime>(app: AppHandle<R>) -> Result<Vec<NativeSyncResult>, String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(Vec::new());
+        };
+        handle
+            .run_mobile_plugin::<Vec<NativeSyncResult>>("drainSyncResults", ())
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = &state;
+        Ok(Vec::new())
+    }
+}
+
+/// Clears the closed-app outbox and result journal after logout.
+#[tauri::command]
+pub fn clear_sync_outbox<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(());
+        };
+        handle
+            .run_mobile_plugin::<()>("clearSyncOutbox", ())
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = &state;
         Ok(())
     }
 }

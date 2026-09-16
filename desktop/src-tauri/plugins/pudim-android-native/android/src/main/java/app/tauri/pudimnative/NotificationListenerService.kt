@@ -47,7 +47,8 @@ class NotificationListenerService : NotificationListenerService() {
             .joinToString(" ")
             .trim()
         val captureId = "cap-${sbn.postTime}-${Integer.toHexString(text.hashCode())}"
-        val shouldPrompt = watched && settings.pushPrompt && FINANCIAL_TEXT_REGEX.containsMatchIn(text)
+        val shouldPrompt = watched && settings.mode == "ask" && settings.pushPrompt &&
+            FINANCIAL_TEXT_REGEX.containsMatchIn(text)
 
         if (shouldPrompt) {
             CapturePromptNotifier.show(
@@ -59,6 +60,15 @@ class NotificationListenerService : NotificationListenerService() {
                 source = payload,
             )
         }
+
+        // In auto mode the WebView is unavailable, so materialize the capture
+        // directly into the encrypted native outbox instead of duplicating it
+        // into the JS review inbox.
+        if (NativeCaptureImporter.importAuto(
+                this,
+                payload + mapOf("capture_id" to captureId, "prompted" to shouldPrompt),
+            )
+        ) return
 
         // Always persist: the next launch drains it into the review inbox, and
         // `prompted` prevents asking about the same capture twice.

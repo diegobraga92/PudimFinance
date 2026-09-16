@@ -15,8 +15,14 @@ export function getDefaultServerUrl(): string {
 export function normalizeServerUrl(raw: string): string {
   let url = raw.trim();
   if (!url) return '';
-  // Strip trailing slashes so http://host:3000/ becomes http://host:3000
-  url = url.replace(/\/+$/, '');
+  // Pasted addresses often come from prose and end with sentence punctuation.
+  // It is not part of a server base URL and otherwise makes the health check
+  // target a different host/port path.
+  url = url.replace(/[.,;]+$/, '');
+  // Strip trailing slashes so http://host:3000/ becomes http://host:3000.
+  // Apply punctuation cleanup twice so values such as `host:3000./` are also
+  // normalized without preserving either delimiter.
+  url = url.replace(/\/+$/, '').replace(/[.,;]+$/, '').replace(/\/+$/, '');
   // Add protocol if missing so 192.168.1.100:3000 becomes http://192.168.1.100:3000
   if (!/^https?:\/\//i.test(url)) {
     url = `http://${url}`;

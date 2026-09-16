@@ -2,8 +2,13 @@ import * as React from 'react';
 import { CloudOff, RefreshCw } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
-import { syncAll, subscribePendingCount, subscribeSync } from '@/offline/sync-engine';
-import { isOnline } from '@/offline/net';
+import {
+  retryFailedOperations,
+  syncAll,
+  subscribePendingCount,
+  subscribeSync,
+} from '@/offline/sync-engine';
+import { subscribeConnectivity } from '@/offline/net';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +23,7 @@ export function OfflineBanner() {
   const { t } = useI18n();
   const [pendingCount, setPendingCount] = React.useState(0);
   const [syncing, setSyncing] = React.useState(false);
+  const [failedCount, setFailedCount] = React.useState(0);
   const [state, setState] = React.useState<BannerState>('offline');
 
   React.useEffect(() => {
@@ -25,34 +31,36 @@ export function OfflineBanner() {
     const unsubPending = subscribePendingCount((count) => {
       if (mounted) setPendingCount(count);
     });
-    const unsubSync = subscribeSync(() => {
-      if (mounted) setSyncing(false);
+    const unsubSync = subscribeSync((result) => {
+      if (mounted) {
+        setSyncing(false);
+        setFailedCount(result.failed);
+      }
     });
-    void (async () => {
-      const online = await isOnline();
+    const unsubConnectivity = subscribeConnectivity((online) => {
       if (mounted) setState(online ? 'online' : 'offline');
-    })();
+    });
     return () => {
       mounted = false;
       unsubPending();
       unsubSync();
+      unsubConnectivity();
     };
   }, []);
 
   const handleSync = async () => {
     setSyncing(true);
-    await syncAll();
-    const online = await isOnline();
+    const result = failedCount > 0 ? await retryFailedOperations() : await syncAll();
     setSyncing(false);
-    setState(online ? 'online' : 'offline');
+    setState(result.ok || result.error !== 'offline' ? 'online' : 'offline');
   };
 
   // Nothing to surface. Online with no pending changes.
-  if (state === 'online' && pendingCount === 0 && !syncing) {
+  if (state === 'online' && pendingCount === 0 && failedCount === 0 && !syncing) {
     return null;
   }
 
-  if (state === 'offline' && pendingCount === 0) {
+  if (state === 'offline' && pendingCount === 0 && failedCount === 0) {
     return (
       <div className="flex items-center gap-2 border-b border-border bg-warning/10 px-4 py-1.5 text-xs text-warning">
         <CloudOff className="h-3.5 w-3.5" />
@@ -82,6 +90,11 @@ export function OfflineBanner() {
       <span className="min-w-0 flex-1 truncate">
         {syncing
           ? t('offline.syncing')
+          : failedCount > 0
+            ? t(
+                failedCount === 1 ? 'offline.failed_one' : 'offline.failed_other',
+                { count: failedCount },
+              )
           : state === 'offline'
             ? t(
                 pendingCount === 1

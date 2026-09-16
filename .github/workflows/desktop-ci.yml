@@ -7,6 +7,7 @@ on:
       - 'desktop/**'
       - 'shared/**'
       - 'api/openapi/openapi.json'
+      - 'scripts/**'
       - '.dockerignore'
       - '.github/workflows/desktop-ci.yml'
   pull_request:
@@ -15,6 +16,7 @@ on:
       - 'desktop/**'
       - 'shared/**'
       - 'api/openapi/openapi.json'
+      - 'scripts/**'
       - '.dockerignore'
       - '.github/workflows/desktop-ci.yml'
   workflow_dispatch:
@@ -75,6 +77,10 @@ jobs:
       - name: Lint (frontend)
         working-directory: desktop
         run: npm run lint
+
+      - name: Android composition smoke
+        working-directory: desktop
+        run: npm run test:android
 
       - name: Build frontend
         working-directory: desktop
@@ -186,6 +192,10 @@ jobs:
         working-directory: desktop
         run: npm run tauri android build -- --target aarch64 --apk
 
+      - name: Kotlin unit tests (Android native plugin)
+        working-directory: desktop/src-tauri/gen/android
+        run: ./gradlew :pudim-native:testDebugUnitTest --no-daemon
+
       # Pull requests still build the APK for validation, but only main pushes
       # and manual runs publish a downloadable artifact. Only the release output
       # directory is uploaded (never a debug APK).
@@ -224,6 +234,82 @@ jobs:
           path: desktop/src-tauri/gen/android/app/build/outputs/apk/**/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+  offline:
+    name: Offline sync smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: pudim
+          POSTGRES_PASSWORD: pudim
+          POSTGRES_DB: pudimfinance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      rabbitmq:
+        image: rabbitmq:4.3.5-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: pudim
+          RABBITMQ_DEFAULT_PASS: pudim
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+
+      - name: Cache Node dependencies
+        uses: actions/cache@v6
+        with:
+          path: desktop/node_modules
+          key: offline-npm-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json') }}
+
+      - name: Install Node dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Start backend
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://pudim:pudim@localhost:5432/pudimfinance
+          RABBITMQ_URL: amqp://pudim:pudim@localhost:5672
+          SERVER_HOST: 0.0.0.0
+          SERVER_PORT: 3000
+          JWT_SECRET: ci-offline-smoke-secret
+          RUST_LOG: backend=info
+        run: |
+          cargo run --release > /tmp/pudimfinance-backend.log 2>&1 &
+          echo $! > /tmp/pudimfinance-backend.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/pudimfinance-backend.log
+          exit 1
+
+      - name: Offline sync smoke
+        working-directory: desktop
+        run: npm run test:offline
 
   web:
     name: Web (nginx image + smoke test)

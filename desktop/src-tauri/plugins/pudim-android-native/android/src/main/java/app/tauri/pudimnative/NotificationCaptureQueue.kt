@@ -47,6 +47,14 @@ internal object NotificationCaptureQueue {
         }
     }
 
+    /** Removes a raw notification once a closed-app importer has materialized it. */
+    fun removeByCaptureId(context: Context, captureId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val items = read(prefs)
+        items.removeAll { it.optString("capture_id") == captureId }
+        prefs.edit().putString(KEY_ITEMS, JSONArray(items).toString()).commit()
+    }
+
     private fun dedupKeyOf(payload: Map<String, Any?>): String =
         "${payload["post_time"]}|${payload["app_name"]}|${payload["title"]}"
 

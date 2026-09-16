@@ -382,7 +382,60 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun setCaptureSettings(invoke: Invoke) {
         val args = invoke.parseArgs(CaptureSettingsArgs::class.java)
-        CaptureSettingsStore.save(activity, args.enabled, args.pushPrompt, args.monitoredApps)
+        CaptureSettingsStore.save(
+            activity,
+            args.enabled,
+            args.pushPrompt,
+            args.monitoredApps,
+            args.mode,
+            args.defaultCategoryId,
+            args.debitAccountId,
+            args.creditAccountId,
+        )
+        invoke.resolve()
+    }
+
+    /** Stores the API URL used by WorkManager when the WebView is not alive. */
+    @Command
+    fun setSyncConfig(invoke: Invoke) {
+        val args = invoke.parseArgs(SyncConfigArgs::class.java)
+        SyncOutbox.setBaseUrl(activity, args.baseUrl)
+        invoke.resolve()
+    }
+
+    /** Adds one WebView mutation to the durable native outbox. */
+    @Command
+    fun syncOutboxPut(invoke: Invoke) {
+        val args = invoke.parseArgs(SyncOutboxArgs::class.java)
+        val operation = org.json.JSONObject().apply {
+            put("operation_type", args.operationType)
+            put("entity_type", args.entityType)
+            put("client_id", args.clientId)
+            if (!args.serverId.isNullOrBlank()) put("server_id", args.serverId)
+            put("payload", org.json.JSONObject(args.payloadJson))
+        }
+        SyncOutbox.enqueue(activity, operation)
+        invoke.resolve()
+    }
+
+    /** Removes an operation settled by the foreground IndexedDB sync engine. */
+    @Command
+    fun syncOutboxRemove(invoke: Invoke) {
+        val args = invoke.parseArgs(SyncOutboxRemoveArgs::class.java)
+        SyncOutbox.acknowledge(activity, args.clientId)
+        invoke.resolve()
+    }
+
+    /** Returns and clears results produced while the app was closed. */
+    @Command
+    fun drainSyncResults(invoke: Invoke) {
+        invoke.resolveObject(SyncOutbox.drainResults(activity))
+    }
+
+    /** Clears native operations after logout. */
+    @Command
+    fun clearSyncOutbox(invoke: Invoke) {
+        SyncOutbox.clear(activity)
         invoke.resolve()
     }
 
@@ -451,6 +504,29 @@ internal class CaptureSettingsArgs {
     var enabled: Boolean = false
     var pushPrompt: Boolean = true
     var monitoredApps: List<String> = emptyList()
+    var mode: String = "ask"
+    var defaultCategoryId: String? = null
+    var debitAccountId: String? = null
+    var creditAccountId: String? = null
+}
+
+@InvokeArg
+internal class SyncConfigArgs {
+    lateinit var baseUrl: String
+}
+
+@InvokeArg
+internal class SyncOutboxArgs {
+    lateinit var operationType: String
+    lateinit var entityType: String
+    lateinit var clientId: String
+    var serverId: String? = null
+    lateinit var payloadJson: String
+}
+
+@InvokeArg
+internal class SyncOutboxRemoveArgs {
+    lateinit var clientId: String
 }
 
 @InvokeArg

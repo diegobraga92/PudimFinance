@@ -213,6 +213,10 @@ export async function syncCaptureSettings(settings: {
   enabled: boolean;
   pushPrompt: boolean;
   monitoredApps: string[];
+  mode?: 'auto' | 'ask';
+  defaultCategoryId?: string | null;
+  debitAccountId?: string | null;
+  creditAccountId?: string | null;
 }): Promise<void> {
   if (!isTauri()) return;
   try {
@@ -220,6 +224,10 @@ export async function syncCaptureSettings(settings: {
       enabled: settings.enabled,
       pushPrompt: settings.pushPrompt,
       monitoredApps: settings.monitoredApps,
+      mode: settings.mode ?? 'ask',
+      defaultCategoryId: settings.defaultCategoryId ?? null,
+      debitAccountId: settings.debitAccountId ?? null,
+      creditAccountId: settings.creditAccountId ?? null,
     });
   } catch (error) {
     recordNativeError('set_capture_settings', error);

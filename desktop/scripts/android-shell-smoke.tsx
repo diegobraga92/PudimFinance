@@ -63,9 +63,13 @@ import { clearAuthSession, setAuthSession } from '../src/lib/auth';
 import {
   accountIdForAction,
   categoryIdForCapture,
+  hasImportedCapture,
+  markCaptureImported,
   parseNotification,
 } from '../src/notifications/capture';
+import { filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
+import { normalizeServerUrl } from '../src/lib/serverConfig';
 
 function Providers({ children, client }: { children: React.ReactNode; client?: QueryClient }) {
   const fallback = React.useMemo(() => new QueryClient(), []);
@@ -458,6 +462,43 @@ if (actionSettingsChecks.every(([, ok]) => ok)) {
   console.log(`PASS: capture action settings (${actionSettingsChecks.length} cases)`);
 }
 
+const persistedDedupKey = 'expense|12.50|merchant|2026-09-16';
+await markCaptureImported(persistedDedupKey);
+if (hasImportedCapture(persistedDedupKey)) {
+  console.log('PASS: persistent capture dedup journal');
+} else {
+  console.error('FAIL: persistent capture dedup journal');
+  failures += 1;
+}
+
+const localFilterRows = [
+  {
+    id: 'a', server_id: null, description: 'Later expense', amount: '20.00', type: 'expense' as const,
+    category_id: 'food', date: '2026-09-15', notes: null, installment_plan_id: null, account_id: 'bank',
+    synced: 0, updated_at: '2026-09-15T00:00:00Z',
+  },
+  {
+    id: 'b', server_id: null, description: 'Income', amount: '100.00', type: 'income' as const,
+    category_id: null, date: '2026-09-16', notes: null, installment_plan_id: null, account_id: 'bank',
+    synced: 1, updated_at: '2026-09-16T00:00:00Z',
+  },
+];
+const localFilterResult = filterAndSortLocalTransactions(localFilterRows, {
+  type: 'expense', start_date: '2026-09-16', end_date: '2026-09-16',
+});
+const localIncomeResult = filterAndSortLocalTransactions(localFilterRows, { type: 'income' });
+if (
+  localFilterResult.total === 0 &&
+  localFilterResult.items.length === 0 &&
+  localIncomeResult.total === 1 &&
+  localIncomeResult.items[0]?.description === 'Income'
+) {
+  console.log('PASS: offline transaction filters');
+} else {
+  console.error('FAIL: offline transaction filters');
+  failures += 1;
+}
+
 const rangeEmptyHtml = renderToStaticMarkup(
   <Providers>
     <DateRangeField startDate="" endDate="" onChange={() => undefined} />
@@ -589,6 +630,22 @@ for (const [label, ok] of groupingChecks) {
 }
 if (groupingChecks.every(([, ok]) => ok)) {
   console.log(`PASS: month grouping (${grouped.map((g) => g.label).join(' / ')})`);
+}
+
+const serverUrlChecks: [string, boolean][] = [
+  ['server URL trims whitespace and trailing slash', normalizeServerUrl('  http://10.0.2.2:3000/// ') === 'http://10.0.2.2:3000'],
+  ['server URL removes pasted sentence punctuation', normalizeServerUrl('http://10.0.2.2:3000.') === 'http://10.0.2.2:3000'],
+  ['server URL adds protocol once', normalizeServerUrl('10.0.2.2:3000') === 'http://10.0.2.2:3000'],
+  ['server URL does not concatenate values', normalizeServerUrl('http://new.example:3000') === 'http://new.example:3000'],
+];
+for (const [label, ok] of serverUrlChecks) {
+  if (!ok) {
+    console.error(`FAIL: server URL normalization — ${label}`);
+    failures += 1;
+  }
+}
+if (serverUrlChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: server URL normalization (${serverUrlChecks.length} cases)`);
 }
 
 // The stored session is what lets the app skip the login screen on the next

@@ -13,6 +13,7 @@
     <string name="capture_prompt_income">Income</string>
     <string name="capture_prompt_debit">Debit</string>
     <string name="capture_prompt_credit">Credit</string>
+    <string name="capture_notes">Captured from push notification</string>
     <string name="biometric_title">Unlock PudimFinance</string>
     <string name="biometric_subtitle">Use your fingerprint or face to continue</string>
 </resources>

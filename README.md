@@ -193,7 +193,14 @@ npm run typecheck
 npm run build
 npm run test:offline      # requires a running backend
 npm run test:android      # server-side UI smoke checks
+
+# Android emulator build/install/launch + native notification smoke
+../scripts/run-android.sh --smoke --keep
 ```
+
+The Android runner uses the emulator loopback URL `http://10.0.2.2:3000` and
+does not reset the database. Its `--smoke` mode fails unless the synthetic bank
+notification produces a native capture prompt or `PudimSyncWorker` evidence.
 
 ## Operations and documentation
 

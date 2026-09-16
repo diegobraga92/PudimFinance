@@ -92,6 +92,17 @@ npm run test:android
 Android smoke test server-side renders the shell and screens without a browser,
 backend, or emulator.
 
+For an emulator build/install/launch and native notification smoke test:
+
+```bash
+../scripts/run-android.sh --smoke --keep
+```
+
+The runner uses `http://10.0.2.2:3000` inside the emulator, preserves the
+database, and exits non-zero when the synthetic notification produces neither a
+capture prompt nor native `PudimSyncWorker` evidence. The app must be signed in
+and capture must be enabled before `--smoke` can pass.
+
 Native Rust checks run separately:
 
 ```bash

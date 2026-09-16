@@ -102,6 +102,67 @@ check_desktop() {
 }
 
 # ──────────────────────────────────────────────
+# Desktop smoke tests
+# ──────────────────────────────────────────────
+check_desktop_tests() {
+    cd "$ROOT_DIR/desktop"
+
+    step "Desktop: Android composition smoke"
+    npm run test:android \
+        && ok "Android composition smoke passed" \
+        || fail "Android composition smoke failed"
+
+    if [ -x "$ROOT_DIR/desktop/src-tauri/gen/android/gradlew" ] && \
+        [ -f "$ROOT_DIR/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
+        step "Android plugin: Kotlin unit tests"
+        (
+            cd "$ROOT_DIR/desktop/src-tauri/gen/android" &&
+            ./gradlew :pudim-native:testDebugUnitTest --no-daemon
+        ) \
+            && ok "Kotlin unit tests passed" \
+            || fail "Kotlin unit tests failed"
+    else
+        skip "Android project not generated — run tauri android init before Kotlin tests"
+    fi
+}
+
+check_desktop_offline() {
+    cd "$ROOT_DIR/desktop"
+    local started_compose=false
+
+    if ! curl --fail --silent http://localhost:3000/health >/dev/null 2>&1; then
+        step "Desktop: start backend for offline smoke"
+        docker compose -f "$ROOT_DIR/docker-compose.yml" up -d postgres rabbitmq backend \
+            && started_compose=true \
+            || fail "Could not start backend services"
+
+        for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/health >/dev/null 2>&1; then
+                break
+            fi
+            if [ "$attempt" -eq 60 ]; then
+                docker compose -f "$ROOT_DIR/docker-compose.yml" logs backend
+                fail "Backend did not become healthy"
+            fi
+            sleep 1
+        done
+    else
+        ok "Existing backend is healthy"
+    fi
+
+    step "Desktop: offline sync smoke"
+    local result=0
+    npm run test:offline || result=$?
+
+    if [ "$started_compose" = true ]; then
+        docker compose -f "$ROOT_DIR/docker-compose.yml" stop backend rabbitmq postgres >/dev/null 2>&1 || true
+    fi
+    [ "$result" -eq 0 ] \
+        && ok "Offline sync smoke passed" \
+        || fail "Offline sync smoke failed"
+}
+
+# ──────────────────────────────────────────────
 # OpenAPI checks
 # ──────────────────────────────────────────────
 check_openapi() {
@@ -155,6 +216,8 @@ usage() {
     echo "  check-backend        Backend only: fmt, clippy, audit, build"
     echo "  check-openapi        OpenAPI spec only: validation"
     echo "  check-desktop        Desktop client only: lint, typecheck"
+    echo "  check-desktop-tests  Desktop smoke tests (Android composition + Kotlin)"
+    echo "  check-desktop-offline Desktop offline sync smoke (requires Docker)"
     echo "  check-desktop-rust   Desktop Rust only: fmt, clippy (Tauri core + plugin)"
     echo ""
     echo "Examples:"
@@ -167,6 +230,8 @@ case "${1:-help}" in
         check_backend
         check_openapi
         check_desktop
+        check_desktop_tests
+        check_desktop_offline
         check_desktop_rust
         echo -e "\n${GREEN}═════════════════════════════════════${NC}"
         echo -e "${GREEN}  ✅ All checks passed!${NC}"
@@ -183,6 +248,14 @@ case "${1:-help}" in
     check-desktop)
         check_desktop
         echo -e "\n${GREEN}✅ Desktop checks passed${NC}"
+        ;;
+    check-desktop-tests)
+        check_desktop_tests
+        echo -e "\n${GREEN}✅ Desktop smoke tests passed${NC}"
+        ;;
+    check-desktop-offline)
+        check_desktop_offline
+        echo -e "\n${GREEN}✅ Desktop offline smoke passed${NC}"
         ;;
     check-desktop-rust)
         check_desktop_rust

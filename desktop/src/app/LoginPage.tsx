@@ -168,6 +168,7 @@ export function LoginPage() {
                   setServer(e.target.value);
                   setTestResult(null);
                 }}
+                onFocus={(e) => e.currentTarget.select()}
                 onBlur={() => void saveServer()}
                 placeholder={t('login.serverPlaceholder')}
               />

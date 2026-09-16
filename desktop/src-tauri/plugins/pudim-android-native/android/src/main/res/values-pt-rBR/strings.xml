@@ -13,6 +13,7 @@
     <string name="capture_prompt_income">Receita</string>
     <string name="capture_prompt_debit">Débito</string>
     <string name="capture_prompt_credit">Crédito</string>
+    <string name="capture_notes">Capturada a partir de notificação</string>
     <string name="biometric_title">Desbloquear PudimFinance</string>
     <string name="biometric_subtitle">Use sua impressão digital ou rosto para continuar</string>
 </resources>

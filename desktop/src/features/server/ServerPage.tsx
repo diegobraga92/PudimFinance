@@ -9,6 +9,7 @@ import {
   setApiBaseUrl,
   testServerConnection,
 } from '@/lib/serverConfig';
+import { configureNativeSync } from '@/offline/native-outbox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,7 @@ export function ServerPage() {
     setSaving(true);
     try {
       const normalized = await setApiBaseUrl(value);
+      await configureNativeSync();
       setCurrent(normalized);
       setValue(normalized);
       setTestResult(null);
@@ -84,6 +86,7 @@ export function ServerPage() {
                 setValue(e.target.value);
                 setTestResult(null);
               }}
+              onFocus={(e) => e.currentTarget.select()}
               placeholder={t('login.serverPlaceholder')}
               spellCheck={false}
             />

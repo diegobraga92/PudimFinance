@@ -14,11 +14,14 @@ import {
   getLocalAccounts,
   getLocalCategories,
   getLocalTransactions,
+  getFailedPendingOperations,
   getPendingOperations,
   markAccountSynced,
   markCategorySynced,
   markTransactionSynced,
   removePendingOperation,
+  recordPendingOperationFailure,
+  resetPendingOperationFailures,
   replaceLocalAccounts,
   replaceLocalCategories,
   replaceLocalTransactions,
@@ -28,11 +31,14 @@ import {
   type LocalTransaction,
 } from './database';
 import { isOnline, uuid } from './net';
+import { putNativeMutation, reconcileNativeSyncResults, removeNativeMutation } from './native-outbox';
 
 export interface SyncResult {
   pushed: number;
   pulledTransactions: number;
   pulledCategories: number;
+  failed: number;
+  firstError?: string;
   ok: boolean;
   error?: string;
 }
@@ -62,18 +68,30 @@ function notifySyncListeners(result: SyncResult): void {
 }
 
 async function performSync(): Promise<SyncResult> {
+  await reconcileNativeSyncResults();
   const online = await isOnline();
   if (!online) {
-    return { pushed: 0, pulledTransactions: 0, pulledCategories: 0, ok: false, error: 'offline' };
+    return {
+      pushed: 0,
+      pulledTransactions: 0,
+      pulledCategories: 0,
+      failed: 0,
+      ok: false,
+      error: 'offline',
+    };
   }
 
-  const pushed = await pushPending();
+  const push = await pushPending();
   const pulled = await pullChanges();
+  const failedOperations = await getFailedPendingOperations();
+  const firstError = push.firstError ?? failedOperations[0]?.last_error ?? undefined;
   return {
-    pushed,
+    pushed: push.pushed,
     pulledTransactions: pulled.transactions.length,
     pulledCategories: pulled.categories.length,
-    ok: true,
+    failed: Math.max(push.failed, failedOperations.length),
+    firstError,
+    ok: push.failed === 0 && failedOperations.length === 0,
   };
 }
 
@@ -93,6 +111,12 @@ export async function syncAll(): Promise<SyncResult> {
   return result;
 }
 
+/** Resets bounded failures and immediately performs a user-requested retry. */
+export async function retryFailedOperations(): Promise<SyncResult> {
+  await resetPendingOperationFailures();
+  return syncAll();
+}
+
 /** Syncs without notifying subscribers (used by loaders that refresh themselves). */
 export async function syncSilently(): Promise<SyncResult> {
   return performSyncWithLock();
@@ -102,9 +126,18 @@ export async function syncSilently(): Promise<SyncResult> {
  * Sends queued mutations to the server in order, then updates the local
  * mirror with the server-assigned IDs.
  */
-async function pushPending(): Promise<number> {
-  const pending = await getPendingOperations();
-  if (pending.length === 0) return 0;
+const MAX_PUSH_ATTEMPTS = 3;
+
+interface PushResult {
+  pushed: number;
+  failed: number;
+  firstError?: string;
+}
+
+async function pushBatch(
+  pending: Awaited<ReturnType<typeof getPendingOperations>>,
+): Promise<PushResult> {
+  if (pending.length === 0) return { pushed: 0, failed: 0 };
 
   const operations: SyncPushOperation[] = pending.map((op) => ({
     operation_type: op.operation_type,
@@ -119,11 +152,20 @@ async function pushPending(): Promise<number> {
   // Drop only the acknowledged operations. Failed ones (conflict/error) stay
   // queued so a later sync retries them instead of silently losing the change.
   let pushed = 0;
+  let failed = 0;
+  let firstError: string | undefined;
   const pendingById = new Map(pending.map((op) => [op.local_id ?? op.server_id, op]));
   for (const result of res.results) {
     const op = pendingById.get(result.client_id);
     if (!op) continue;
-    if (result.status !== 'ok') continue;
+    if (result.status !== 'ok') {
+      failed += 1;
+      const error = result.error ?? `Sync ${result.status}`;
+      firstError ??= error;
+      await recordPendingOperationFailure(op.id, error);
+      await removeNativeMutation(result.client_id);
+      continue;
+    }
     pushed += 1;
     // A create returned a server-assigned id, so remap the local row to keep the
     // mirror consistent (the server stores client_id as the idempotency key).
@@ -137,8 +179,28 @@ async function pushPending(): Promise<number> {
       }
     }
     await removePendingOperation(op.id);
+    await removeNativeMutation(result.client_id);
   }
-  return pushed;
+  return { pushed, failed, firstError };
+}
+
+/** Sends creates before updates/deletes so offline-created parents exist first. */
+async function pushPending(): Promise<PushResult> {
+  const pending = (await getPendingOperations()).filter(
+    (op) => (op.attempts ?? 0) < MAX_PUSH_ATTEMPTS,
+  );
+  if (pending.length === 0) return { pushed: 0, failed: 0 };
+
+  const creates = pending.filter((op) => op.operation_type === 'create');
+  const rest = pending.filter((op) => op.operation_type !== 'create');
+  const createResult = await pushBatch(creates);
+  if (createResult.failed > 0) return createResult;
+  const restResult = await pushBatch(rest);
+  return {
+    pushed: createResult.pushed + restResult.pushed,
+    failed: restResult.failed,
+    firstError: restResult.firstError,
+  };
 }
 
 /** Pulls server changes since the last sync into the local mirror. */
@@ -267,6 +329,13 @@ export async function queueLocalMutation(
     local_id: localId,
     server_id: serverId,
     payload: JSON.stringify(payload),
+  });
+  await putNativeMutation({
+    operation_type: operationType,
+    entity_type: entityType,
+    client_id: localId,
+    server_id: serverId,
+    payload,
   });
 }
 

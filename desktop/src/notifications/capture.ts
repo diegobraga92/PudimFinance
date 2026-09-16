@@ -26,6 +26,8 @@ export interface NotificationSettings {
 
 const SETTINGS_KEY = 'pudim_notification_settings';
 const INBOX_KEY = 'pudim_pending_captures';
+const IMPORTED_DEDUP_KEY = 'pudim_imported_capture_dedup';
+const MAX_IMPORTED_DEDUP = 200;
 
 export const DEFAULT_SETTINGS: NotificationSettings = {
   enabled: false,
@@ -287,6 +289,32 @@ function normalizeForDedup(s: string): string {
 
 export function dedupKeyOf(parsed: ParsedTransaction): string {
   return `${parsed.type}|${parsed.amount}|${normalizeForDedup(parsed.description)}|${parsed.date}`;
+}
+
+function readImportedDedup(): string[] {
+  try {
+    const raw = localStorage.getItem(IMPORTED_DEDUP_KEY);
+    const values = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(values) ? values.filter((value): value is string => typeof value === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Returns true when a capture was already imported, including after restart. */
+export function hasImportedCapture(dedupKey: string): boolean {
+  return readImportedDedup().includes(dedupKey);
+}
+
+/** Persists a bounded imported-capture journal used by both live and action paths. */
+export async function markCaptureImported(dedupKey: string): Promise<void> {
+  const values = readImportedDedup().filter((value) => value !== dedupKey);
+  values.push(dedupKey);
+  try {
+    localStorage.setItem(IMPORTED_DEDUP_KEY, JSON.stringify(values.slice(-MAX_IMPORTED_DEDUP)));
+  } catch {
+    // Deduplication is best effort when local storage is unavailable.
+  }
 }
 
 export function appLabelFor(appName: string): string {

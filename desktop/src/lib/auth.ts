@@ -125,6 +125,13 @@ export async function loadSession(): Promise<void> {
   cacheLoaded = true;
 }
 
+/** Re-reads the OS-backed session after a native worker may rotate its tokens. */
+export async function reloadSession(): Promise<void> {
+  cacheLoaded = false;
+  await loadSession();
+  notify();
+}
+
 /** Synchronous cache reads (for the request layer and the event handler). */
 export function getCachedAccessToken(): string | null {
   return cache.access;
@@ -173,6 +180,9 @@ export async function clearAuthSession(): Promise<void> {
     storeDelete(TOKEN_KEY),
     storeDelete(REFRESH_TOKEN_KEY),
     storeDelete(USER_KEY),
+    isTauri()
+      ? invoke('plugin:pudim-native|clear_sync_outbox').catch(() => undefined)
+      : Promise.resolve(),
   ]);
   notify();
 }

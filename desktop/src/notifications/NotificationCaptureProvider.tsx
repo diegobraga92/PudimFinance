@@ -10,8 +10,10 @@ import {
   dedupKeyOf,
   getNotificationSettings,
   getPendingCaptures,
+  hasImportedCapture,
   isCaptureActionKind,
   markCapturePrompted,
+  markCaptureImported,
   parseNotification,
   removePendingCapture,
   removePendingCaptureByDedupKey,
@@ -34,6 +36,8 @@ import {
   type CapturedNotification,
 } from './native';
 import { refreshWidgetSpentToday } from '@/lib/widget';
+import { isOnline } from '@/offline/net';
+import { requestSync } from '@/offline/sync-scheduler';
 
 /** How long a "just imported" capture stays suppressed to avoid double-imports. */
 const DEDUP_WINDOW_MS = 30_000;
@@ -84,12 +88,13 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   }, []);
 
   const persistTransaction = React.useCallback(
-    async (parsed: ParsedTransaction, categoryId: string | null) =>
+    async (parsed: ParsedTransaction, categoryId: string | null, accountId?: string | null) =>
       createTransaction({
         description: parsed.description,
         amount: parsed.amount,
         type: parsed.type,
         category_id: categoryId,
+        account_id: accountId ?? undefined,
         date: parsed.date,
         notes: tRef.current('notifications.notes'),
       }),
@@ -120,21 +125,31 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       if (settings.mode === 'auto') {
         // Avoid importing the same transaction twice within a short window.
         const key = `${parsed.type}|${parsed.amount}|${parsed.description}|${parsed.date}`;
+        const dedupKey = dedupKeyOf(parsed);
+        if (hasImportedCapture(dedupKey)) return;
         const last = recentImportsRef.current.get(key);
         if (last !== undefined && Date.now() - last < DEDUP_WINDOW_MS) return;
         recentImportsRef.current.set(key, Date.now());
 
-        void persistTransaction(parsed, parsed.categoryId)
+        void persistTransaction(
+          parsed,
+          parsed.categoryId,
+          parsed.type === 'expense' ? settings.debitAccountId : null,
+        )
           .then(() => {
+            void markCaptureImported(dedupKey);
+            requestSync();
             void refreshWidgetSpentToday();
-            toastRef.current({
-              title: tRef.current('notifications.captured', {
-                type: parsed.type,
-                amount: parsed.amount,
-                description: parsed.description,
-              }),
+            void isOnline().then((online) => toastRef.current({
+              title: online
+                ? tRef.current('notifications.captured', {
+                    type: parsed.type,
+                    amount: parsed.amount,
+                    description: parsed.description,
+                  })
+                : tRef.current('notifications.createdOffline', { amount: parsed.amount }),
               variant: 'success',
-            });
+            }));
           })
           .catch(() => {});
       } else {
@@ -184,6 +199,10 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     }
     if (!item) return;
     const { dedupKey } = item;
+    if (hasImportedCapture(dedupKey)) {
+      setPendingItems(await removePendingCaptureByDedupKey(dedupKey));
+      return;
+    }
     const accountId = accountIdForAction(action.action, settings);
     const categoryId = categoryIdForCapture(item, settings);
     try {
@@ -198,10 +217,15 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       });
       await removePendingCapture(item.id);
       const next = await removePendingCaptureByDedupKey(dedupKey);
+      await markCaptureImported(dedupKey);
       setPendingItems(next);
+      requestSync();
       void refreshWidgetSpentToday();
+      const online = await isOnline();
       toastRef.current({
-        title: tRef.current('notifications.created', { amount: item.amount }),
+        title: online
+          ? tRef.current('notifications.created', { amount: item.amount })
+          : tRef.current('notifications.createdOffline', { amount: item.amount }),
         variant: 'success',
       });
     } catch (err) {
@@ -332,10 +356,17 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           notes: tRef.current('notifications.notes'),
         });
         const next = await removePendingCapture(id);
+        await markCaptureImported(item.dedupKey);
         setPendingItems(next);
+        requestSync();
         void refreshWidgetSpentToday();
+        const online = await isOnline();
         toastRef.current({
-          title: tRef.current('notifications.created', { amount: overrides?.amount ?? item.amount }),
+          title: online
+            ? tRef.current('notifications.created', { amount: overrides?.amount ?? item.amount })
+            : tRef.current('notifications.createdOffline', {
+                amount: overrides?.amount ?? item.amount,
+              }),
           variant: 'success',
         });
       } catch (err) {
@@ -352,6 +383,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const approveAll = React.useCallback(async () => {
     const items = await getPendingCaptures();
     let imported = 0;
+    let importedOffline = false;
     for (const item of items) {
       void cancelCapturePrompt(item.id);
       try {
@@ -364,19 +396,31 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           notes: tRef.current('notifications.notes'),
         });
         await removePendingCapture(item.id);
+        await markCaptureImported(item.dedupKey);
+        if (!(await isOnline())) importedOffline = true;
         imported += 1;
       } catch {
         // Keep failed items in the inbox so the user can retry or edit them.
       }
     }
     setPendingItems(await getPendingCaptures());
+    requestSync();
     void refreshWidgetSpentToday();
     if (imported > 0) {
       toastRef.current({
-        title: tRef.current(
-          imported === 1 ? 'notifications.approveAllDone_one' : 'notifications.approveAllDone_other',
-          { count: imported },
-        ),
+        title: importedOffline
+          ? tRef.current(
+              imported === 1
+                ? 'notifications.approveAllDoneOffline_one'
+                : 'notifications.approveAllDoneOffline_other',
+              { count: imported },
+            )
+          : tRef.current(
+              imported === 1
+                ? 'notifications.approveAllDone_one'
+                : 'notifications.approveAllDone_other',
+              { count: imported },
+            ),
         variant: 'success',
       });
     }

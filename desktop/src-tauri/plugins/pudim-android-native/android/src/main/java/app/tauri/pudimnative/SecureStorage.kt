@@ -72,6 +72,6 @@ internal object SecureStorage {
     }
 
     fun delete(context: Context, name: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(name).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(name).commit()
     }
 }

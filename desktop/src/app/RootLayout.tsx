@@ -25,8 +25,11 @@ import {
   takeDeepLink,
 } from '@/notifications/native';
 import { refreshWidgetSpentToday } from '@/lib/widget';
-import { syncSilently } from '@/offline/sync-engine';
-import { clearServerProbeCache } from '@/offline/net';
+import { subscribeSync } from '@/offline/sync-engine';
+import { configureNativeSync } from '@/offline/native-outbox';
+import { getApiBaseUrl } from '@/lib/serverConfig';
+import { reloadSession } from '@/lib/auth';
+import { startSyncScheduler } from '@/offline/sync-scheduler';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -220,30 +223,18 @@ export function RootLayout() {
 
   const goQuickAdd = () => navigate('/transactions?add=1');
 
-  // Offline-first. Seed the local mirror on startup and whenever connectivity
-  // returns. Failures are non-fatal (the app falls back to the mirror).
+  // Offline-first. The scheduler probes and syncs while the app is foregrounded.
   React.useEffect(() => {
-    let active = true;
-    const run = async () => {
-      if (!active) return;
-      try {
-        await syncSilently();
-        void refreshWidgetSpentToday();
-      } catch {
-        // The local mirror remains available when sync fails.
-      }
+    void getApiBaseUrl().then(() => configureNativeSync());
+    const stop = startSyncScheduler();
+    const unsubscribe = subscribeSync(() => void refreshWidgetSpentToday());
+    const onFocus = () => {
+      void reloadSession();
     };
-    void run();
-    const onOnline = () => {
-      clearServerProbeCache();
-      void run();
-    };
-    const onFocus = () => void refreshWidgetSpentToday();
-    window.addEventListener('online', onOnline);
     window.addEventListener('focus', onFocus);
     return () => {
-      active = false;
-      window.removeEventListener('online', onOnline);
+      unsubscribe();
+      stop();
       window.removeEventListener('focus', onFocus);
     };
   }, []);

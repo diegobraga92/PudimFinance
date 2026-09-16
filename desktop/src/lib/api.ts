@@ -2,6 +2,7 @@ import type { components } from './api-types';
 import { request, ApiError, isNetworkError } from './request';
 import { isOnline, markServerUnavailable, uuid } from '@/offline/net';
 import { queueLocalMutation } from '@/offline/sync-engine';
+import { filterAndSortLocalTransactions } from '@/offline/filters';
 import {
   deleteLocalAccount,
   deleteLocalCategory,
@@ -384,14 +385,15 @@ export async function fetchTransactions(
   // Offline, serve the local mirror (sorted newest-first by the store).
   if (!(await isOnline())) {
     const items = await getLocalTransactions();
-    const mapped = items.map(localTxToTransaction);
+    const local = filterAndSortLocalTransactions(items, params);
+    const mapped = local.items.map(localTxToTransaction);
     const start = params?.page ?? 0;
-    const pageSize = params?.page_size ?? 50;
+    const pageSize = Math.min(200, Math.max(1, params?.page_size ?? 50));
     return {
-      items: mapped.slice(start * pageSize, (start + 1) * pageSize),
+      items: mapped,
       page: start,
       page_size: pageSize,
-      total: mapped.length,
+      total: local.total,
     };
   }
   return request<TransactionListResponse>(`/api/transactions${qs(params as Record<string, unknown>)}`);

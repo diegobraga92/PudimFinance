@@ -16,6 +16,11 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-notification-posting-allowed`
 - `allow-request-notification-permission`
 - `allow-set-capture-settings`
+- `allow-set-sync-config`
+- `allow-sync-outbox-put`
+- `allow-sync-outbox-remove`
+- `allow-drain-sync-results`
+- `allow-clear-sync-outbox`
 - `allow-secure-get`
 - `allow-secure-set`
 - `allow-secure-delete`
@@ -143,6 +148,32 @@ Denies the cancel_capture_prompt command without any pre-configured scope.
 <tr>
 <td>
 
+`pudim-android-native:allow-clear-sync-outbox`
+
+</td>
+<td>
+
+Enables the clear_sync_outbox command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-clear-sync-outbox`
+
+</td>
+<td>
+
+Denies the clear_sync_outbox command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `pudim-android-native:allow-drain-capture-actions`
 
 </td>
@@ -188,6 +219,32 @@ Enables the drain_pending command without any pre-configured scope.
 <td>
 
 Denies the drain_pending command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-drain-sync-results`
+
+</td>
+<td>
+
+Enables the drain_sync_results command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-drain-sync-results`
+
+</td>
+<td>
+
+Denies the drain_sync_results command without any pre-configured scope.
 
 </td>
 </tr>
@@ -507,6 +564,32 @@ Denies the set_capture_settings command without any pre-configured scope.
 <tr>
 <td>
 
+`pudim-android-native:allow-set-sync-config`
+
+</td>
+<td>
+
+Enables the set_sync_config command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-set-sync-config`
+
+</td>
+<td>
+
+Denies the set_sync_config command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `pudim-android-native:allow-set-widget-spent-today`
 
 </td>
@@ -552,6 +635,58 @@ Enables the show_capture_prompt command without any pre-configured scope.
 <td>
 
 Denies the show_capture_prompt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-sync-outbox-put`
+
+</td>
+<td>
+
+Enables the sync_outbox_put command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-sync-outbox-put`
+
+</td>
+<td>
+
+Denies the sync_outbox_put command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-sync-outbox-remove`
+
+</td>
+<td>
+
+Enables the sync_outbox_remove command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-sync-outbox-remove`
+
+</td>
+<td>
+
+Denies the sync_outbox_remove command without any pre-configured scope.
 
 </td>
 </tr>

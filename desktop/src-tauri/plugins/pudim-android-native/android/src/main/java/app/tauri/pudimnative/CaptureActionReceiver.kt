@@ -36,7 +36,12 @@ class CaptureActionReceiver : BroadcastReceiver() {
         if (postTime > 0L) payload["post_time"] = postTime
 
         if (!PudimNativePlugin.notifyCaptureAction(payload)) {
-            PendingCaptureActions.enqueue(context, payload)
+            // If no WebView listener is alive, import immediately into the
+            // encrypted native outbox. Falling back to the action journal keeps
+            // actions recoverable when parsing/settings are unavailable.
+            if (!NativeCaptureImporter.importAction(context, payload)) {
+                PendingCaptureActions.enqueue(context, payload)
+            }
         }
     }
 
