@@ -74,6 +74,63 @@ function SummaryCard({
   );
 }
 
+interface MobileSummaryRowProps {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  tone: string;
+  valueClassName?: string;
+  secondaryLabel: string;
+  secondaryValue: string;
+  secondaryClassName?: string;
+  loading: boolean;
+}
+
+function MobileSummaryRow({
+  label,
+  value,
+  icon,
+  tone,
+  valueClassName,
+  secondaryLabel,
+  secondaryValue,
+  secondaryClassName,
+  loading,
+}: MobileSummaryRowProps) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', tone)}>
+          {icon}
+        </span>
+        <span className="truncate text-[13px] font-medium text-muted-foreground">{label}</span>
+      </div>
+      <div className="min-w-0 shrink-0 text-right">
+        {loading ? (
+          <Skeleton className="ml-auto h-5 w-24" />
+        ) : (
+          <span
+            className={cn(
+              'block max-w-[12rem] truncate text-base font-semibold leading-none tracking-[-0.01em] tabular-nums',
+              valueClassName,
+            )}
+          >
+            {value}
+          </span>
+        )}
+        {loading ? (
+          <Skeleton className="ml-auto mt-1.5 h-3 w-24" />
+        ) : (
+          <span className="mt-1 block max-w-[12rem] truncate text-[11px] leading-tight text-dim">
+            {secondaryLabel}{' '}
+            <span className={cn('font-medium', secondaryClassName)}>{secondaryValue}</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Right-aligned secondary figure: a small label above its value. */
 function AsideStat({
   label,
@@ -97,6 +154,75 @@ function AsideStat({
         <p className={cn('mt-1 text-base font-bold leading-tight tabular-nums', tone)}>{value}</p>
       )}
     </div>
+  );
+}
+
+/** Compact phone summary with one row for each desktop headline card. */
+function MobileAccountsSummary({
+  loading,
+  available,
+  totalAssets,
+  investments,
+  totalLiabilities,
+  liabilityCount,
+  monthlyIncome,
+  monthlyExpenses,
+  monthlyNet,
+}: AccountsSummaryProps) {
+  const { t, formatMoney } = useI18n();
+  const netWorth = totalAssets - totalLiabilities;
+  const show = (value: number) => (available ? formatMoney(value) : '—');
+  const countKey =
+    liabilityCount === 1 ? 'accounts.group.count_one' : 'accounts.group.count_other';
+
+  return (
+    <Card className="border-border bg-surface shadow-card md:hidden">
+      <CardContent className="divide-y divide-border/60 p-0">
+        <MobileSummaryRow
+          label={t('accounts.summary.assets')}
+          value={show(totalAssets)}
+          icon={<Wallet className="h-4 w-4" />}
+          tone="bg-info/15 text-info"
+          valueClassName="text-success"
+          secondaryLabel={t('accounts.summary.investments')}
+          secondaryValue={show(investments)}
+          secondaryClassName="text-success"
+          loading={loading}
+        />
+        <MobileSummaryRow
+          label={t('accounts.summary.liabilities')}
+          value={available ? `- ${formatMoney(totalLiabilities)}` : '—'}
+          icon={<TrendingDown className="h-4 w-4" />}
+          tone="bg-danger/15 text-danger"
+          valueClassName="text-danger"
+          secondaryLabel={t('accounts.summary.accountCount')}
+          secondaryValue={t(countKey, { count: liabilityCount })}
+          loading={loading}
+        />
+        <MobileSummaryRow
+          label={t('accounts.summary.netWorth')}
+          value={show(netWorth)}
+          icon={<Scale className="h-4 w-4" />}
+          tone="bg-success/15 text-success"
+          valueClassName={netWorth >= 0 ? 'text-success' : 'text-danger'}
+          secondaryLabel={t('accounts.summary.netThisMonth')}
+          secondaryValue={monthlyNet === null ? '—' : formatMoney(monthlyNet)}
+          secondaryClassName={monthlyNet !== null && monthlyNet < 0 ? 'text-danger' : 'text-success'}
+          loading={loading}
+        />
+        <MobileSummaryRow
+          label={t('accounts.summary.monthlyIncome')}
+          value={monthlyIncome === null ? '—' : formatMoney(monthlyIncome)}
+          icon={<TrendingUp className="h-4 w-4" />}
+          tone="bg-purple/15 text-purple"
+          valueClassName="text-foreground"
+          secondaryLabel={t('common.expenses')}
+          secondaryValue={monthlyExpenses === null ? '—' : formatMoney(monthlyExpenses)}
+          secondaryClassName="text-danger"
+          loading={loading}
+        />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -124,70 +250,83 @@ export function AccountsSummary({
     liabilityCount === 1 ? 'accounts.group.count_one' : 'accounts.group.count_other';
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <SummaryCard
-        label={t('accounts.summary.assets')}
-        value={show(totalAssets)}
-        icon={<Wallet className="h-5 w-5" />}
-        tone="bg-info/15 text-info"
-        valueClassName="text-success"
+    <>
+      <MobileAccountsSummary
         loading={loading}
-        aside={
-          <AsideStat
-            label={t('accounts.summary.investments')}
-            value={show(investments)}
-            tone="text-success"
-            loading={loading}
-          />
-        }
+        available={available}
+        totalAssets={totalAssets}
+        investments={investments}
+        totalLiabilities={totalLiabilities}
+        liabilityCount={liabilityCount}
+        monthlyIncome={monthlyIncome}
+        monthlyExpenses={monthlyExpenses}
+        monthlyNet={monthlyNet}
       />
-      <SummaryCard
-        label={t('accounts.summary.liabilities')}
-        value={available ? `- ${formatMoney(totalLiabilities)}` : '—'}
-        icon={<TrendingDown className="h-5 w-5" />}
-        tone="bg-danger/15 text-danger"
-        valueClassName="text-danger"
-        loading={loading}
-        aside={
-          <AsideStat
-            label={t('accounts.summary.accountCount')}
-            value={t(countKey, { count: liabilityCount })}
-            loading={loading}
-          />
-        }
-      />
-      <SummaryCard
-        label={t('accounts.summary.netWorth')}
-        value={show(netWorth)}
-        icon={<Scale className="h-5 w-5" />}
-        tone="bg-success/15 text-success"
-        valueClassName={netWorth >= 0 ? 'text-success' : 'text-danger'}
-        loading={loading}
-        aside={
-          <AsideStat
-            label={t('accounts.summary.netThisMonth')}
-            value={monthlyNet === null ? '—' : formatMoney(monthlyNet)}
-            tone={monthlyNet !== null && monthlyNet < 0 ? 'text-danger' : 'text-success'}
-            loading={loading}
-          />
-        }
-      />
-      <SummaryCard
-        label={t('accounts.summary.monthlyIncome')}
-        value={monthlyIncome === null ? '—' : formatMoney(monthlyIncome)}
-        icon={<TrendingUp className="h-5 w-5" />}
-        tone="bg-purple/15 text-purple"
-        valueClassName="text-foreground"
-        loading={loading}
-        aside={
-          <AsideStat
-            label={t('common.expenses')}
-            value={monthlyExpenses === null ? '—' : formatMoney(monthlyExpenses)}
-            tone="text-danger"
-            loading={loading}
-          />
-        }
-      />
-    </div>
+      <div className="hidden grid-cols-1 gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard
+          label={t('accounts.summary.assets')}
+          value={show(totalAssets)}
+          icon={<Wallet className="h-5 w-5" />}
+          tone="bg-info/15 text-info"
+          valueClassName="text-success"
+          loading={loading}
+          aside={
+            <AsideStat
+              label={t('accounts.summary.investments')}
+              value={show(investments)}
+              tone="text-success"
+              loading={loading}
+            />
+          }
+        />
+        <SummaryCard
+          label={t('accounts.summary.liabilities')}
+          value={available ? `- ${formatMoney(totalLiabilities)}` : '—'}
+          icon={<TrendingDown className="h-5 w-5" />}
+          tone="bg-danger/15 text-danger"
+          valueClassName="text-danger"
+          loading={loading}
+          aside={
+            <AsideStat
+              label={t('accounts.summary.accountCount')}
+              value={t(countKey, { count: liabilityCount })}
+              loading={loading}
+            />
+          }
+        />
+        <SummaryCard
+          label={t('accounts.summary.netWorth')}
+          value={show(netWorth)}
+          icon={<Scale className="h-5 w-5" />}
+          tone="bg-success/15 text-success"
+          valueClassName={netWorth >= 0 ? 'text-success' : 'text-danger'}
+          loading={loading}
+          aside={
+            <AsideStat
+              label={t('accounts.summary.netThisMonth')}
+              value={monthlyNet === null ? '—' : formatMoney(monthlyNet)}
+              tone={monthlyNet !== null && monthlyNet < 0 ? 'text-danger' : 'text-success'}
+              loading={loading}
+            />
+          }
+        />
+        <SummaryCard
+          label={t('accounts.summary.monthlyIncome')}
+          value={monthlyIncome === null ? '—' : formatMoney(monthlyIncome)}
+          icon={<TrendingUp className="h-5 w-5" />}
+          tone="bg-purple/15 text-purple"
+          valueClassName="text-foreground"
+          loading={loading}
+          aside={
+            <AsideStat
+              label={t('common.expenses')}
+              value={monthlyExpenses === null ? '—' : formatMoney(monthlyExpenses)}
+              tone="text-danger"
+              loading={loading}
+            />
+          }
+        />
+      </div>
+    </>
   );
 }

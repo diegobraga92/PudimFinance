@@ -34,10 +34,6 @@ function formatBalance(account: AccountWithBalance, formatMoney: (v: number) => 
 /**
  * One group of accounts (bank / cards & loans / investments / other) with its
  * collapsible header, group total and account rows.
- *
- * Rendered as a section rather than its own card: the accounts screen wraps the
- * filters and every group inside a single box, so the groups only draw the
- * dividers between them.
  */
 export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete, onAdjust }: Props) {
   const { t, formatMoney } = useI18n();
@@ -48,12 +44,15 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete, onA
     accounts.length === 1 ? 'accounts.group.count_one' : 'accounts.group.count_other';
 
   return (
-    <section className="border-t border-border first:border-t-0">
+    <section className="overflow-hidden rounded-lg border border-border bg-surface shadow-card">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 bg-primary/[0.03] px-4 py-3.5 text-left transition-colors hover:bg-primary/[0.06]"
+        className={cn(
+          'flex w-full items-center gap-3 bg-primary/[0.03] px-4 py-3.5 text-left transition-colors hover:bg-primary/[0.06]',
+          open && 'border-b border-border/60',
+        )}
       >
         <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md', meta.tone)}>
           <meta.icon className="h-4 w-4" />

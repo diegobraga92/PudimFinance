@@ -208,6 +208,8 @@ for (const needle of [
   'Total in accounts', // friendly summary labels
   'Card bills &amp; loans', // React escapes the `&`
   'Tesouro Selic', // investments card row
+  'md:hidden', // compact phone summary card
+  'overflow-hidden rounded-lg border border-border bg-surface shadow-card', // separate account groups
 ]) {
   if (!accountsHtml.includes(needle)) {
     const at = accountsHtml.indexOf('No accounts');

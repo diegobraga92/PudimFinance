@@ -59,9 +59,12 @@ const TABS: {
 /** Skeleton shaped like the group list, so the layout does not jump. */
 function AccountsListSkeleton() {
   return (
-    <div>
+    <div className="flex flex-col gap-3 md:gap-4">
       {[0, 1].map((group) => (
-        <div key={group} className="border-t border-border first:border-t-0">
+        <div
+          key={group}
+          className="overflow-hidden rounded-lg border border-border bg-surface shadow-card"
+        >
           <div className="flex items-center gap-3 bg-primary/[0.03] px-4 py-3.5">
             <Skeleton className="h-9 w-9 rounded-md" />
             <div className="flex-1 space-y-1.5">
@@ -288,8 +291,9 @@ export function AccountsPage() {
           />
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,1fr)]">
-            <Card className="overflow-hidden shadow-card">
-              <div className="flex flex-wrap items-center gap-3 border-b border-border p-4 md:p-5">
+            <div className="flex min-w-0 flex-col gap-3 md:gap-4">
+              <Card className="shadow-card">
+                <div className="flex flex-wrap items-center gap-3 p-4 md:p-5">
                 <div className="-mx-1 flex gap-1 overflow-x-auto rounded-md bg-muted p-1 px-1 max-md:w-full md:flex-wrap">
                   {TABS.map(({ key, labelKey }) => {
                     const active = tab === key;
@@ -322,20 +326,21 @@ export function AccountsPage() {
                     aria-label={t('accounts.searchAria')}
                   />
                 </div>
-              </div>
+                </div>
+              </Card>
 
               {loading ? (
                 <AccountsListSkeleton />
               ) : groups.length === 0 ? (
-                <div className="p-7">
+                <Card className="p-7 shadow-card">
                   <EmptyState
                     icon={<SearchX className="h-8 w-8" />}
                     title={t('accounts.noMatches')}
                     description={t('accounts.noMatchesDesc')}
                   />
-                </div>
+                </Card>
               ) : (
-                <div>
+                <div className="flex flex-col gap-3 md:gap-4">
                   {groups.map((group) => (
                     <AccountGroupCard
                       key={group.meta.key}
@@ -349,7 +354,7 @@ export function AccountsPage() {
                   ))}
                 </div>
               )}
-            </Card>
+            </div>
 
             <div className="flex flex-col gap-4">
               <AccountDistributionCard accounts={balanceSheet} loading={loading} />
