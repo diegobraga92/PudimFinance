@@ -53,6 +53,7 @@ import { MorePage } from '../src/features/more/MorePage';
 import { TransactionsPage } from '../src/features/transactions/TransactionsPage';
 import { DashboardPage } from '../src/features/dashboard/DashboardPage';
 import { AccountsPage } from '../src/features/accounts/AccountsPage';
+import { BudgetSummaryCards } from '../src/features/budgets/BudgetSummaryCards';
 import { ReconciliationPage } from '../src/features/reconciliation/ReconciliationPage';
 import { LedgerPage } from '../src/features/ledger/LedgerPage';
 import { AuditPage } from '../src/features/audit/AuditPage';
@@ -225,6 +226,32 @@ if (!accountsHtml.includes('max-md:w-full')) {
 } else {
   console.log(`PASS: AccountsPage (with data) (${accountsHtml.length} chars)`);
 }
+
+check(
+  'BudgetSummaryCards (phone summary card)',
+  <BudgetSummaryCards
+    loading={false}
+    totals={{
+      hasOverall: true,
+      limit: 5000,
+      spent: 3200,
+      categoryBudgetCount: 3,
+      alertsTotal: 2,
+      alertsOver: 1,
+    }}
+    monthLabel="September 2026"
+    onSetOverall={() => undefined}
+  />,
+  [
+    'md:hidden',
+    'hidden grid-cols-1 gap-4 md:grid md:grid-cols-2 xl:grid-cols-4',
+    'divide-y divide-border/60',
+    'Total budget',
+    'Total spent',
+    'Remaining',
+    'Active alerts',
+  ],
+);
 
 check('DashboardPage (phone lead + month nav)', <DashboardPage />, [
   'aria-label="Previous month"',
