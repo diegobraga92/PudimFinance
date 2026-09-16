@@ -32,6 +32,77 @@ interface RecentTransactionsCardProps {
   loading: boolean;
 }
 
+const MOBILE_ACTIVITY_LIMIT = 5;
+
+function RecentTransactionRow({
+  transaction,
+  category,
+  account,
+  onSelect,
+}: {
+  transaction: Transaction;
+  category?: Category;
+  account?: AccountWithBalance;
+  onSelect: () => void;
+}) {
+  const { t, formatMoney, formatDate } = useI18n();
+  const isIncome = transaction.type === 'income';
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex min-h-[64px] w-full min-w-0 items-center gap-3 px-5 py-2.5 text-left transition-colors active:bg-surface-hover"
+      >
+        <span
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+            isIncome ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger',
+          )}
+        >
+          <CategoryIcon name={category?.icon} className="h-4 w-4" />
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{transaction.description}</span>
+          <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-xs text-dim">
+            {account && (
+              <>
+                <AccountIcon name={account.icon} kind={account.account_kind} className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{account.name}</span>
+                <span aria-hidden="true">·</span>
+              </>
+            )}
+            {category?.name && (
+              <>
+                <span className="truncate">{category.name}</span>
+                <span aria-hidden="true">·</span>
+              </>
+            )}
+            <span className="shrink-0">{formatDate(transaction.date)}</span>
+          </span>
+          {transaction.card_due_date && transaction.card_due_date !== transaction.date && (
+            <span className="block truncate text-[11px] text-dim">
+              {t('transactions.billDue', { date: formatDate(transaction.card_due_date) })}
+            </span>
+          )}
+        </span>
+
+        <span
+          className={cn(
+            'shrink-0 text-sm font-semibold tabular-nums',
+            isIncome ? 'text-income' : 'text-expense',
+          )}
+        >
+          {isIncome ? '+' : '-'}
+          {formatMoney(transaction.amount)}
+        </span>
+      </button>
+    </li>
+  );
+}
+
 /**
  * Latest activity for the selected month as a table (date, category,
  * description, account/card, amount). Clicking a row opens a details dialog
@@ -106,7 +177,20 @@ export function RecentTransactionsCard({
             />
           </div>
         ) : (
-          <Table className="[&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:last-child]:pr-5">
+          <>
+            <ul className="divide-y divide-border/60 md:hidden">
+              {transactions.slice(0, MOBILE_ACTIVITY_LIMIT).map((tx) => (
+                <RecentTransactionRow
+                  key={tx.id}
+                  transaction={tx}
+                  category={tx.category_id ? categoryById.get(tx.category_id) : undefined}
+                  account={tx.account_id ? accountById.get(tx.account_id) : undefined}
+                  onSelect={() => setSelected(tx)}
+                />
+              ))}
+            </ul>
+            <div className="hidden md:block">
+              <Table className="[&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:last-child]:pr-5">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>{t('common.date')}</TableHead>
@@ -178,7 +262,9 @@ export function RecentTransactionsCard({
                 );
               })}
             </TableBody>
-          </Table>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
 

@@ -78,65 +78,116 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
             <p className="mt-1 text-xs text-dim">{t('dashboard.noBudgetsDesc')}</p>
           </div>
         ) : (
-          <Table className="[&_td:first-child]:pl-0 [&_th:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:last-child]:pr-0">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[34%]">{t('common.category')}</TableHead>
-                <TableHead className="w-[18%]">{t('dashboard.budgetUsed')}</TableHead>
-                <TableHead className="text-right">
-                  {t('dashboard.budgetSpentOfLimit')}
-                </TableHead>
-                <TableHead className="w-10 text-right">{t('dashboard.budgetPercent')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <ul className="divide-y divide-border/60 md:hidden">
               {rows.map((item) => {
                 const pct = Math.round(parseFloat(item.percentage));
                 const over = pct >= 100;
                 return (
-                  <TableRow key={item.budget.id}>
-                    <TableCell className="py-3">
-                      <span className="flex items-center gap-2">
-                        <CategoryIcon name={item.budget.icon} className="h-4 w-4" />
+                  <li key={item.budget.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <CategoryIcon name={item.budget.icon} className="h-4 w-4 shrink-0" />
                         <span className="min-w-0 truncate text-sm font-medium">
                           {item.budget.category_name ?? t('common.uncategorised')}
                         </span>
                       </span>
-                    </TableCell>
-                    <TableCell className="py-3">
+                      <span
+                        className={cn(
+                          'shrink-0 text-right text-xs font-medium tabular-nums',
+                          over ? 'text-danger' : 'text-muted-foreground',
+                        )}
+                      >
+                        <span>{formatMoney(item.actual_spent)}</span>
+                        <span className="font-normal text-dim"> / {formatMoney(item.budget.amount_limit)}</span>
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
                       <Progress
                         value={Math.min(pct, 100)}
-                        className="h-1.5"
+                        className="h-1.5 flex-1"
                         indicatorClassName={barColor(pct)}
                       />
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'py-3 text-right text-sm font-medium tabular-nums',
-                        over ? 'text-danger' : 'text-muted-foreground',
-                      )}
-                    >
-                      <span>{formatMoney(item.actual_spent)}</span>
-                      <span className="font-normal text-dim"> / {formatMoney(item.budget.amount_limit)}</span>
-                      {over && (
-                        <span className="block text-[11px] font-medium text-danger">
-                          {t('common.overBudget')}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'py-3 text-right text-xs font-semibold tabular-nums',
-                        over ? 'text-danger' : 'text-muted-foreground',
-                      )}
-                    >
-                      {pct}%
-                    </TableCell>
-                  </TableRow>
+                      <span
+                        className={cn(
+                          'w-10 shrink-0 text-right text-xs font-semibold tabular-nums',
+                          over ? 'text-danger' : 'text-muted-foreground',
+                        )}
+                      >
+                        {pct}%
+                      </span>
+                    </div>
+                    {over && (
+                      <span className="mt-1 block text-[11px] font-medium text-danger">
+                        {t('common.overBudget')}
+                      </span>
+                    )}
+                  </li>
                 );
               })}
-            </TableBody>
-          </Table>
+            </ul>
+            <div className="hidden md:block">
+              <Table className="[&_td:first-child]:pl-0 [&_th:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:last-child]:pr-0">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[34%]">{t('common.category')}</TableHead>
+                    <TableHead className="w-[18%]">{t('dashboard.budgetUsed')}</TableHead>
+                    <TableHead className="text-right">
+                      {t('dashboard.budgetSpentOfLimit')}
+                    </TableHead>
+                    <TableHead className="w-10 text-right">{t('dashboard.budgetPercent')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((item) => {
+                    const pct = Math.round(parseFloat(item.percentage));
+                    const over = pct >= 100;
+                    return (
+                      <TableRow key={item.budget.id}>
+                        <TableCell className="py-3">
+                          <span className="flex items-center gap-2">
+                            <CategoryIcon name={item.budget.icon} className="h-4 w-4" />
+                            <span className="min-w-0 truncate text-sm font-medium">
+                              {item.budget.category_name ?? t('common.uncategorised')}
+                            </span>
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <Progress
+                            value={Math.min(pct, 100)}
+                            className="h-1.5"
+                            indicatorClassName={barColor(pct)}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            'py-3 text-right text-sm font-medium tabular-nums',
+                            over ? 'text-danger' : 'text-muted-foreground',
+                          )}
+                        >
+                          <span>{formatMoney(item.actual_spent)}</span>
+                          <span className="font-normal text-dim"> / {formatMoney(item.budget.amount_limit)}</span>
+                          {over && (
+                            <span className="block text-[11px] font-medium text-danger">
+                              {t('common.overBudget')}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            'py-3 text-right text-xs font-semibold tabular-nums',
+                            over ? 'text-danger' : 'text-muted-foreground',
+                          )}
+                        >
+                          {pct}%
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

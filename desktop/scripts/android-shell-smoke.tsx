@@ -328,6 +328,8 @@ const dashboardNeedles = [
   'Padaria breakfast', // seeded activity row
   'Spent / Limit', // budget card renders as a table
   'income you kept', // savings-rate hint replaced "of income saved"
+  'md:hidden', // phone-specific summary/list variants
+  'hidden md:block', // desktop tables remain gated to wider layouts
 ];
 const dashboardMissing = dashboardNeedles.filter((needle) => !dashboardHtml.includes(needle));
 if (dashboardMissing.length > 0) {

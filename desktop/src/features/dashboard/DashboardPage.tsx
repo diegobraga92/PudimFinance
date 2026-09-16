@@ -236,14 +236,14 @@ export function DashboardPage() {
       </div>
 
       {/* Phones surface activity and budgets before the charts. */}
-      <div className="order-3 grid gap-4 md:order-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <div className="order-3 grid min-w-0 gap-4 md:order-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <RecentTransactionsCard
           transactions={recentQuery.data?.items ?? []}
           categoryById={categoryById}
           accountById={accountById}
           loading={recentLoading}
         />
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <BudgetsCard
             items={budgetsQuery.data?.items ?? []}
             loading={budgetsQuery.isLoading}
@@ -255,7 +255,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="order-4 grid gap-4 md:order-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <div className="order-4 grid min-w-0 gap-4 md:order-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <CashFlowCard
           data={cashFlowSeries}
           loading={cashFlowQuery.isLoading}

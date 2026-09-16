@@ -56,7 +56,7 @@ export function QuickActions({ newBudgetLink }: QuickActionsProps) {
             key={action.to}
             to={action.to}
             className={cn(
-              'flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center text-xs font-medium ring-1 ring-inset transition-colors',
+              'flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center text-xs font-medium ring-1 ring-inset transition-colors',
               action.tone,
             )}
           >
