@@ -275,6 +275,9 @@ jobs:
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          cache-workspaces: backend
+          cache-key: offline-backend
 
       - name: Cache Node dependencies
         uses: actions/cache@v6
@@ -286,6 +289,13 @@ jobs:
         working-directory: desktop
         run: npm ci
 
+      - name: Build backend (release)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://pudim:pudim@localhost:5432/pudimfinance
+          RABBITMQ_URL: amqp://pudim:pudim@localhost:5672
+        run: cargo build --release
+
       - name: Start backend
         working-directory: backend
         env:
@@ -296,14 +306,22 @@ jobs:
           JWT_SECRET: ci-offline-smoke-secret
           RUST_LOG: backend=info
         run: |
-          cargo run --release > /tmp/pudimfinance-backend.log 2>&1 &
-          echo $! > /tmp/pudimfinance-backend.pid
+          ./target/release/backend > /tmp/pudimfinance-backend.log 2>&1 &
+          pid=$!
+          echo "$pid" > /tmp/pudimfinance-backend.pid
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://localhost:3000/health >/dev/null; then
+              echo "backend healthy after ${attempt}s"
               exit 0
+            fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo '::error::backend exited before becoming healthy'
+              cat /tmp/pudimfinance-backend.log
+              exit 1
             fi
             sleep 1
           done
+          echo '::error::backend did not become healthy within 60s'
           cat /tmp/pudimfinance-backend.log
           exit 1
 
