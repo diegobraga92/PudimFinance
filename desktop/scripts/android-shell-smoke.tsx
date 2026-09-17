@@ -52,6 +52,7 @@ import {
 import { MorePage } from '../src/features/more/MorePage';
 import { TransactionsPage } from '../src/features/transactions/TransactionsPage';
 import { DashboardPage } from '../src/features/dashboard/DashboardPage';
+import { withRunningNet } from '../src/features/dashboard/cash-flow-series';
 import { AccountsPage } from '../src/features/accounts/AccountsPage';
 import { BudgetSummaryCards } from '../src/features/budgets/BudgetSummaryCards';
 import { ReconciliationPage } from '../src/features/reconciliation/ReconciliationPage';
@@ -372,6 +373,35 @@ if (dashboardMissing.length > 0) {
   failures += 1;
 } else {
   console.log(`PASS: DashboardPage (with data) (${dashboardHtml.length} chars)`);
+}
+
+const runningNetChecks: [string, boolean][] = [
+  [
+    'accumulates positive and negative periods',
+    withRunningNet([
+      { label: 'Jan', income: 100, expenses: 40, net: 60, running: 0 },
+      { label: 'Feb', income: 20, expenses: 50, net: -30, running: 0 },
+      { label: 'Mar', income: 0, expenses: 10, net: -10, running: 0 },
+    ]).every((point, index) => point.running === [60, 30, 20][index]),
+  ],
+  [
+    'supports a zero crossing',
+    withRunningNet([
+      { label: 'Jan', income: 10, expenses: 30, net: -20, running: 0 },
+      { label: 'Feb', income: 50, expenses: 10, net: 40, running: 0 },
+    ])[1].running === 20,
+  ],
+  ['handles a single point', withRunningNet([{ label: 'Jan', income: 10, expenses: 3, net: 7, running: 0 }])[0].running === 7],
+  ['handles an empty series', withRunningNet([]).length === 0],
+];
+for (const [label, ok] of runningNetChecks) {
+  if (!ok) {
+    console.error(`FAIL: cumulative net — ${label}`);
+    failures += 1;
+  }
+}
+if (runningNetChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: cumulative net (${runningNetChecks.length} cases)`);
 }
 
 // DateField: typeable locale input plus an in-app calendar, so the modal never

@@ -16,6 +16,7 @@ import { toIntlLocale } from '@shared/i18n';
 import { DashboardHeader } from './DashboardHeader';
 import { SummaryCards, type SummaryDeltas } from './SummaryCards';
 import { CashFlowCard, type CashFlowPoint, type CashFlowRange } from './CashFlowCard';
+import { withRunningNet } from './cash-flow-series';
 import { CategoryBreakdownCard } from './CategoryBreakdownCard';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { BudgetsCard } from './BudgetsCard';
@@ -108,14 +109,14 @@ export function DashboardPage() {
   const cashFlowWindow = React.useMemo(() => {
     const startPeriod = range === 1 ? shiftMonth(year, month, 0) : shiftMonth(year, month, -(range - 1));
     const startDate = `${startPeriod.year}-${String(startPeriod.month).padStart(2, '0')}-01`;
-    const endDay = new Date(year, month, 0).getDate();
+    const endDay = isCurrentMonth ? now.getDate() : new Date(year, month, 0).getDate();
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
     return {
       startDate,
       endDate,
       granularity: range === 1 ? ('day' as const) : range === 3 ? ('week' as const) : ('month' as const),
     };
-  }, [year, month, range]);
+  }, [isCurrentMonth, month, now, range, year]);
   const cashFlowQuery = useQuery({
     queryKey: ['dashboard-cash-flow', cashFlowWindow],
     queryFn: () =>
@@ -174,7 +175,7 @@ export function DashboardPage() {
   // Format the server-provided period starts for the selected chart resolution.
   const cashFlowSeries: CashFlowPoint[] = React.useMemo(() => {
     const intl = toIntlLocale(locale);
-    return (cashFlowQuery.data?.points ?? []).map((point) => {
+    const points = (cashFlowQuery.data?.points ?? []).map((point) => {
       const date = new Date(`${point.period_start}T00:00:00`);
       const label =
         range === 1
@@ -187,8 +188,10 @@ export function DashboardPage() {
         income: parseFloat(point.income_total),
         expenses: parseFloat(point.expense_total),
         net: parseFloat(point.balance),
+        running: 0,
       };
     });
+    return withRunningNet(points);
   }, [cashFlowQuery.data, locale, range, shortMonthNames]);
 
   const greeting = React.useMemo(() => {

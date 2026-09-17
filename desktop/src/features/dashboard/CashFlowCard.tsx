@@ -5,8 +5,10 @@ import {
   ComposedChart,
   Legend,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
+  type TooltipContentProps,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -22,6 +24,7 @@ export interface CashFlowPoint {
   income: number;
   expenses: number;
   net: number;
+  running: number;
 }
 
 /** Windows offered by the cash-flow chart. Each window uses a different time bucket. */
@@ -42,7 +45,7 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   color: 'rgb(var(--foreground))',
 };
 
-/** Income vs. expenses vs. net at the resolution selected by the time window. */
+/** Income, expenses and cumulative net at the resolution selected by the time window. */
 export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCardProps) {
   const { t, locale, formatMoney } = useI18n();
   const intl = toIntlLocale(locale);
@@ -111,6 +114,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                   tickMargin={8}
                 />
                 <YAxis
+                  yAxisId="left"
                   tick={{ fontSize: 11, fill: 'rgb(var(--dim))' }}
                   tickLine={false}
                   axisLine={false}
@@ -123,10 +127,31 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                     style: { fontSize: 11, fill: 'rgb(var(--dim))' },
                   }}
                 />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 11, fill: 'rgb(var(--dim))' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={56}
+                  domain={([dataMin, dataMax]) => [Math.min(dataMin, 0), Math.max(dataMax, 0)]}
+                  tickFormatter={(value: number) => axisValue(value, intl)}
+                />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
                   cursor={{ stroke: 'rgb(var(--border))' }}
-                  formatter={(value, name) => [formatMoney(Number(value)), String(name)]}
+                  content={(props) => (
+                    <CashFlowTooltip
+                      {...props}
+                      formatMoney={formatMoney}
+                      labels={{
+                        income: t('common.income'),
+                        expenses: t('common.expenses'),
+                        net: t('common.net'),
+                        running: t('dashboard.runningNet'),
+                      }}
+                    />
+                  )}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
@@ -136,6 +161,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                 <Area
                   type="monotone"
                   dataKey="income"
+                  yAxisId="left"
                   name={t('common.income')}
                   stroke="rgb(var(--success))"
                   strokeWidth={2}
@@ -146,6 +172,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                 <Area
                   type="monotone"
                   dataKey="expenses"
+                  yAxisId="left"
                   name={t('common.expenses')}
                   stroke="rgb(var(--danger))"
                   strokeWidth={2}
@@ -153,10 +180,17 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                   dot={dotFor('rgb(var(--danger))')}
                   activeDot={{ r: 3 }}
                 />
+                <ReferenceLine
+                  yAxisId="right"
+                  y={0}
+                  stroke="rgb(var(--dim))"
+                  strokeDasharray="4 4"
+                />
                 <Line
                   type="monotone"
-                  dataKey="net"
-                  name={t('common.net')}
+                  dataKey="running"
+                  name={t('dashboard.runningNet')}
+                  yAxisId="right"
                   stroke="rgb(var(--info))"
                   strokeWidth={2}
                   strokeDasharray="5 4"
@@ -169,6 +203,46 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function CashFlowTooltip({
+  active,
+  label,
+  payload,
+  formatMoney,
+  labels,
+}: TooltipContentProps & {
+  formatMoney: (value: number) => string;
+  labels: Record<'income' | 'expenses' | 'net' | 'running', string>;
+}) {
+  if (!active || !payload?.length) return null;
+
+  const point = payload[0]?.payload as CashFlowPoint | undefined;
+  if (!point) return null;
+
+  const rows = [
+    { label: 'income', value: point.income, color: 'rgb(var(--success))' },
+    { label: 'expenses', value: point.expenses, color: 'rgb(var(--danger))' },
+    { label: 'net', value: point.net, color: 'rgb(var(--dim))' },
+    { label: 'running', value: point.running, color: 'rgb(var(--info))' },
+  ];
+
+  return (
+    <div style={TOOLTIP_STYLE}>
+      <p className="mb-2 font-medium text-foreground">{label}</p>
+      <div className="space-y-1">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-5">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} />
+              {labels[row.label as keyof typeof labels]}
+            </span>
+            <span className="font-medium tabular-nums text-foreground">{formatMoney(row.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
