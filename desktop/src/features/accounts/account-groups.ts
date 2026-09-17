@@ -6,10 +6,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { TranslationKey } from '@shared/i18n';
+import { resolveAccountIconId, type AccountIconName } from '@shared/account-icons';
 
 import type { AccountKind } from './AccountForm';
 import type { AccountWithBalance } from '@/lib/api';
-import { resolveAccountIcon } from '@/components/AccountIcon';
 
 /**
  * Accounts-page grouping.
@@ -122,7 +122,7 @@ export function groupOf(account: AccountWithBalance): AccountGroupKey {
 
 /** Icon + tint for an account row (unknown kinds fall back to a neutral box). */
 export function accountAppearance(account: AccountWithBalance): {
-  icon: LucideIcon;
+  iconId: AccountIconName;
   tone: string;
   kindKey: TranslationKey | null;
   color: string;
@@ -130,14 +130,14 @@ export function accountAppearance(account: AccountWithBalance): {
   const kind = asAccountKind(account.account_kind);
   if (!kind) {
     return {
-      icon: resolveAccountIcon(account.icon, account.account_kind),
+      iconId: resolveAccountIconId(account.icon, account.account_kind),
       tone: 'bg-surface-hover text-muted-foreground',
       kindKey: null,
       color: 'rgb(var(--dim))',
     };
   }
   return {
-    icon: resolveAccountIcon(account.icon, kind),
+    iconId: resolveAccountIconId(account.icon, kind),
     tone: KIND_TONES[kind],
     kindKey: KIND_LABEL_KEYS[kind],
     color: KIND_CHART_COLORS[kind],

@@ -19,9 +19,9 @@ import {
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
-  ACCOUNT_ICON_NAMES,
+  ACCOUNT_ICON_GROUPS,
   DEFAULT_ACCOUNT_ICON,
-  type AccountIconName,
+  suggestAccountIcon,
 } from '@shared/account-icons';
 import { AccountIcon } from '@/components/AccountIcon';
 
@@ -66,7 +66,8 @@ export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved 
 
   const [name, setName] = React.useState('');
   const [kind, setKind] = React.useState<AccountKind>(initialKind);
-  const [icon, setIcon] = React.useState<AccountIconName>(DEFAULT_ACCOUNT_ICON[initialKind]);
+  const [icon, setIcon] = React.useState<string>(DEFAULT_ACCOUNT_ICON[initialKind]);
+  const [iconTouched, setIconTouched] = React.useState(false);
   const [initialBalance, setInitialBalance] = React.useState('');
   const [closingDay, setClosingDay] = React.useState('');
   const [dueDay, setDueDay] = React.useState('');
@@ -80,11 +81,8 @@ export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved 
     setKind((editing?.account_kind as AccountKind | null) ?? initialKind);
     const nextKind = (editing?.account_kind as AccountKind | null) ?? initialKind;
     const savedIcon = editing?.icon;
-    setIcon(
-      savedIcon && ACCOUNT_ICON_NAMES.includes(savedIcon as AccountIconName)
-        ? (savedIcon as AccountIconName)
-        : DEFAULT_ACCOUNT_ICON[nextKind],
-    );
+    setIcon(savedIcon?.trim() ? savedIcon : DEFAULT_ACCOUNT_ICON[nextKind]);
+    setIconTouched(false);
     setInitialBalance('');
     setClosingDay(editing?.closing_day ? String(editing.closing_day) : '');
     setDueDay(editing?.due_day ? String(editing.due_day) : '');
@@ -187,7 +185,13 @@ function dayValue(value: string): number | null {
             <Input
               id="acc-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                const nextName = e.target.value;
+                setName(nextName);
+                if (!isEditing && !iconTouched) {
+                  setIcon(suggestAccountIcon(nextName) ?? DEFAULT_ACCOUNT_ICON[kind]);
+                }
+              }}
               placeholder={t('accounts.form.namePlaceholder')}
               autoFocus
             />
@@ -202,7 +206,7 @@ function dayValue(value: string): number | null {
                   type="button"
                   onClick={() => {
                     setKind(opt.key);
-                    if (!isEditing) setIcon(DEFAULT_ACCOUNT_ICON[opt.key]);
+                    if (!isEditing && !iconTouched) setIcon(DEFAULT_ACCOUNT_ICON[opt.key]);
                   }}
                   className={cn(
                     'flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-center text-xs font-medium leading-tight transition-colors',
@@ -220,24 +224,34 @@ function dayValue(value: string): number | null {
 
           <div className="space-y-1.5">
             <Label>{t('accounts.form.icon')}</Label>
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('accounts.form.icon')}>
-              {ACCOUNT_ICON_NAMES.map((iconName) => (
-                <button
-                  key={iconName}
-                  type="button"
-                  role="radio"
-                  aria-checked={icon === iconName}
-                  aria-label={t('accounts.form.iconAria', { icon: iconName })}
-                  onClick={() => setIcon(iconName)}
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-md border text-lg transition-colors',
-                    icon === iconName
-                      ? 'border-primary bg-accent'
-                      : 'border-border bg-surface hover:bg-surface-hover',
-                  )}
-                >
-                  <AccountIcon name={iconName} className="h-5 w-5" />
-                </button>
+            <div className="space-y-3" role="radiogroup" aria-label={t('accounts.form.icon')}>
+              {ACCOUNT_ICON_GROUPS.map((group) => (
+                <div key={group.key} className="space-y-1.5">
+                  <p className="text-xs font-medium text-dim">{t(group.labelKey)}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {group.options.map((option) => (
+                      <button
+                        key={option.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={icon === option.name}
+                        aria-label={t('accounts.form.iconAria', { icon: t(option.labelKey) })}
+                        onClick={() => {
+                          setIcon(option.name);
+                          setIconTouched(true);
+                        }}
+                        className={cn(
+                          'flex h-9 w-9 items-center justify-center rounded-md border text-lg transition-colors',
+                          icon === option.name
+                            ? 'border-primary bg-accent'
+                            : 'border-border bg-surface hover:bg-surface-hover',
+                        )}
+                      >
+                        <AccountIcon name={option.name} className="h-5 w-5" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

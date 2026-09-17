@@ -81,6 +81,16 @@ import {
 import { filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
 import { normalizeServerUrl } from '../src/lib/serverConfig';
+import {
+  ACCOUNT_BRANDS,
+  ACCOUNT_ICON_GROUPS,
+  ACCOUNT_ICON_NAMES,
+  ACCOUNT_INSTRUMENTS,
+  DEFAULT_ACCOUNT_ICON,
+  isAccountIconName,
+  resolveAccountIconId,
+  suggestAccountIcon,
+} from '@shared/account-icons';
 
 function Providers({ children, client }: { children: React.ReactNode; client?: QueryClient }) {
   const fallback = React.useMemo(() => new QueryClient(), []);
@@ -726,6 +736,37 @@ for (const [label, ok] of swipeChecks) {
 }
 if (swipeChecks.every(([, ok]) => ok)) {
   console.log(`PASS: swipe gesture (${swipeChecks.length} cases)`);
+}
+
+const accountIconIds = ACCOUNT_ICON_GROUPS.flatMap((group) => group.options.map((option) => option.name));
+const accountIconChecks: [string, boolean][] = [
+  ['catalog has no duplicate ids', new Set(accountIconIds).size === accountIconIds.length],
+  ['catalog covers every icon id', ACCOUNT_ICON_NAMES.every((name) => accountIconIds.includes(name))],
+  ['brand monograms are compact', ACCOUNT_BRANDS.every((brand) => brand.monogram.length <= 2)],
+  ['brand colors are hex values', ACCOUNT_BRANDS.every((brand) => /^#[0-9A-F]{6}$/i.test(brand.color))],
+  ['instrument catalog is populated', ACCOUNT_INSTRUMENTS.length >= 10],
+  ['legacy icon remains valid', isAccountIconName('wallet')],
+  ['brand icon is valid', isAccountIconName('nubank')],
+  ['unknown icon is rejected', !isAccountIconName('not-an-account-icon')],
+  ['kind fallback resolves', resolveAccountIconId(null, 'bank') === DEFAULT_ACCOUNT_ICON.bank],
+  ['invalid icon uses kind fallback', resolveAccountIconId('not-an-account-icon', 'investment') === 'trending-up'],
+  ['valid brand wins over kind fallback', resolveAccountIconId('nubank', 'card') === 'nubank'],
+  ['suggests Nubank', suggestAccountIcon('Cartão Nubank') === 'nubank'],
+  ['suggests Itaú', suggestAccountIcon('Itaú Uniclass') === 'itau'],
+  ['suggests Tesouro Direto', suggestAccountIcon('Tesouro IPCA+ 2029') === 'tesouro'],
+  ['suggests CDB before bank mention', suggestAccountIcon('CDB Inter 110%') === 'cdb'],
+  ['suggests Poupança before BB mention', suggestAccountIcon('Poupança BB') === 'poupanca'],
+  ['suggests FII', suggestAccountIcon('Fundo Imobiliário') === 'fii'],
+  ['does not suggest generic salary', suggestAccountIcon('Salário') === null],
+];
+for (const [label, ok] of accountIconChecks) {
+  if (!ok) {
+    console.error(`FAIL: account icons — ${label}`);
+    failures += 1;
+  }
+}
+if (accountIconChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: account icons (${accountIconChecks.length} cases)`);
 }
 
 const months = [
