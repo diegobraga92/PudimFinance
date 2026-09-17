@@ -98,10 +98,20 @@ export default {
           from: { transform: 'translateX(8px)', opacity: '0' },
           to: { transform: 'translateX(0)', opacity: '1' },
         },
+        'slide-in-from-right': {
+          from: { transform: 'translateX(12%)', opacity: '0' },
+          to: { transform: 'translateX(0)', opacity: '1' },
+        },
+        'slide-in-from-left': {
+          from: { transform: 'translateX(-12%)', opacity: '0' },
+          to: { transform: 'translateX(0)', opacity: '1' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 150ms ease-out',
         'slide-in-right': 'slide-in-right 180ms ease-out',
+        'slide-in-from-right': 'slide-in-from-right 200ms ease-out',
+        'slide-in-from-left': 'slide-in-from-left 200ms ease-out',
       },
     },
   },

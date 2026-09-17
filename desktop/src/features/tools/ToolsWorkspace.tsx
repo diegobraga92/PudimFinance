@@ -28,7 +28,11 @@ export function ToolsWorkspace({ children }: Props) {
         <p className="mt-1.5 max-w-2xl text-base text-muted-foreground">{t('tools.subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 md:gap-3" role="tablist" aria-label={t('tools.title')}>
+      <div
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 md:pb-0"
+        role="tablist"
+        aria-label={t('tools.title')}
+      >
         {ACCOUNTING_TOOLS.map((item) => (
           <NavLink
             key={item.key}
@@ -36,7 +40,7 @@ export function ToolsWorkspace({ children }: Props) {
             role="tab"
             className={({ isActive }) =>
               cn(
-                'flex items-start gap-2.5 rounded-[14px] border px-3 py-3 transition-colors md:gap-3 md:px-4 md:py-3.5',
+                'flex items-start gap-2.5 rounded-[14px] border px-3 py-3 transition-colors max-md:shrink-0 max-md:whitespace-nowrap md:gap-3 md:px-4 md:py-3.5',
                 isActive
                   ? 'border-primary bg-primary/10'
                   : 'border-border bg-surface hover:border-primary/40 hover:bg-primary/[0.05]',

@@ -171,3 +171,30 @@ export function screenTitleKey(pathname: string): TranslationKey {
 export function isMobileRoot(pathname: string): boolean {
   return MOBILE_TABS.some((item) => pathname.startsWith(item.route));
 }
+
+/** Return the bottom-tab index for a path, or -1 when it is not a tab screen. */
+export function tabIndexFor(pathname: string): number {
+  return MOBILE_TABS.findIndex(
+    (item) => pathname === item.route || pathname.startsWith(`${item.route}/`),
+  );
+}
+
+/** Return the adjacent bottom-tab route, or null at the ends/off the tab bar. */
+export function adjacentTabRoute(
+  pathname: string,
+  direction: 'next' | 'prev',
+): string | null {
+  const index = tabIndexFor(pathname);
+  if (index < 0) return null;
+
+  const adjacentIndex = index + (direction === 'next' ? 1 : -1);
+  return MOBILE_TABS[adjacentIndex]?.route ?? null;
+}
+
+/** Direction of a transition between bottom tabs; zero means no tab animation. */
+export function tabStepDirection(fromPathname: string, toPathname: string): -1 | 0 | 1 {
+  const from = tabIndexFor(fromPathname);
+  const to = tabIndexFor(toPathname);
+  if (from < 0 || to < 0 || from === to) return 0;
+  return to > from ? 1 : -1;
+}

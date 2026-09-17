@@ -59,7 +59,16 @@ import { ReconciliationPage } from '../src/features/reconciliation/Reconciliatio
 import { LedgerPage } from '../src/features/ledger/LedgerPage';
 import { AuditPage } from '../src/features/audit/AuditPage';
 import { ReceiptsPage } from '../src/features/receipts/ReceiptsPage';
-import { PRIMARY_NAV, MOBILE_TABS, TOOL_GROUPS, screenTitleKey, isMobileRoot } from '../src/app/navigation';
+import {
+  PRIMARY_NAV,
+  MOBILE_TABS,
+  TOOL_GROUPS,
+  adjacentTabRoute,
+  isMobileRoot,
+  screenTitleKey,
+  tabStepDirection,
+} from '../src/app/navigation';
+import { resolveSwipeGesture } from '../src/app/useSwipeNavigation';
 import { groupTransactionsByMonth } from '../src/features/transactions/group-by-month';
 import { clearAuthSession, setAuthSession } from '../src/lib/auth';
 import {
@@ -658,6 +667,14 @@ const navChecks: [string, boolean][] = [
   ['isMobileRoot true for tabs', isMobileRoot('/transactions')],
   ['isMobileRoot false for tools', !isMobileRoot('/ledger')],
   ['primary nav keeps receipts', PRIMARY_NAV.some((item) => item.route === '/receipts')],
+  ['swipe next from dashboard', adjacentTabRoute('/dashboard', 'next') === '/transactions'],
+  ['swipe prev from transactions', adjacentTabRoute('/transactions', 'prev') === '/dashboard'],
+  ['swipe does not wrap before first tab', adjacentTabRoute('/dashboard', 'prev') === null],
+  ['swipe does not wrap after last tab', adjacentTabRoute('/more', 'next') === null],
+  ['swipe ignores tool screens', adjacentTabRoute('/ledger', 'next') === null],
+  ['tab transition moves forward', tabStepDirection('/dashboard', '/transactions') === 1],
+  ['tab transition moves backward', tabStepDirection('/transactions', '/dashboard') === -1],
+  ['non-tab transition has no direction', tabStepDirection('/ledger', '/dashboard') === 0],
 ];
 for (const [label, ok] of navChecks) {
   if (!ok) {
@@ -666,6 +683,50 @@ for (const [label, ok] of navChecks) {
   }
 }
 if (failures === 0) console.log(`PASS: nav model (${MOBILE_TABS.length} tabs, ${toolKeys.length} tools)`);
+
+const swipeChecks: [string, boolean][] = [
+  [
+    'left swipe advances',
+    resolveSwipeGesture({ startX: 180, startY: 200, x: 100, y: 208, durationMs: 220, viewportWidth: 360 }) === 'next',
+  ],
+  [
+    'right swipe goes back',
+    resolveSwipeGesture({ startX: 180, startY: 200, x: 260, y: 208, durationMs: 220, viewportWidth: 360 }) === 'prev',
+  ],
+  [
+    'short drag is ignored',
+    resolveSwipeGesture({ startX: 180, startY: 200, x: 140, y: 205, durationMs: 220, viewportWidth: 360 }) === null,
+  ],
+  [
+    'vertical drag is ignored',
+    resolveSwipeGesture({ startX: 180, startY: 200, x: 220, y: 280, durationMs: 220, viewportWidth: 360 }) === null,
+  ],
+  [
+    'multi-touch is ignored',
+    resolveSwipeGesture({ startX: 180, startY: 200, x: 100, y: 208, durationMs: 220, viewportWidth: 360, touchCount: 2 }) === null,
+  ],
+  [
+    'edge swipe is ignored',
+    resolveSwipeGesture({ startX: 20, startY: 200, x: 100, y: 208, durationMs: 220, viewportWidth: 360 }) === null,
+  ],
+  [
+    'long swipe is ignored',
+    resolveSwipeGesture({ startX: 180, startY: 200, x: 100, y: 208, durationMs: 601, viewportWidth: 360 }) === null,
+  ],
+  [
+    'desktop swipe is ignored',
+    resolveSwipeGesture({ startX: 400, startY: 200, x: 300, y: 208, durationMs: 220, viewportWidth: 1024 }) === null,
+  ],
+];
+for (const [label, ok] of swipeChecks) {
+  if (!ok) {
+    console.error(`FAIL: swipe gesture — ${label}`);
+    failures += 1;
+  }
+}
+if (swipeChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: swipe gesture (${swipeChecks.length} cases)`);
+}
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',

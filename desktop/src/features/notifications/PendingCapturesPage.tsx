@@ -114,26 +114,31 @@ export function PendingCapturesPage() {
         titleKey="notifications.reviewTitle"
         subtitleKey="notifications.askBeforeDesc"
         actions={
-          <Button onClick={() => void approveAll()} className="gap-1.5">
+          <Button
+            onClick={() => void approveAll()}
+            className="gap-1.5 max-md:h-11 max-md:w-11 max-md:px-0"
+            aria-label={t('notifications.approveAll')}
+            title={t('notifications.approveAll')}
+          >
             <Check className="h-4 w-4" />
-            {t('notifications.approveAll')}
+            <span className="max-md:sr-only">{t('notifications.approveAll')}</span>
           </Button>
         }
       />
 
       {grouped.map(([label, items]) => (
         <Card key={label} className="shadow-card">
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-3 md:p-5 md:pb-3">
             <CardTitle className="text-base">{t('notifications.fromApp', { app: label })}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 p-4 pt-0 md:p-5 md:pt-0">
             {items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
+                className="flex flex-col gap-3 rounded-md border border-border p-3 md:flex-row md:items-center md:justify-between"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span
                       className={cn(
                         'text-xs font-semibold uppercase tracking-wide',
@@ -142,9 +147,9 @@ export function PendingCapturesPage() {
                     >
                       {item.type === 'income' ? t('notifications.income') : t('notifications.expense')}
                     </span>
-                    <span className="font-semibold">{formatMoney(item.amount)}</span>
+                    <span className="font-semibold tabular-nums">{formatMoney(item.amount)}</span>
                   </div>
-                  <p className="truncate text-sm text-muted-foreground">{item.description}</p>
+                  <p className="break-words text-sm text-muted-foreground md:truncate">{item.description}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     {item.categoryId && categoryById.get(item.categoryId) && (
                       <Badge variant="secondary">
@@ -158,7 +163,7 @@ export function PendingCapturesPage() {
                     <span className="text-xs text-dim">{item.date}</span>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex w-full items-center gap-1 md:w-auto md:shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -181,7 +186,7 @@ export function PendingCapturesPage() {
                     size="sm"
                     onClick={() => void handleApprove(item.id)}
                     disabled={busyId === item.id}
-                    className="gap-1"
+                    className="ml-auto gap-1 md:ml-0"
                   >
                     {busyId === item.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

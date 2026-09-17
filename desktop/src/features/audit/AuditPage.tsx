@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ChevronDown, Lock, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { ChevronDown, Lock, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { useAuth } from '@/app/auth';
@@ -51,6 +51,7 @@ export function AuditPage() {
   const [page, setPage] = React.useState(0);
   const [hasMore, setHasMore] = React.useState(false);
   const [selected, setSelected] = React.useState<AuditEvent | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
   /** Phone-only: which event card is expanded inline. */
   const [expandedId, setExpandedId] = React.useState<number | null>(null);
 
@@ -105,63 +106,83 @@ export function AuditPage() {
     <ToolsWorkspace>
       <div className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+          <div className="max-md:hidden">
             <h2 className="text-xl font-semibold">{t('audit.title')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t('audit.subtitle')}</p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className="gap-1.5 max-md:h-11 max-md:w-11 max-md:px-0"
             onClick={() => void load(page)}
             disabled={loading}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-            {t('common.retry')}
+            <span className="max-md:sr-only">{t('common.retry')}</span>
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full min-w-[12rem] sm:w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              value={eventType}
-              onChange={(event) => setEventType(event.target.value)}
-              placeholder={t('audit.filterPlaceholder')}
-              aria-label={t('audit.filterPlaceholder')}
-            />
-          </div>
-          <Input
-            type="date"
-            className="w-[9.5rem]"
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-            aria-label={t('receipts.filterFrom')}
-          />
-          <Input
-            type="date"
-            className="w-[9.5rem]"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-            aria-label={t('receipts.filterTo')}
-          />
-          <Button onClick={() => void load(0)} disabled={loading}>
-            {loading ? t('common.loading') : t('common.apply')}
-          </Button>
-          {filtersActive && (
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+          <div className="flex items-center gap-2 md:contents">
+            <div className="relative w-full min-w-[12rem] sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                value={eventType}
+                onChange={(event) => setEventType(event.target.value)}
+                placeholder={t('audit.filterPlaceholder')}
+                aria-label={t('audit.filterPlaceholder')}
+              />
+            </div>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setEventType('');
-                setFrom('');
-                setTo('');
-              }}
+              variant={mobileFiltersOpen ? 'default' : 'outline'}
+              size="icon"
+              className="md:hidden"
+              onClick={() => setMobileFiltersOpen((open) => !open)}
+              aria-expanded={mobileFiltersOpen}
+              aria-label={t('transactions.filters.title')}
             >
-              {t('receipts.clearFilters')}
+              <SlidersHorizontal className="h-4 w-4" />
             </Button>
-          )}
+          </div>
+          <div
+            className={cn(
+              'flex flex-wrap items-center gap-2 md:contents',
+              !mobileFiltersOpen && 'max-md:hidden',
+            )}
+          >
+            <Input
+              type="date"
+              className="w-[9.5rem] max-md:w-full"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              aria-label={t('receipts.filterFrom')}
+            />
+            <Input
+              type="date"
+              className="w-[9.5rem] max-md:w-full"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              aria-label={t('receipts.filterTo')}
+            />
+            <Button className="max-md:w-full" onClick={() => void load(0)} disabled={loading}>
+              {loading ? t('common.loading') : t('common.apply')}
+            </Button>
+            {filtersActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="max-md:w-full"
+                onClick={() => {
+                  setEventType('');
+                  setFrom('');
+                  setTo('');
+                }}
+              >
+                {t('receipts.clearFilters')}
+              </Button>
+            )}
+          </div>
         </div>
 
         {error && (

@@ -1,6 +1,14 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, BookOpen, CheckCircle2, Plus, Search, TriangleAlert } from 'lucide-react';
+import {
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  TriangleAlert,
+} from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
@@ -33,7 +41,7 @@ import { cn } from '@/lib/utils';
 import { ToolsWorkspace } from '@/features/tools/ToolsWorkspace';
 
 const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-surface px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]';
+  'h-9 rounded-md border border-input bg-surface px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] max-md:h-11 max-md:px-3';
 
 const ROW_GRID =
   'lg:grid lg:grid-cols-[6.5rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_7.5rem_4.5rem] lg:items-center lg:gap-3';
@@ -81,6 +89,7 @@ export function LedgerPage() {
   const [migrateOpen, setMigrateOpen] = React.useState(false);
   const [migrating, setMigrating] = React.useState(false);
   const [migration, setMigration] = React.useState<MigrationResponse | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
   const [formOpen, setFormOpen] = React.useState(false);
   const [description, setDescription] = React.useState('');
   const [date, setDate] = React.useState(() => toIsoDate(new Date()));
@@ -193,7 +202,7 @@ export function LedgerPage() {
     <ToolsWorkspace>
       <div className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+          <div className="max-md:hidden">
             <h2 className="text-xl font-semibold">{t('ledger.title')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t('ledger.subtitle')}</p>
           </div>
@@ -228,74 +237,94 @@ export function LedgerPage() {
           </Card>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full min-w-[12rem] sm:w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('ledger.searchPlaceholder')}
-              aria-label={t('ledger.searchPlaceholder')}
-            />
-          </div>
-          <select
-            className={SELECT_CLASS}
-            value={accountId}
-            onChange={(event) => setAccountId(event.target.value)}
-            aria-label={t('ledger.filterAccount')}
-          >
-            <option value="">{t('ledger.allAccounts')}</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </select>
-          <Input
-            type="date"
-            className="w-[9.5rem]"
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-            aria-label={t('receipts.filterFrom')}
-          />
-          <Input
-            type="date"
-            className="w-[9.5rem]"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-            aria-label={t('receipts.filterTo')}
-          />
-          {filtersActive && (
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+          <div className="flex items-center gap-2 md:contents">
+            <div className="relative w-full min-w-[12rem] sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('ledger.searchPlaceholder')}
+                aria-label={t('ledger.searchPlaceholder')}
+              />
+            </div>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearch('');
-                setAccountId('');
-                setFrom('');
-                setTo('');
-              }}
+              variant={mobileFiltersOpen ? 'default' : 'outline'}
+              size="icon"
+              className="md:hidden"
+              onClick={() => setMobileFiltersOpen((open) => !open)}
+              aria-expanded={mobileFiltersOpen}
+              aria-label={t('transactions.filters.title')}
             >
-              {t('receipts.clearFilters')}
+              <SlidersHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          <span className="ml-auto flex items-center gap-1.5 text-xs">
-            {unbalanced === 0 ? (
-              <>
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                <span className="text-muted-foreground">{t('ledger.balanced')}</span>
-                <span className="font-medium text-success">{t('ledger.balancedShort')}</span>
-              </>
-            ) : (
-              <>
-                <TriangleAlert className="h-3.5 w-3.5 text-warning" />
-                <span className="text-muted-foreground">
-                  {t('ledger.unbalanced', { count: unbalanced })}
-                </span>
-              </>
+          </div>
+          <div
+            className={cn(
+              'flex flex-wrap items-center gap-2 md:contents',
+              !mobileFiltersOpen && 'max-md:hidden',
             )}
-          </span>
+          >
+            <select
+              className={`${SELECT_CLASS} max-md:w-full`}
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+              aria-label={t('ledger.filterAccount')}
+            >
+              <option value="">{t('ledger.allAccounts')}</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+            <Input
+              type="date"
+              className="w-[9.5rem] max-md:w-full"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              aria-label={t('receipts.filterFrom')}
+            />
+            <Input
+              type="date"
+              className="w-[9.5rem] max-md:w-full"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              aria-label={t('receipts.filterTo')}
+            />
+            {filtersActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="max-md:w-full"
+                onClick={() => {
+                  setSearch('');
+                  setAccountId('');
+                  setFrom('');
+                  setTo('');
+                }}
+              >
+                {t('receipts.clearFilters')}
+              </Button>
+            )}
+            <span className="ml-auto flex items-center gap-1.5 text-xs max-md:ml-0 max-md:w-full">
+              {unbalanced === 0 ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                  <span className="text-muted-foreground">{t('ledger.balanced')}</span>
+                  <span className="font-medium text-success">{t('ledger.balancedShort')}</span>
+                </>
+              ) : (
+                <>
+                  <TriangleAlert className="h-3.5 w-3.5 text-warning" />
+                  <span className="text-muted-foreground">
+                    {t('ledger.unbalanced', { count: unbalanced })}
+                  </span>
+                </>
+              )}
+            </span>
+          </div>
         </div>
         {ledgerQuery.isLoading ? (
           <Card className="space-y-3 p-5">

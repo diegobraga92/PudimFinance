@@ -10,6 +10,7 @@ import {
   TOOL_GROUPS,
   isMobileRoot,
   screenTitleKey,
+  tabStepDirection,
   type NavGroup,
   type NavItem,
 } from '@/app/navigation';
@@ -47,6 +48,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useNotificationCapture } from '@/notifications/NotificationCaptureProvider';
+import { useSwipeNavigation } from '@/app/useSwipeNavigation';
 
 /** Shared pill styling for nav entries (top bar trigger, links and menus). */
 function navItemClass(isActive: boolean): string {
@@ -188,6 +190,16 @@ export function RootLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const mainRef = React.useRef<HTMLElement>(null);
+  const previousPathnameRef = React.useRef(pathname);
+  const tabDirection = tabStepDirection(previousPathnameRef.current, pathname);
+
+  useSwipeNavigation(mainRef);
+
+  React.useEffect(() => {
+    previousPathnameRef.current = pathname;
+  }, [pathname]);
+
   // Android-only nav items (notification capture) are hidden on desktop where
   // the native NotificationListenerService doesn't exist.
   const [captureSupported, setCaptureSupported] = React.useState(false);
@@ -346,8 +358,15 @@ export function RootLayout() {
         <OfflineBanner />
 
         {/* Routed content. Extra bottom room on phones for the tab bar + FAB. */}
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="px-4 pb-28 pt-4 sm:px-6 md:pb-12 md:pt-6 lg:px-8 lg:pt-7">
+        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div
+            key={pathname}
+            className={cn(
+              'px-4 pb-28 pt-4 sm:px-6 md:pb-12 md:pt-6 lg:px-8 lg:pt-7',
+              tabDirection === 1 && 'max-md:animate-slide-in-from-right motion-reduce:animate-none',
+              tabDirection === -1 && 'max-md:animate-slide-in-from-left motion-reduce:animate-none',
+            )}
+          >
             <ErrorBoundary key={pathname}>
               <Outlet />
             </ErrorBoundary>
