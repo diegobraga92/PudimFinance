@@ -83,7 +83,7 @@ export function CategoryDonut({
         {action}
       </CardHeader>
 
-      <CardContent className="flex-1 p-5 pt-0">
+      <CardContent className="flex flex-1 flex-col justify-center p-5 pt-0">
         {loading ? (
           <div className="space-y-3">
             <Skeleton className="mx-auto h-[190px] w-[190px] rounded-full" />
@@ -98,9 +98,9 @@ export function CategoryDonut({
         ) : (
           <>
             {/* The legend sits beside the ring whenever the card is wide enough
-             * (~400px) and wraps underneath on narrow cards/phones, so the
-             * card never grows taller than it needs to. */}
-            <div className="flex flex-wrap items-center justify-center gap-5">
+             * (~400px) and wraps underneath on narrow cards. The group centers
+             * in any extra height from a taller grid row. */}
+            <div className="flex shrink-0 flex-wrap items-center justify-center gap-5">
               <div className="relative h-[190px] w-[190px] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
