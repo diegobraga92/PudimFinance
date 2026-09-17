@@ -4,7 +4,12 @@ import { useI18n } from '@/app/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { AccountWithBalance } from '@/lib/api';
-import { KIND_CHART_COLORS, asAccountKind, isBalanceSheet } from './account-groups';
+import {
+  KIND_CHART_COLORS,
+  asAccountKind,
+  isBalanceSheet,
+  totalAssetBalance,
+} from './account-groups';
 import { AccountIcon } from '@/components/AccountIcon';
 
 interface Props {
@@ -28,7 +33,7 @@ interface Slice {
 export function AccountDistributionCard({ accounts, loading }: Props) {
   const { t, formatMoney } = useI18n();
 
-  const { slices, total } = React.useMemo(() => {
+  const { slices, total, distributionTotal } = React.useMemo(() => {
     const assets = accounts.filter((a) => isBalanceSheet(a) && a.type === 'asset');
     const byKind = new Map<string, Slice>();
     for (const account of assets) {
@@ -48,11 +53,14 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
       }
     }
     const list = [...byKind.values()].sort((a, b) => b.amount - a.amount);
-    const sum = assets.reduce((acc, a) => acc + Math.max(parseFloat(a.balance) || 0, 0), 0);
-    return { slices: list, total: sum };
+    const distributionTotal = assets.reduce(
+      (acc, a) => acc + Math.max(parseFloat(a.balance) || 0, 0),
+      0,
+    );
+    return { slices: list, total: totalAssetBalance(accounts), distributionTotal };
   }, [accounts, t]);
 
-  const hasData = slices.length > 0 && total > 0;
+  const hasData = slices.length > 0 && distributionTotal > 0;
 
   return (
     <Card className="flex h-full flex-col border-border bg-surface shadow-card">
@@ -78,7 +86,10 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
                   <span
                     key={slice.kind}
                     className="h-full min-w-[3px] transition-[width]"
-                    style={{ width: `${(slice.amount / total) * 100}%`, backgroundColor: slice.color }}
+                    style={{
+                      width: `${(slice.amount / distributionTotal) * 100}%`,
+                      backgroundColor: slice.color,
+                    }}
                     title={`${slice.label}: ${formatMoney(slice.amount)}`}
                   />
                 ))}
@@ -107,7 +118,7 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
                   </span>
                   <span className="min-w-0 flex-1 truncate font-medium">{slice.label}</span>
                   <span className="shrink-0 text-xs tabular-nums text-dim">
-                    {Math.round((slice.amount / total) * 100)}%
+                    {Math.round((slice.amount / distributionTotal) * 100)}%
                   </span>
                   <span className="w-24 shrink-0 text-right font-medium tabular-nums">
                     {formatMoney(slice.amount)}

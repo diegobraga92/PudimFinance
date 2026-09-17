@@ -182,6 +182,7 @@ accountsClient.setQueryData(['accounts'], [
     balance: '-1240.80',
     closing_day: 15,
     due_day: 22,
+    credit_limit: '5000.00',
     created_at: '2026-01-01T00:00:00Z',
   },
   {
@@ -208,6 +209,9 @@ for (const needle of [
   'aria-label="Transfer"',
   'Total in accounts', // friendly summary labels
   'Card bills &amp; loans', // React escapes the `&`
+  'Net worth',
+  'Credit used',
+  'Available',
   'Tesouro Selic', // investments card row
   'md:hidden', // compact phone summary card
   'overflow-hidden rounded-lg border border-border bg-surface shadow-card', // separate account groups

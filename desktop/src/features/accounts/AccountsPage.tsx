@@ -8,7 +8,6 @@ import {
   deleteAccount,
   fetchAccountsWithBalance,
   fetchCategories,
-  fetchSummary,
   type CardBill,
   type AccountWithBalance,
 } from '@/lib/api';
@@ -37,6 +36,7 @@ import {
   groupOf,
   isBalanceSheet,
   sortByKind,
+  totalAssetBalance,
   type AccountGroupKey,
 } from './account-groups';
 import { cn } from '@/lib/utils';
@@ -99,9 +99,9 @@ function AccountsListSkeleton() {
  * Accounts: where the money sits, what is owed and how it is spread.
  *
  * Balances and account kinds come from `GET /api/accounts` (the backend's
- * computed chart-of-accounts balances), the month's income from
- * `GET /api/summary`, activity from `GET /api/transactions`, and transfers post
- * to the double-entry ledger. Nothing is derived from raw ledger rows here.
+ * computed chart-of-accounts balances), activity from `GET /api/transactions`,
+ * and transfers post to the double-entry ledger. Nothing is derived from raw
+ * ledger rows here.
  */
 export function AccountsPage() {
   const { t } = useI18n();
@@ -134,34 +134,34 @@ export function AccountsPage() {
     queryFn: () => fetchAccountsWithBalance(),
   });
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
-  const summaryQuery = useQuery({ queryKey: ['summary'], queryFn: () => fetchSummary() });
 
   const accounts = React.useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
   const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const balanceSheet = React.useMemo(() => accounts.filter(isBalanceSheet), [accounts]);
 
   const totals = React.useMemo(() => {
-    let assets = 0;
+    const assets = totalAssetBalance(balanceSheet);
     let liabilities = 0;
-    let investments = 0;
     let liabilityCount = 0;
+    let creditUsed = 0;
+    let creditLimit = 0;
     for (const account of balanceSheet) {
       const balance = parseFloat(account.balance) || 0;
       if (account.type === 'liability') {
         liabilities += Math.abs(balance);
         liabilityCount += 1;
-      } else {
-        assets += balance;
-        if (account.account_kind === 'investment') investments += balance;
+        if (account.account_kind === 'card') {
+          const limit = parseFloat(account.credit_limit ?? '0') || 0;
+          if (limit > 0) {
+            creditUsed += Math.abs(balance);
+            creditLimit += limit;
+          }
+        }
       }
     }
-    return { assets, liabilities, investments, liabilityCount };
+    return { assets, liabilities, liabilityCount, creditUsed, creditLimit };
   }, [balanceSheet]);
 
-  const monthlyIncome = summaryQuery.data ? parseFloat(summaryQuery.data.income_total) : null;
-  const monthlyExpenses = summaryQuery.data ? parseFloat(summaryQuery.data.expense_total) : null;
-  const monthlyNet =
-    monthlyIncome !== null && monthlyExpenses !== null ? monthlyIncome - monthlyExpenses : null;
   const cards = React.useMemo(
     () => balanceSheet.filter((account) => account.account_kind === 'card'),
     [balanceSheet],
@@ -318,15 +318,14 @@ export function AccountsPage() {
       ) : (
         <>
           <AccountsSummary
-            loading={loading || summaryQuery.isLoading}
+            loading={loading}
             available={accountsQuery.data !== undefined}
             totalAssets={totals.assets}
-            investments={totals.investments}
             totalLiabilities={totals.liabilities}
             liabilityCount={totals.liabilityCount}
-            monthlyIncome={monthlyIncome}
-            monthlyExpenses={monthlyExpenses}
-            monthlyNet={monthlyNet}
+            creditUsed={totals.creditUsed}
+            creditAvailable={totals.creditLimit - totals.creditUsed}
+            hasCreditLimits={totals.creditLimit > 0}
           />
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,1fr)]">

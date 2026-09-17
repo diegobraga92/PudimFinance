@@ -153,6 +153,15 @@ export function isBalanceSheet(account: AccountWithBalance): boolean {
   return account.type === 'asset' || account.type === 'liability';
 }
 
+/** Sum asset balances using the same signed values shown in account totals. */
+export function totalAssetBalance(accounts: AccountWithBalance[]): number {
+  return accounts.reduce(
+    (total, account) =>
+      total + (account.type === 'asset' ? parseFloat(account.balance) || 0 : 0),
+    0,
+  );
+}
+
 /** `true` when the account has a monthly billing cycle (a credit card). */
 export function isCreditCard(account: AccountWithBalance): boolean {
   return account.type === 'liability' && !!account.closing_day && !!account.due_day;

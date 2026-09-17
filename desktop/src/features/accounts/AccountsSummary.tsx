@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Scale, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { CreditCard, Scale, TrendingDown, type LucideIcon } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,16 +11,15 @@ interface AccountsSummaryProps {
   /** `false` when a request failed — cards show a dash instead of zero. */
   available: boolean;
   totalAssets: number;
-  /** Sum of the investment accounts (part of `totalAssets`). */
-  investments: number;
   totalLiabilities: number;
   /** Accounts that make up the debt (cards + loans). */
   liabilityCount: number;
-  /** Current-month figures from the summary endpoint (null when unavailable). */
-  monthlyIncome: number | null;
-  monthlyExpenses: number | null;
-  /** Income − expenses for the current month. */
-  monthlyNet: number | null;
+  /** Outstanding balance across credit-card accounts. */
+  creditUsed: number;
+  /** Remaining credit across cards with a configured limit. */
+  creditAvailable: number;
+  /** Whether at least one card has a configured credit limit. */
+  hasCreditLimits: boolean;
 }
 
 interface SummaryCardProps {
@@ -157,175 +156,137 @@ function AsideStat({
   );
 }
 
-/** Compact phone summary with one row for each desktop headline card. */
-function MobileAccountsSummary({
-  loading,
-  available,
-  totalAssets,
-  investments,
-  totalLiabilities,
-  liabilityCount,
-  monthlyIncome,
-  monthlyExpenses,
-  monthlyNet,
-}: AccountsSummaryProps) {
-  const { t, formatMoney } = useI18n();
-  const netWorth = totalAssets - totalLiabilities;
-  const show = (value: number) => (available ? formatMoney(value) : '—');
-  const countKey =
-    liabilityCount === 1 ? 'accounts.group.count_one' : 'accounts.group.count_other';
+interface SummaryItem {
+  key: string;
+  label: string;
+  value: string;
+  icon: LucideIcon;
+  tone: string;
+  valueClassName: string;
+  secondaryLabel: string;
+  secondaryValue: string;
+  secondaryClassName?: string;
+}
 
+/** Compact phone summary with one row for each desktop headline card. */
+function MobileAccountsSummary({ items, loading }: { items: SummaryItem[]; loading: boolean }) {
   return (
     <Card className="border-border bg-surface shadow-card md:hidden">
       <CardContent className="divide-y divide-border/60 p-0">
-        <MobileSummaryRow
-          label={t('accounts.summary.assets')}
-          value={show(totalAssets)}
-          icon={<Wallet className="h-4 w-4" />}
-          tone="bg-info/15 text-info"
-          valueClassName="text-success"
-          secondaryLabel={t('accounts.summary.investments')}
-          secondaryValue={show(investments)}
-          secondaryClassName="text-success"
-          loading={loading}
-        />
-        <MobileSummaryRow
-          label={t('accounts.summary.liabilities')}
-          value={available ? `- ${formatMoney(totalLiabilities)}` : '—'}
-          icon={<TrendingDown className="h-4 w-4" />}
-          tone="bg-danger/15 text-danger"
-          valueClassName="text-danger"
-          secondaryLabel={t('accounts.summary.accountCount')}
-          secondaryValue={t(countKey, { count: liabilityCount })}
-          loading={loading}
-        />
-        <MobileSummaryRow
-          label={t('accounts.summary.netWorth')}
-          value={show(netWorth)}
-          icon={<Scale className="h-4 w-4" />}
-          tone="bg-success/15 text-success"
-          valueClassName={netWorth >= 0 ? 'text-success' : 'text-danger'}
-          secondaryLabel={t('accounts.summary.netThisMonth')}
-          secondaryValue={monthlyNet === null ? '—' : formatMoney(monthlyNet)}
-          secondaryClassName={monthlyNet !== null && monthlyNet < 0 ? 'text-danger' : 'text-success'}
-          loading={loading}
-        />
-        <MobileSummaryRow
-          label={t('accounts.summary.monthlyIncome')}
-          value={monthlyIncome === null ? '—' : formatMoney(monthlyIncome)}
-          icon={<TrendingUp className="h-4 w-4" />}
-          tone="bg-purple/15 text-purple"
-          valueClassName="text-foreground"
-          secondaryLabel={t('common.expenses')}
-          secondaryValue={monthlyExpenses === null ? '—' : formatMoney(monthlyExpenses)}
-          secondaryClassName="text-danger"
-          loading={loading}
-        />
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <MobileSummaryRow
+              key={item.key}
+              label={item.label}
+              value={item.value}
+              icon={<Icon className="h-4 w-4" />}
+              tone={item.tone}
+              valueClassName={item.valueClassName}
+              secondaryLabel={item.secondaryLabel}
+              secondaryValue={item.secondaryValue}
+              secondaryClassName={item.secondaryClassName}
+              loading={loading}
+            />
+          );
+        })}
       </CardContent>
     </Card>
   );
 }
 
 /**
- * Headline position: what the user holds, what they owe, the difference, and
- * the month's flow. Every card carries a secondary figure on the right (the
- * invested slice, how many debts, the month's net, the month's expenses), so the
- * value never floats alone with empty space beside it.
+ * Headline position: net worth, what is owed, and credit capacity. The assets
+ * total remains visible as the net-worth card's secondary figure, while credit
+ * usage gives card holders an actionable view that is not duplicated on the
+ * dashboard. The same item list drives desktop cards and mobile rows.
  */
 export function AccountsSummary({
   loading,
   available,
   totalAssets,
-  investments,
   totalLiabilities,
   liabilityCount,
-  monthlyIncome,
-  monthlyExpenses,
-  monthlyNet,
+  creditUsed,
+  creditAvailable,
+  hasCreditLimits,
 }: AccountsSummaryProps) {
   const { t, formatMoney } = useI18n();
   const netWorth = totalAssets - totalLiabilities;
   const show = (value: number) => (available ? formatMoney(value) : '—');
   const countKey =
     liabilityCount === 1 ? 'accounts.group.count_one' : 'accounts.group.count_other';
+  const creditAvailableTone = creditAvailable >= 0 ? 'text-success' : 'text-danger';
+
+  const items: SummaryItem[] = [
+    {
+      key: 'net-worth',
+      label: t('accounts.summary.netWorth'),
+      value: show(netWorth),
+      icon: Scale,
+      tone: 'bg-success/15 text-success',
+      valueClassName: netWorth >= 0 ? 'text-success' : 'text-danger',
+      secondaryLabel: t('accounts.summary.assets'),
+      secondaryValue: show(totalAssets),
+      secondaryClassName: 'text-success',
+    },
+    {
+      key: 'liabilities',
+      label: t('accounts.summary.liabilities'),
+      value: available ? `- ${formatMoney(totalLiabilities)}` : '—',
+      icon: TrendingDown,
+      tone: 'bg-danger/15 text-danger',
+      valueClassName: 'text-danger',
+      secondaryLabel: t('accounts.summary.accountCount'),
+      secondaryValue: t(countKey, { count: liabilityCount }),
+    },
+  ];
+
+  if (hasCreditLimits) {
+    items.push({
+      key: 'credit-used',
+      label: t('accounts.summary.creditUsed'),
+      value: show(creditUsed),
+      icon: CreditCard,
+      tone: 'bg-purple/15 text-purple',
+      valueClassName: 'text-danger',
+      secondaryLabel: t('accounts.summary.creditAvailable'),
+      secondaryValue: show(creditAvailable),
+      secondaryClassName: creditAvailableTone,
+    });
+  }
 
   return (
     <>
-      <MobileAccountsSummary
-        loading={loading}
-        available={available}
-        totalAssets={totalAssets}
-        investments={investments}
-        totalLiabilities={totalLiabilities}
-        liabilityCount={liabilityCount}
-        monthlyIncome={monthlyIncome}
-        monthlyExpenses={monthlyExpenses}
-        monthlyNet={monthlyNet}
-      />
-      <div className="hidden grid-cols-1 gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard
-          label={t('accounts.summary.assets')}
-          value={show(totalAssets)}
-          icon={<Wallet className="h-5 w-5" />}
-          tone="bg-info/15 text-info"
-          valueClassName="text-success"
-          loading={loading}
-          aside={
-            <AsideStat
-              label={t('accounts.summary.investments')}
-              value={show(investments)}
-              tone="text-success"
+      <MobileAccountsSummary items={items} loading={loading} />
+      <div
+        className={cn(
+          'hidden grid-cols-1 gap-4 md:grid md:grid-cols-2',
+          hasCreditLimits ? 'xl:grid-cols-3' : 'xl:grid-cols-2',
+        )}
+      >
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <SummaryCard
+              key={item.key}
+              label={item.label}
+              value={item.value}
+              icon={<Icon className="h-5 w-5" />}
+              tone={item.tone}
+              valueClassName={item.valueClassName}
               loading={loading}
+              aside={
+                <AsideStat
+                  label={item.secondaryLabel}
+                  value={item.secondaryValue}
+                  tone={item.secondaryClassName}
+                  loading={loading}
+                />
+              }
             />
-          }
-        />
-        <SummaryCard
-          label={t('accounts.summary.liabilities')}
-          value={available ? `- ${formatMoney(totalLiabilities)}` : '—'}
-          icon={<TrendingDown className="h-5 w-5" />}
-          tone="bg-danger/15 text-danger"
-          valueClassName="text-danger"
-          loading={loading}
-          aside={
-            <AsideStat
-              label={t('accounts.summary.accountCount')}
-              value={t(countKey, { count: liabilityCount })}
-              loading={loading}
-            />
-          }
-        />
-        <SummaryCard
-          label={t('accounts.summary.netWorth')}
-          value={show(netWorth)}
-          icon={<Scale className="h-5 w-5" />}
-          tone="bg-success/15 text-success"
-          valueClassName={netWorth >= 0 ? 'text-success' : 'text-danger'}
-          loading={loading}
-          aside={
-            <AsideStat
-              label={t('accounts.summary.netThisMonth')}
-              value={monthlyNet === null ? '—' : formatMoney(monthlyNet)}
-              tone={monthlyNet !== null && monthlyNet < 0 ? 'text-danger' : 'text-success'}
-              loading={loading}
-            />
-          }
-        />
-        <SummaryCard
-          label={t('accounts.summary.monthlyIncome')}
-          value={monthlyIncome === null ? '—' : formatMoney(monthlyIncome)}
-          icon={<TrendingUp className="h-5 w-5" />}
-          tone="bg-purple/15 text-purple"
-          valueClassName="text-foreground"
-          loading={loading}
-          aside={
-            <AsideStat
-              label={t('common.expenses')}
-              value={monthlyExpenses === null ? '—' : formatMoney(monthlyExpenses)}
-              tone="text-danger"
-              loading={loading}
-            />
-          }
-        />
+          );
+        })}
       </div>
     </>
   );
