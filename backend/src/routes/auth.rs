@@ -211,12 +211,17 @@ pub async fn register(
             })?;
             info!("Registered user {}", email);
             Ok(Json(json!({
-                "access_token": access,
-                "refresh_token": refresh,
-                "token_type": "Bearer",
-                "expires_in": auth::ACCESS_TOKEN_TTL_SECS,
-                "user": { "id": user_id, "email": email, "role": "user" },
-            })))
+                    "access_token": access,
+                    "refresh_token": refresh,
+                    "token_type": "Bearer",
+                    "expires_in": auth::ACCESS_TOKEN_TTL_SECS,
+            "user": {
+                "id": user_id,
+                "email": email,
+                "role": "user",
+                "display_name": payload.display_name,
+            },
+                })))
         }
         Err(e) => {
             if e.to_string().contains("duplicate key") {
@@ -255,11 +260,12 @@ pub async fn login(
     struct UserRow {
         id: Uuid,
         password_hash: Option<String>,
+        display_name: Option<String>,
         role: String,
     }
 
     let row: Option<UserRow> =
-        sqlx::query_as("SELECT id, password_hash, role FROM users WHERE email = $1")
+        sqlx::query_as("SELECT id, password_hash, display_name, role FROM users WHERE email = $1")
             .bind(&email)
             .fetch_optional(&state.pg_pool)
             .await
@@ -322,7 +328,12 @@ pub async fn login(
         "refresh_token": refresh,
         "token_type": "Bearer",
         "expires_in": auth::ACCESS_TOKEN_TTL_SECS,
-        "user": { "id": user.id, "email": email, "role": user.role },
+        "user": {
+            "id": user.id,
+            "email": email,
+            "role": user.role,
+            "display_name": user.display_name,
+        },
     })))
 }
 
@@ -436,12 +447,13 @@ pub async fn google_login(
     struct UserRow {
         id: Uuid,
         email: String,
+        display_name: Option<String>,
         role: String,
         google_sub: Option<String>,
     }
 
     let by_sub: Option<UserRow> = sqlx::query_as(
-        "SELECT id, email, role, google_sub FROM users WHERE google_sub = $1 FOR UPDATE",
+        "SELECT id, email, display_name, role, google_sub FROM users WHERE google_sub = $1 FOR UPDATE",
     )
     .bind(&claims.sub)
     .fetch_optional(&mut *transaction)
@@ -464,7 +476,7 @@ pub async fn google_login(
         user
     } else {
         let by_email: Option<UserRow> = sqlx::query_as(
-            "SELECT id, email, role, google_sub FROM users WHERE email = $1 FOR UPDATE",
+            "SELECT id, email, display_name, role, google_sub FROM users WHERE email = $1 FOR UPDATE",
         )
         .bind(&email)
         .fetch_optional(&mut *transaction)
@@ -499,6 +511,7 @@ pub async fn google_login(
                 })?;
             UserRow {
                 google_sub: Some(claims.sub.clone()),
+                display_name: user.display_name.or_else(|| claims.name.clone()),
                 ..user
             }
         } else {
@@ -526,6 +539,7 @@ pub async fn google_login(
             UserRow {
                 id,
                 email: email.clone(),
+                display_name: claims.name.clone(),
                 role: "user".to_string(),
                 google_sub: Some(claims.sub.clone()),
             }
@@ -573,7 +587,12 @@ pub async fn google_login(
         "refresh_token": refresh,
         "token_type": "Bearer",
         "expires_in": auth::ACCESS_TOKEN_TTL_SECS,
-        "user": { "id": user.id, "email": user.email, "role": user.role },
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "display_name": user.display_name,
+        },
     })))
 }
 
@@ -680,6 +699,20 @@ pub async fn refresh(
         )
     })?;
 
+    let display_name: Option<String> =
+        sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_optional(&state.pg_pool)
+            .await
+            .map_err(|error| {
+                error!("Failed to load display name during token refresh: {error}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to refresh session" })),
+                )
+            })?
+            .flatten();
+
     let access = auth::create_token(
         &state.jwt_secret,
         user_id,
@@ -712,7 +745,12 @@ pub async fn refresh(
         "refresh_token": refresh,
         "token_type": "Bearer",
         "expires_in": auth::ACCESS_TOKEN_TTL_SECS,
-        "user": { "id": user_id, "email": claims.email, "role": claims.role },
+        "user": {
+            "id": user_id,
+            "email": claims.email,
+            "role": claims.role,
+            "display_name": display_name,
+        },
     })))
 }
 
@@ -748,9 +786,30 @@ pub async fn me(
         )
     })?;
 
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "Invalid token subject" })),
+        )
+    })?;
+    let display_name: Option<String> =
+        sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_optional(&state.pg_pool)
+            .await
+            .map_err(|error| {
+                error!("Failed to load current user: {error}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to load current user" })),
+                )
+            })?
+            .flatten();
+
     Ok(Json(json!({
-        "id": claims.sub,
+        "id": user_id,
         "email": claims.email,
         "role": claims.role,
+        "display_name": display_name,
     })))
 }

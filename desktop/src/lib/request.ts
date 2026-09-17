@@ -90,7 +90,7 @@ async function performRefresh(timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): P
     const data = (await res.json()) as {
       access_token: string;
       refresh_token: string;
-      user: { id: string; email: string; role: string };
+      user: { id: string; email: string; role: string; display_name?: string | null };
     };
     await setAuthSession(data.access_token, data.refresh_token, data.user);
     return true;

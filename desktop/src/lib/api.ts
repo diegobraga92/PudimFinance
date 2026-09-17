@@ -166,7 +166,7 @@ export interface AuthResponse {
   refresh_token: string;
   token_type: string;
   expires_in: number;
-  user: { id: string; email: string; role: string };
+  user: { id: string; email: string; role: string; display_name?: string | null };
 }
 
 export async function registerUser(payload: {
@@ -223,10 +223,15 @@ export async function refreshToken(payload: { refresh_token: string }): Promise<
   });
 }
 
-export async function fetchMe(token: string): Promise<{ id: string; email: string; role: string }> {
-  return request<{ id: string; email: string; role: string }>('/api/auth/me', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function fetchMe(
+  token: string,
+): Promise<{ id: string; email: string; role: string; display_name?: string | null }> {
+  return request<{ id: string; email: string; role: string; display_name?: string | null }>(
+    '/api/auth/me',
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
 }
 
 export async function fetchCategories(): Promise<Category[]> {

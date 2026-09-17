@@ -81,6 +81,7 @@ import {
 import { filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
 import { normalizeServerUrl } from '../src/lib/serverConfig';
+import { displayNameForGreeting } from '../src/features/dashboard/greeting';
 import {
   ACCOUNT_BRANDS,
   ACCOUNT_ICON_GROUPS,
@@ -767,6 +768,22 @@ for (const [label, ok] of accountIconChecks) {
 }
 if (accountIconChecks.every(([, ok]) => ok)) {
   console.log(`PASS: account icons (${accountIconChecks.length} cases)`);
+}
+
+const greetingChecks: [string, boolean][] = [
+  ['uses first word of display name', displayNameForGreeting({ display_name: 'Diego Braga', email: 'diego.braga92@example.com' }) === 'Diego'],
+  ['trims display name before taking first word', displayNameForGreeting({ display_name: '  Ana   Souza  ' }) === 'Ana'],
+  ['falls back to email handle', displayNameForGreeting({ email: 'diego.braga92@example.com' }) === 'Diego.braga92'],
+  ['returns null without identity', displayNameForGreeting(null) === null],
+];
+for (const [label, ok] of greetingChecks) {
+  if (!ok) {
+    console.error(`FAIL: greeting — ${label}`);
+    failures += 1;
+  }
+}
+if (greetingChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: greeting (${greetingChecks.length} cases)`);
 }
 
 const months = [

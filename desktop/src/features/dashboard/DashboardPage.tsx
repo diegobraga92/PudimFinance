@@ -21,6 +21,7 @@ import { CategoryBreakdownCard } from './CategoryBreakdownCard';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { BudgetsCard } from './BudgetsCard';
 import { QuickActions } from './QuickActions';
+import { displayNameForGreeting } from './greeting';
 
 /** Shift a `{ year, month }` pair by `delta` months (month is 1-12). */
 function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
@@ -195,8 +196,7 @@ export function DashboardPage() {
   }, [cashFlowQuery.data, locale, range, shortMonthNames]);
 
   const greeting = React.useMemo(() => {
-    const handle = user?.email?.split('@')[0] ?? '';
-    const name = handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : t('nav.dashboard');
+    const name = displayNameForGreeting(user) ?? t('nav.dashboard');
     const hour = now.getHours();
     const key =
       hour < 12
@@ -205,7 +205,7 @@ export function DashboardPage() {
           ? 'dashboard.greetingAfternoon'
           : 'dashboard.greetingEvening';
     return t(key, { name });
-  }, [user?.email, now, t]);
+  }, [user, now, t]);
 
   const periodQuery = `month=${month}&year=${year}`;
   const viewAllBudgets = `/budgets?${periodQuery}`;
