@@ -2,11 +2,25 @@
 <resources>
     <string name="widget_quickadd_label">PudimFinance</string>
     <string name="widget_quickadd_title">PudimFinance</string>
-    <string name="widget_quickadd_spent_prefix">Gastos hoje:</string>
-    <string name="widget_quickadd_description">Adicione despesas/receitas e veja o total do dia</string>
-    <string name="widget_quickadd_default_spent">Gastos hoje: R$ 0,00</string>
-    <string name="widget_quickadd_add_expense">− Despesa</string>
-    <string name="widget_quickadd_add_income">+ Receita</string>
+    <string name="widget_spending_label_4x2">Visão de gastos do PudimFinance</string>
+    <string name="widget_spending_label_4x1">Gastos semanais do PudimFinance</string>
+    <string name="widget_spending_label_2x1">Gastos de hoje do PudimFinance</string>
+    <string name="widget_spending_description_4x2">Veja os gastos de hoje, dos últimos sete dias e adicione uma despesa</string>
+    <string name="widget_spending_description_4x1">Veja os gastos da semana e adicione uma despesa</string>
+    <string name="widget_spending_description_2x1">Veja os gastos de hoje e adicione uma despesa</string>
+    <string name="widget_spending_today_label">Hoje</string>
+    <string name="widget_spending_not_synced">Ainda não sincronizado</string>
+    <string name="widget_spending_offline">Offline</string>
+    <string name="widget_spending_synced_now">Atualizado agora</string>
+    <string name="widget_spending_updated_at">Atualizado %1$s</string>
+    <string name="widget_spending_add_expense_content_description">Adicionar despesa</string>
+    <string name="widget_spending_open_app_content_description">Abrir visão de gastos do PudimFinance</string>
+    <string name="widget_spending_today_content_description">Gastos de hoje: %1$s</string>
+    <plurals name="widget_spending_count">
+        <item quantity="zero">Nenhuma transação</item>
+        <item quantity="one">%d transação</item>
+        <item quantity="other">%d transações</item>
+    </plurals>
     <string name="capture_prompt_channel_name">Transação detectada</string>
     <string name="capture_prompt_channel_desc">Pergunta como importar uma transação detectada em uma notificação bancária</string>
     <string name="capture_prompt_title">Transação detectada — %1$s</string>

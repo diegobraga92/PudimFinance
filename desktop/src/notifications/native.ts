@@ -267,11 +267,21 @@ export async function authenticateBiometric(): Promise<boolean> {
   }
 }
 
-/** Pushes a fresh "spent today" value to every home-screen widget (Android). */
-export async function setWidgetSpentToday(value: string): Promise<void> {
+/** Pushes a fresh seven-day spending snapshot to every home-screen widget (Android). */
+export async function setWidgetSpending(payload: string): Promise<void> {
   if (!isTauri()) return;
   try {
-    await invoke('plugin:pudim-native|set_widget_spent_today', { value });
+    await invoke('plugin:pudim-native|set_widget_spending', { payload });
+  } catch {
+    // Widgets are unavailable on desktop.
+  }
+}
+
+/** Synchronizes the app theme with the native widget layouts. */
+export async function setWidgetTheme(theme: 'light' | 'dark'): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await invoke('plugin:pudim-native|set_widget_theme', { theme });
   } catch {
     // Widgets are unavailable on desktop.
   }

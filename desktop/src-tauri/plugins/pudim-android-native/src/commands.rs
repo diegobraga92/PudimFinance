@@ -672,7 +672,7 @@ pub fn biometric_authenticate<R: Runtime>(app: AppHandle<R>) -> Result<bool, Str
 }
 
 #[tauri::command]
-pub fn set_widget_spent_today<R: Runtime>(app: AppHandle<R>, value: String) -> Result<(), String> {
+pub fn set_widget_spending<R: Runtime>(app: AppHandle<R>, payload: String) -> Result<(), String> {
     let state = app.state::<CaptureHandle<R>>();
     #[cfg(mobile)]
     {
@@ -680,13 +680,36 @@ pub fn set_widget_spent_today<R: Runtime>(app: AppHandle<R>, value: String) -> R
             return Ok(());
         };
         handle
-            .run_mobile_plugin::<()>("setWidgetSpentToday", serde_json::json!({ "value": value }))
+            .run_mobile_plugin::<()>(
+                "setWidgetSpending",
+                serde_json::json!({ "payload": payload }),
+            )
             .map_err(|e| e.to_string())
     }
     #[cfg(not(mobile))]
     {
         let _ = &state;
-        let _ = &value;
+        let _ = &payload;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub fn set_widget_theme<R: Runtime>(app: AppHandle<R>, theme: String) -> Result<(), String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(());
+        };
+        handle
+            .run_mobile_plugin::<()>("setWidgetTheme", serde_json::json!({ "theme": theme }))
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = &state;
+        let _ = &theme;
         Ok(())
     }
 }

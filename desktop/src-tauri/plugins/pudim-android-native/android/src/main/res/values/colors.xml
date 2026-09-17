@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_dark_background">#0B1428</color>
+    <color name="widget_dark_surface">#17243A</color>
+    <color name="widget_dark_border">#2A3A57</color>
+    <color name="widget_dark_text">#F1F5F9</color>
+    <color name="widget_dark_muted">#94A3B8</color>
+    <color name="widget_dark_primary">#20C965</color>
+    <color name="widget_dark_bar">#52708D</color>
+    <color name="widget_dark_bar_today">#20C965</color>
+
+    <color name="widget_light_background">#F8FAFC</color>
+    <color name="widget_light_surface">#FFFFFF</color>
+    <color name="widget_light_border">#DCE4EE</color>
+    <color name="widget_light_text">#0F172A</color>
+    <color name="widget_light_muted">#64748B</color>
+    <color name="widget_light_primary">#149447</color>
+    <color name="widget_light_bar">#A8BDD0</color>
+    <color name="widget_light_bar_today">#149447</color>
+</resources>

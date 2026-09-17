@@ -13,6 +13,7 @@
     "icons": "tauri icon src-tauri/icons/icon-manifest.json -o src-tauri/icons",
     "tauri": "tauri",
     "test:offline": "tsx --tsconfig=tsconfig.app.json scripts/offline-smoke.ts",
+    "test:widget": "tsx --tsconfig=tsconfig.app.json scripts/widget-smoke.ts",
     "test:android": "tsx --tsconfig=tsconfig.app.json scripts/android-shell-smoke.tsx",
     "test:request-timeout": "tsx --tsconfig=tsconfig.app.json scripts/request-timeout-smoke.ts"
   },

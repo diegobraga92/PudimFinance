@@ -82,6 +82,10 @@ jobs:
         working-directory: desktop
         run: npm run test:android
 
+      - name: Widget aggregation smoke
+        working-directory: desktop
+        run: npm run test:widget
+
       - name: Request timeout smoke
         working-directory: desktop
         run: npm run test:request-timeout

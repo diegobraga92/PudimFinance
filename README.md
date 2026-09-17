@@ -140,7 +140,7 @@ See [`docs/runbooks/deployment.md`](docs/runbooks/deployment.md).
 - Double-entry ledger, migration from simple transactions, and audit events
 - CSV/OFX reconciliation with match history
 - NFC-e QR and OCR-text receipt parsing, product normalization, and price history
-- Android notification capture, biometric lock, and Quick Add widget
+- Android notification capture, biometric lock, and spending overview widget (4×2 / 4×1 / 2×1)
 - Offline transaction/category/account mirror with queued sync
 
 ## API contract

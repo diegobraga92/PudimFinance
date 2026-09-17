@@ -3,6 +3,7 @@ import { request, ApiError, isNetworkError } from './request';
 import { isOnline, markServerUnavailable, uuid } from '@/offline/net';
 import { queueLocalMutation } from '@/offline/sync-engine';
 import { filterAndSortLocalTransactions } from '@/offline/filters';
+import { notifyTransactionsChanged } from '@/lib/transaction-events';
 import {
   deleteLocalAccount,
   deleteLocalCategory,
@@ -426,6 +427,7 @@ export async function createTransaction(payload: CreateTransactionRequest): Prom
       synced: 0,
       updated_at: new Date().toISOString(),
     });
+    notifyTransactionsChanged();
     return localTxToTransaction({
       id: localId,
       server_id: null,
@@ -462,6 +464,7 @@ export async function createTransaction(payload: CreateTransactionRequest): Prom
       synced: 1,
       updated_at: created.updated_at,
     });
+    notifyTransactionsChanged();
     return created;
   } catch (err) {
     if (isNetworkError(err)) {
@@ -488,6 +491,7 @@ export async function updateTransaction(
       account_id: payload.account_id ?? null,
     });
     const local = await getLocalTransactionByAnyId(id);
+    notifyTransactionsChanged();
     return localTxToTransaction(local);
   };
   if (!(await isOnline())) return queueAndStore();
@@ -510,6 +514,7 @@ export async function updateTransaction(
       synced: 1,
       updated_at: updated.updated_at,
     });
+    notifyTransactionsChanged();
     return updated;
   } catch (err) {
     if (isNetworkError(err)) {
@@ -524,6 +529,7 @@ export async function deleteTransaction(id: string): Promise<void> {
   const queueAndDelete = async () => {
     await queueLocalMutation('delete', 'transaction', id, id, {});
     await deleteLocalTransaction(id);
+    notifyTransactionsChanged();
   };
 
   if (!(await isOnline())) {
@@ -533,6 +539,7 @@ export async function deleteTransaction(id: string): Promise<void> {
   try {
     await request<void>(`/api/transactions/${id}`, { method: 'DELETE' });
     await deleteLocalTransaction(id);
+    notifyTransactionsChanged();
   } catch (err) {
     if (isNetworkError(err)) {
       markServerUnavailable();

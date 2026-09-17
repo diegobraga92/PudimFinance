@@ -35,7 +35,6 @@ import {
   type CaptureAction,
   type CapturedNotification,
 } from './native';
-import { refreshWidgetSpentToday } from '@/lib/widget';
 import { isOnline } from '@/offline/net';
 import { requestSync } from '@/offline/sync-scheduler';
 
@@ -139,7 +138,6 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           .then(() => {
             void markCaptureImported(dedupKey);
             requestSync();
-            void refreshWidgetSpentToday();
             void isOnline().then((online) => toastRef.current({
               title: online
                 ? tRef.current('notifications.captured', {
@@ -220,7 +218,6 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       await markCaptureImported(dedupKey);
       setPendingItems(next);
       requestSync();
-      void refreshWidgetSpentToday();
       const online = await isOnline();
       toastRef.current({
         title: online
@@ -359,7 +356,6 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         await markCaptureImported(item.dedupKey);
         setPendingItems(next);
         requestSync();
-        void refreshWidgetSpentToday();
         const online = await isOnline();
         toastRef.current({
           title: online
@@ -405,7 +401,6 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     }
     setPendingItems(await getPendingCaptures());
     requestSync();
-    void refreshWidgetSpentToday();
     if (imported > 0) {
       toastRef.current({
         title: importedOffline

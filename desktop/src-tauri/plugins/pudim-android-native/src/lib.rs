@@ -43,7 +43,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::clear_sync_outbox,
             commands::biometric_available,
             commands::biometric_authenticate,
-            commands::set_widget_spent_today,
+            commands::set_widget_spending,
+            commands::set_widget_theme,
             commands::take_deep_link,
             commands::take_auth_redirect,
         ])

@@ -26,7 +26,8 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-secure-delete`
 - `allow-biometric-available`
 - `allow-biometric-authenticate`
-- `allow-set-widget-spent-today`
+- `allow-set-widget-spending`
+- `allow-set-widget-theme`
 - `allow-take-deep-link`
 - `allow-take-auth-redirect`
 - `allow-register-listener`
@@ -590,12 +591,12 @@ Denies the set_sync_config command without any pre-configured scope.
 <tr>
 <td>
 
-`pudim-android-native:allow-set-widget-spent-today`
+`pudim-android-native:allow-set-widget-spending`
 
 </td>
 <td>
 
-Enables the set_widget_spent_today command without any pre-configured scope.
+Enables the set_widget_spending command without any pre-configured scope.
 
 </td>
 </tr>
@@ -603,12 +604,38 @@ Enables the set_widget_spent_today command without any pre-configured scope.
 <tr>
 <td>
 
-`pudim-android-native:deny-set-widget-spent-today`
+`pudim-android-native:deny-set-widget-spending`
 
 </td>
 <td>
 
-Denies the set_widget_spent_today command without any pre-configured scope.
+Denies the set_widget_spending command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-set-widget-theme`
+
+</td>
+<td>
+
+Enables the set_widget_theme command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-set-widget-theme`
+
+</td>
+<td>
+
+Denies the set_widget_theme command without any pre-configured scope.
 
 </td>
 </tr>

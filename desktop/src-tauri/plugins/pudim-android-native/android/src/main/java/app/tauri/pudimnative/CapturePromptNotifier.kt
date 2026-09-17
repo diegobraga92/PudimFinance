@@ -79,6 +79,11 @@ internal object CapturePromptNotifier {
             .addAction(action(context, captureId, ACTION_CREDIT, context.getString(R.string.capture_prompt_credit), source))
             .build()
 
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
         NotificationManagerCompat.from(context).notify(captureId, NOTIFICATION_ID, notification)
     }
 

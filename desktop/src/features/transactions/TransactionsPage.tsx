@@ -40,7 +40,6 @@ import { TransactionListRow } from './TransactionListRow';
 import { TransactionsSidebar } from './TransactionsSidebar';
 import { groupTransactionsByMonth } from './group-by-month';
 import type { TranslationKey } from '@shared/i18n';
-import { refreshWidgetSpentToday } from '@/lib/widget';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
@@ -170,7 +169,6 @@ export function TransactionsPage() {
     await load(0, false);
     await queryClient.invalidateQueries({ queryKey: ['summary'] });
     await queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    void refreshWidgetSpentToday();
   }, [load, queryClient]);
 
   const openCreate = (type: 'income' | 'expense') => {

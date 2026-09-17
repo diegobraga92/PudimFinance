@@ -2,11 +2,25 @@
 <resources>
     <string name="widget_quickadd_label">PudimFinance</string>
     <string name="widget_quickadd_title">PudimFinance</string>
-    <string name="widget_quickadd_spent_prefix">Spent today:</string>
-    <string name="widget_quickadd_description">Add expense/income and see today\'s total</string>
-    <string name="widget_quickadd_default_spent">Spent today: R$ 0,00</string>
-    <string name="widget_quickadd_add_expense">− Expense</string>
-    <string name="widget_quickadd_add_income">+ Income</string>
+    <string name="widget_spending_label_4x2">PudimFinance spending overview</string>
+    <string name="widget_spending_label_4x1">PudimFinance weekly spending</string>
+    <string name="widget_spending_label_2x1">PudimFinance today</string>
+    <string name="widget_spending_description_4x2">See today\'s spending, the last seven days, and add an expense</string>
+    <string name="widget_spending_description_4x1">See weekly spending and add an expense</string>
+    <string name="widget_spending_description_2x1">See today\'s spending and add an expense</string>
+    <string name="widget_spending_today_label">Today</string>
+    <string name="widget_spending_not_synced">Not synced yet</string>
+    <string name="widget_spending_offline">Offline</string>
+    <string name="widget_spending_synced_now">Updated just now</string>
+    <string name="widget_spending_updated_at">Updated %1$s</string>
+    <string name="widget_spending_add_expense_content_description">Add expense</string>
+    <string name="widget_spending_open_app_content_description">Open PudimFinance spending overview</string>
+    <string name="widget_spending_today_content_description">Today\'s spending: %1$s</string>
+    <plurals name="widget_spending_count">
+        <item quantity="zero">No transactions</item>
+        <item quantity="one">%d transaction</item>
+        <item quantity="other">%d transactions</item>
+    </plurals>
     <string name="capture_prompt_channel_name">Transaction detected</string>
     <string name="capture_prompt_channel_desc">Asks how to import a transaction detected from a bank notification</string>
     <string name="capture_prompt_title">%1$s transaction detected</string>

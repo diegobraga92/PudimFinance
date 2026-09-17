@@ -112,6 +112,11 @@ check_desktop_tests() {
         && ok "Android composition smoke passed" \
         || fail "Android composition smoke failed"
 
+    step "Desktop: widget aggregation smoke"
+    npm run test:widget \
+        && ok "Widget aggregation smoke passed" \
+        || fail "Widget aggregation smoke failed"
+
     if [ -x "$ROOT_DIR/desktop/src-tauri/gen/android/gradlew" ] && \
         [ -f "$ROOT_DIR/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
         step "Android plugin: Kotlin unit tests"

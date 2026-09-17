@@ -25,7 +25,8 @@ import {
   subscribeDeepLinks,
   takeDeepLink,
 } from '@/notifications/native';
-import { refreshWidgetSpentToday } from '@/lib/widget';
+import { pushWidgetTheme, refreshWidgetSpending } from '@/lib/widget';
+import { subscribeTransactionsChanged } from '@/lib/transaction-events';
 import { subscribeSync } from '@/offline/sync-engine';
 import { configureNativeSync } from '@/offline/native-outbox';
 import { getApiBaseUrl } from '@/lib/serverConfig';
@@ -180,12 +181,15 @@ function routeFromDeepLink(link: string): string | null {
   if (link.startsWith('pending-review')) {
     return '/pending-review';
   }
+  if (link.startsWith('dashboard')) {
+    return '/dashboard';
+  }
   return null;
 }
 
 /** Application shell: desktop top bar, Android app bar + bottom tabs. */
 export function RootLayout() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -239,17 +243,34 @@ export function RootLayout() {
   React.useEffect(() => {
     void getApiBaseUrl().then(() => configureNativeSync());
     const stop = startSyncScheduler();
-    const unsubscribe = subscribeSync(() => void refreshWidgetSpentToday());
     const onFocus = () => {
       void reloadSession();
     };
     window.addEventListener('focus', onFocus);
     return () => {
-      unsubscribe();
       stop();
       window.removeEventListener('focus', onFocus);
     };
   }, []);
+
+  // The widget is refreshed after local mutations and completed sync passes.
+  React.useEffect(() => {
+    const refresh = () => void refreshWidgetSpending(locale);
+    void refreshWidgetSpending(locale);
+    const unsubscribeTransactions = subscribeTransactionsChanged(refresh);
+    const unsubscribeSync = subscribeSync(refresh);
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      unsubscribeTransactions();
+      unsubscribeSync();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [locale]);
+
+  React.useEffect(() => {
+    void pushWidgetTheme(theme);
+  }, [theme]);
 
   // Home-screen widget deep links (Android) route to the add-transaction form.
   React.useEffect(() => {

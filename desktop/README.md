@@ -11,7 +11,7 @@ in `src-tauri/`; shared translations and icon identifiers live in `../shared/`.
 - TanStack Query, React Router
 - Radix primitives and Recharts
 - IndexedDB offline mirror and sync queue
-- Android plugin for notification capture, secure storage, biometrics, and widget support
+- Android plugin for notification capture, secure storage, biometrics, and spending overview widgets (4×2 / 4×1 / 2×1)
 
 ## Development
 

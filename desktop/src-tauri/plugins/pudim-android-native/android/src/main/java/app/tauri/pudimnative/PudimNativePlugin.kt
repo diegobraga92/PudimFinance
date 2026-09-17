@@ -60,7 +60,7 @@ internal object PendingAuthRedirect {
  * `drainPending`), Keystore-backed token storage (`secureGet`, `secureSet`,
  * `secureDelete`), the biometric lock (`biometricAvailable`,
  * `biometricAuthenticate`), and the home-screen Quick Add widget
- * (`setWidgetSpentToday` plus the `deepLink` event). The plugin also emits the
+ * (`setWidgetSpending`/`setWidgetTheme` plus the `deepLink` event). The plugin also emits the
  * `notificationCaptured` event for live bank notifications.
  *
  * Registered from Rust via `register_android_plugin("app.tauri.pudimnative",
@@ -235,11 +235,21 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    /** Pushes a fresh "spent today" value to every home-screen widget. */
+    /** Pushes a fresh seven-day spending snapshot to every home-screen widget. */
     @Command
-    fun setWidgetSpentToday(invoke: Invoke) {
-        val args = invoke.parseArgs(WidgetArgs::class.java)
-        QuickAddWidgetProvider.pushSpentToday(activity, args.value)
+    fun setWidgetSpending(invoke: Invoke) {
+        val args = invoke.parseArgs(WidgetSpendingArgs::class.java)
+        val snapshot = WidgetSpendingCodec.parse(args.payload)
+        WidgetRenderer.pushSnapshot(activity, snapshot)
+        invoke.resolve()
+    }
+
+    /** Stores the app theme used by the widget's static RemoteViews layouts. */
+    @Command
+    fun setWidgetTheme(invoke: Invoke) {
+        val args = invoke.parseArgs(WidgetThemeArgs::class.java)
+        val theme = if (args.theme.equals("dark", ignoreCase = true)) WidgetTheme.DARK else WidgetTheme.LIGHT
+        WidgetRenderer.pushTheme(activity, theme)
         invoke.resolve()
     }
 
@@ -482,8 +492,13 @@ private fun Map<String, Any?>.toJSObject(): JSObject {
 }
 
 @InvokeArg
-internal class WidgetArgs {
-    lateinit var value: String
+internal class WidgetSpendingArgs {
+    lateinit var payload: String
+}
+
+@InvokeArg
+internal class WidgetThemeArgs {
+    lateinit var theme: String
 }
 
 @InvokeArg
