@@ -4,6 +4,7 @@ import { ArrowLeftRight, CreditCard, Plus, TrendingUp } from 'lucide-react';
 import { useI18n } from '@/app/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { transactionsLink } from '@/lib/links';
 
 interface Props {
   onNewAccount: () => void;
@@ -18,7 +19,7 @@ interface Props {
 
 /**
  * Shortcuts into real flows: the account form, the ledger-backed transfer
- * dialog, the card-payment workspace and Reports.
+ * dialog, the card-payment workspace and transactions.
  */
 export function AccountQuickActions({
   onNewAccount,
@@ -70,12 +71,12 @@ export function AccountQuickActions({
         ]
       : []),
     {
-      key: 'reports',
-      icon: TrendingUp,
-      label: t('nav.reports'),
+      key: 'transactions',
+      icon: ArrowLeftRight,
+      label: t('nav.transactions'),
       tone: 'bg-primary/15 text-primary ring-primary/30 hover:bg-primary/25',
       disabled: false,
-      onClick: () => navigate('/reports'),
+      onClick: () => navigate(transactionsLink()),
     },
   ];
 

@@ -241,8 +241,8 @@ function SummaryCard({
   href,
 }: SummaryCardProps) {
   const card = (
-    <Card className="border-border bg-surface shadow-card">
-      <CardContent className="flex h-full items-start justify-between gap-3 p-5">
+    <Card className="h-full border-border bg-surface shadow-card">
+      <CardContent className="flex h-full items-center justify-between gap-3 p-5">
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <span
@@ -276,7 +276,7 @@ function SummaryCard({
       </CardContent>
     </Card>
   );
-  return href ? <Link to={href} className={cn('block rounded-lg', rowInteractiveClass, tapClass)}>{card}</Link> : card;
+  return href ? <Link to={href} className={cn('block h-full rounded-lg', rowInteractiveClass, tapClass)}>{card}</Link> : card;
 }
 
 
@@ -302,7 +302,7 @@ function SavingsRateCard({
   const negative = rate !== null && rate < 0;
 
   const card = (
-    <Card className="hidden border-border bg-surface shadow-card md:block">
+    <Card className="hidden h-full border-border bg-surface shadow-card md:block">
       <CardContent className="flex h-full items-center gap-5 p-5">
         <div className="relative h-[92px] w-[92px] shrink-0">
           <svg viewBox="0 0 92 92" className="h-full w-full -rotate-90" aria-hidden="true">
@@ -347,7 +347,7 @@ function SavingsRateCard({
       </CardContent>
     </Card>
   );
-  return href ? <Link to={href} className={cn('block rounded-lg', rowInteractiveClass, tapClass)}>{card}</Link> : card;
+  return href ? <Link to={href} className={cn('block h-full rounded-lg', rowInteractiveClass, tapClass)}>{card}</Link> : card;
 }
 
 /** The four headline numbers: monthly net, income, expenses and savings rate. */

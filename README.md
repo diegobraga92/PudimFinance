@@ -136,7 +136,7 @@ See [`docs/runbooks/deployment.md`](docs/runbooks/deployment.md).
 
 - Income and expense transactions with categories and subcategories
 - Accounts, balances, transfers, credit cards, bills, and installment plans
-- Monthly budgets, alerts, reports, trends, and cash flow
+- Monthly budgets, alerts, and cash flow
 - Double-entry ledger, migration from simple transactions, and audit events
 - CSV/OFX reconciliation with match history
 - NFC-e QR and OCR-text receipt parsing, product normalization, and price history

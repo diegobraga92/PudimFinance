@@ -4,7 +4,6 @@ import {
   ArrowLeftRight,
   Wallet,
   Target,
-  TrendingUp,
   BookOpen,
   ReceiptText,
   ShieldCheck,
@@ -47,7 +46,6 @@ export const PRIMARY_NAV: NavItem[] = [
   { key: 'transactions', labelKey: 'nav.transactions', icon: ArrowLeftRight, route: '/transactions' },
   { key: 'accounts', labelKey: 'nav.accounts', icon: Wallet, route: '/accounts' },
   { key: 'budgets', labelKey: 'nav.budgets', icon: Target, route: '/budgets' },
-  { key: 'reports', labelKey: 'nav.reports', icon: TrendingUp, route: '/reports' },
   // Receipts outgrew "tools": it is a daily surface (scan, history, prices).
   {
     key: 'receipts',
@@ -151,7 +149,6 @@ const SECONDARY_SCREENS: { prefix: string; labelKey: TranslationKey }[] = [
   { prefix: '/reconciliation', labelKey: 'nav.reconciliation' },
   { prefix: '/ledger', labelKey: 'nav.ledger' },
   { prefix: '/audit', labelKey: 'nav.audit' },
-  { prefix: '/reports', labelKey: 'nav.reports' },
   { prefix: '/categories', labelKey: 'nav.categories' },
   { prefix: '/notifications', labelKey: 'nav.notifications' },
   { prefix: '/pending-review', labelKey: 'nav.reviewCaptures' },

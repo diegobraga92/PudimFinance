@@ -43,10 +43,6 @@ export type MonthlyReportItem = components['schemas']['MonthlyReportItem'];
 export type MonthlyReportResponse = components['schemas']['MonthlyReportResponse'];
 export type CashFlowPoint = components['schemas']['CashFlowPoint'];
 export type CashFlowResponse = components['schemas']['CashFlowResponse'];
-export type CategoryBreakdownItem = components['schemas']['CategoryBreakdownItem'];
-export type CategoryBreakdownResponse = components['schemas']['CategoryBreakdownResponse'];
-export type TrendPoint = components['schemas']['TrendPoint'];
-export type TrendsResponse = components['schemas']['TrendsResponse'];
 export type Account = components['schemas']['Account'];
 export type AccountWithBalance = components['schemas']['AccountWithBalance'];
 export type CreateAccountRequest = components['schemas']['CreateAccountRequest'];
@@ -632,19 +628,6 @@ export async function fetchCashFlow(
   return request<CashFlowResponse>(
     `/api/reports/cash-flow${qs({ start_date: startDate, end_date: endDate, granularity })}`,
   );
-}
-
-export async function fetchCategoryBreakdown(
-  startDate: string,
-  endDate: string,
-): Promise<CategoryBreakdownResponse> {
-  return request<CategoryBreakdownResponse>(
-    `/api/reports/category-breakdown${qs({ start_date: startDate, end_date: endDate })}`,
-  );
-}
-
-export async function fetchTrends(months = 6): Promise<TrendsResponse> {
-  return request<TrendsResponse>(`/api/reports/trends${qs({ months })}`);
 }
 
 // Settings

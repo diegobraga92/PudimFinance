@@ -25,13 +25,6 @@ export function transactionsLink(options: TransactionLinkOptions = {}): string {
   ]);
 }
 
-export function reportsLink(options: { tab?: 'overview' | 'breakdown' | 'trends'; categoryId?: string } = {}): string {
-  return withParams('/reports', [
-    ['tab', options.tab],
-    ['category', options.categoryId],
-  ]);
-}
-
 export function budgetsCategoriesLink(options: {
   year?: number;
   month?: number;

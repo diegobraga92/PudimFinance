@@ -82,7 +82,7 @@ import { filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
 import { normalizeServerUrl } from '../src/lib/serverConfig';
 import { displayNameForGreeting } from '../src/features/dashboard/greeting';
-import { budgetsCategoriesLink, monthDateRange, reportsLink, transactionsLink } from '../src/lib/links';
+import { budgetsCategoriesLink, monthDateRange, transactionsLink } from '../src/lib/links';
 import { rowKeyboardProps } from '../src/lib/interactive';
 import { chartPointAtIndex, chartTooltipTriggerFor } from '../src/lib/chart-events';
 import {
@@ -146,7 +146,6 @@ check(
     'Accounts',
     'Budgets',
     'More',
-    'Reports', // desktop nav still rendered (hidden by CSS below md)
   ],
 );
 
@@ -851,10 +850,6 @@ const interactionChecks: [string, boolean][] = [
     'transaction links encode category and date filters',
     transactionsLink({ categoryId: 'food & drink', type: 'expense', startDate: '2026-09-01', endDate: '2026-09-30' }) ===
       '/transactions?category_id=food+%26+drink&type=expense&start_date=2026-09-01&end_date=2026-09-30',
-  ],
-  [
-    'report links preserve tab and category',
-    reportsLink({ tab: 'breakdown', categoryId: 'cat-1' }) === '/reports?tab=breakdown&category=cat-1',
   ],
   [
     'budget links preserve period and category search',

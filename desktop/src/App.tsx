@@ -9,7 +9,6 @@ import { TransactionsPage } from '@/features/transactions/TransactionsPage';
 import { AccountsPage } from '@/features/accounts/AccountsPage';
 import { BudgetsCategoriesPage } from '@/features/budgets/BudgetsCategoriesPage';
 import { MorePage } from '@/features/more/MorePage';
-import { ReportsPage } from '@/features/reports/ReportsPage';
 import { LedgerPage } from '@/features/ledger/LedgerPage';
 import { ReconciliationPage } from '@/features/reconciliation/ReconciliationPage';
 import { ReceiptsPage } from '@/features/receipts/ReceiptsPage';
@@ -47,7 +46,8 @@ export function App() {
             <Route path="/accounts" element={<AccountsPage />} />
             <Route path="/budgets" element={<BudgetsCategoriesPage />} />
             <Route path="/more" element={<MorePage />} />
-            <Route path="/reports" element={<ReportsPage />} />
+            {/* Reports were consolidated into the dashboard and transactions flows. */}
+            <Route path="/reports" element={<Navigate to="/transactions" replace />} />
             <Route path="/ledger" element={<LedgerPage />} />
             <Route path="/reconciliation" element={<ReconciliationPage />} />
             <Route path="/receipts" element={<ReceiptsPage />} />

@@ -286,6 +286,8 @@ export function DashboardPage() {
           items={summary?.by_category ?? []}
           total={expenses}
           loading={summaryQuery.isLoading}
+          startDate={monthStart}
+          endDate={monthEnd}
         />
       </div>
     </div>

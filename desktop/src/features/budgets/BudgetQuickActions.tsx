@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Tags, TrendingUp, Target } from 'lucide-react';
+import { ArrowLeftRight, Plus, Tags, Target } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { transactionsLink } from '@/lib/links';
 
 interface Props {
   hasOverall: boolean;
@@ -45,11 +46,11 @@ export function BudgetQuickActions({
       onClick: onManageCategories,
     },
     {
-      key: 'reports',
-      icon: TrendingUp,
-      label: t('nav.reports'),
+      key: 'transactions',
+      icon: ArrowLeftRight,
+      label: t('nav.transactions'),
       tone: 'bg-primary/15 text-primary ring-primary/30 hover:bg-primary/25',
-      onClick: () => navigate('/reports'),
+      onClick: () => navigate(transactionsLink({ type: 'expense' })),
     },
   ];
 
