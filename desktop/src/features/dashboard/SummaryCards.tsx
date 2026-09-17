@@ -6,6 +6,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toIntlLocale } from '@shared/i18n';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
+import { rowInteractiveClass, tapClass } from '@/lib/interactive';
+import { transactionsLink } from '@/lib/links';
 
 export interface SummaryDeltas {
   /** Month-over-month change in income, in percent (null when not comparable). */
@@ -89,6 +92,7 @@ interface MobileSummaryRowProps {
   invert?: boolean;
   available: boolean;
   loading: boolean;
+  href?: string;
 }
 
 function MobileSummaryRow({
@@ -101,10 +105,11 @@ function MobileSummaryRow({
   invert,
   available,
   loading,
+  href,
 }: MobileSummaryRowProps) {
   const { t } = useI18n();
 
-  return (
+  const content = (
     <div className="flex min-w-0 items-center justify-between gap-3 px-4 py-3">
       <div className="flex min-w-0 items-center gap-2.5">
         <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', iconClassName)}>
@@ -133,6 +138,7 @@ function MobileSummaryRow({
       </div>
     </div>
   );
+  return href ? <Link to={href} className={cn('block', rowInteractiveClass, tapClass)}>{content}</Link> : content;
 }
 
 /** Compact phone summary; the savings-rate ring is intentionally desktop-only. */
@@ -157,6 +163,7 @@ function MobileSummaryCard({
           valueClassName={net >= 0 ? 'text-success' : 'text-danger'}
           available={available}
           loading={loading}
+          href={transactionsLink()}
         />
         <MobileSummaryRow
           label={t('common.income')}
@@ -167,6 +174,7 @@ function MobileSummaryCard({
           delta={deltas.income}
           available={available}
           loading={loading}
+          href={transactionsLink({ type: 'income' })}
         />
         <MobileSummaryRow
           label={t('common.expenses')}
@@ -178,6 +186,7 @@ function MobileSummaryCard({
           invert
           available={available}
           loading={loading}
+          href={transactionsLink({ type: 'expense' })}
         />
       </CardContent>
     </Card>
@@ -217,6 +226,7 @@ interface SummaryCardProps {
   aside?: React.ReactNode;
   available?: boolean;
   loading?: boolean;
+  href?: string;
 }
 
 function SummaryCard({
@@ -228,8 +238,9 @@ function SummaryCard({
   aside,
   available = true,
   loading,
+  href,
 }: SummaryCardProps) {
-  return (
+  const card = (
     <Card className="border-border bg-surface shadow-card">
       <CardContent className="flex h-full items-start justify-between gap-3 p-5">
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
@@ -265,6 +276,7 @@ function SummaryCard({
       </CardContent>
     </Card>
   );
+  return href ? <Link to={href} className={cn('block rounded-lg', rowInteractiveClass, tapClass)}>{card}</Link> : card;
 }
 
 
@@ -274,11 +286,13 @@ function SavingsRateCard({
   delta,
   available = true,
   loading,
+  href,
 }: {
   rate: number | null;
   delta: number | null;
   available?: boolean;
   loading?: boolean;
+  href?: string;
 }) {
   const { t, locale } = useI18n();
   const radius = 38;
@@ -287,7 +301,7 @@ function SavingsRateCard({
   const offset = circumference - (clamped / 100) * circumference;
   const negative = rate !== null && rate < 0;
 
-  return (
+  const card = (
     <Card className="hidden border-border bg-surface shadow-card md:block">
       <CardContent className="flex h-full items-center gap-5 p-5">
         <div className="relative h-[92px] w-[92px] shrink-0">
@@ -333,6 +347,7 @@ function SavingsRateCard({
       </CardContent>
     </Card>
   );
+  return href ? <Link to={href} className={cn('block rounded-lg', rowInteractiveClass, tapClass)}>{card}</Link> : card;
 }
 
 /** The four headline numbers: monthly net, income, expenses and savings rate. */
@@ -377,6 +392,7 @@ export function SummaryCards({
           valueClassName={net >= 0 ? 'text-success' : 'text-danger'}
           available={available}
           loading={loading}
+          href={transactionsLink()}
         />
         <SummaryCard
           label={t('common.income')}
@@ -387,6 +403,7 @@ export function SummaryCards({
           aside={comparison(deltas.income)}
           available={available}
           loading={loading}
+          href={transactionsLink({ type: 'income' })}
         />
         <SummaryCard
           label={t('common.expenses')}
@@ -397,12 +414,14 @@ export function SummaryCards({
           aside={comparison(deltas.expenses, true)}
           available={available}
           loading={loading}
+          href={transactionsLink({ type: 'expense' })}
         />
         <SavingsRateCard
           rate={savingsRate}
           delta={deltas.savings}
           available={available}
           loading={loading}
+          href={transactionsLink()}
         />
       </div>
     </>

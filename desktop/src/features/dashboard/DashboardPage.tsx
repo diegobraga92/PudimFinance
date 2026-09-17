@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/app/auth';
 import { useI18n } from '@/app/i18n';
@@ -22,6 +23,7 @@ import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { BudgetsCard } from './BudgetsCard';
 import { QuickActions } from './QuickActions';
 import { displayNameForGreeting } from './greeting';
+import { monthDateRange, transactionsLink } from '@/lib/links';
 
 /** Shift a `{ year, month }` pair by `delta` months (month is 1-12). */
 function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
@@ -49,6 +51,7 @@ function shiftMonth(year: number, month: number, delta: number): { year: number;
 export function DashboardPage() {
   const { t, locale, shortMonthNames } = useI18n();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const now = React.useMemo(() => new Date(), []);
   const [year, setYear] = React.useState(now.getFullYear());
@@ -186,6 +189,7 @@ export function DashboardPage() {
             : `${shortMonthNames[date.getMonth()]} '${String(date.getFullYear()).slice(2)}`;
       return {
         label,
+        periodStart: point.period_start,
         income: parseFloat(point.income_total),
         expenses: parseFloat(point.expense_total),
         net: parseFloat(point.balance),
@@ -194,6 +198,18 @@ export function DashboardPage() {
     });
     return withRunningNet(points);
   }, [cashFlowQuery.data, locale, range, shortMonthNames]);
+
+  const selectCashFlowPoint = (point: CashFlowPoint) => {
+    const start = point.periodStart;
+    if (!start) return;
+    const date = new Date(`${start}T00:00:00`);
+    const end = range === 1
+      ? start
+      : range === 3
+        ? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 6).toISOString().slice(0, 10)
+        : monthDateRange(date.getFullYear(), date.getMonth() + 1).endDate;
+    navigate(transactionsLink({ startDate: start, endDate: end }));
+  };
 
   const greeting = React.useMemo(() => {
     const name = displayNameForGreeting(user) ?? t('nav.dashboard');
@@ -264,6 +280,7 @@ export function DashboardPage() {
           loading={cashFlowQuery.isLoading}
           range={range}
           onRangeChange={setRange}
+          onPointSelect={selectCashFlowPoint}
         />
         <CategoryBreakdownCard
           items={summary?.by_category ?? []}

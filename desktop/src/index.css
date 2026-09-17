@@ -89,6 +89,13 @@
      * Plus Jakarta Sans; amount columns opt into `tnum` via `.tabular-nums`. */
   }
 
+  /* All native links/buttons should respond immediately to a finger tap. */
+  button,
+  a,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+
   /* Android/iOS: 16px inputs stop the browser from zooming on focus. */
   @media (max-width: 767px) {
     input,

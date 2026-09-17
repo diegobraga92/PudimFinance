@@ -18,9 +18,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toIntlLocale } from '@shared/i18n';
 import { cn } from '@/lib/utils';
+import { tapClass } from '@/lib/interactive';
+import { chartPointAtIndex, useChartTooltipTrigger } from '@/lib/chart-events';
 
 export interface CashFlowPoint {
   label: string;
+  periodStart?: string;
   income: number;
   expenses: number;
   net: number;
@@ -35,6 +38,7 @@ interface CashFlowCardProps {
   loading: boolean;
   range: CashFlowRange;
   onRangeChange: (range: CashFlowRange) => void;
+  onPointSelect?: (point: CashFlowPoint) => void;
 }
 
 const TOOLTIP_STYLE: React.CSSProperties = {
@@ -46,9 +50,10 @@ const TOOLTIP_STYLE: React.CSSProperties = {
 };
 
 /** Income, expenses and cumulative net at the resolution selected by the time window. */
-export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCardProps) {
+export function CashFlowCard({ data, loading, range, onRangeChange, onPointSelect }: CashFlowCardProps) {
   const { t, locale, formatMoney } = useI18n();
   const intl = toIntlLocale(locale);
+  const tooltipTrigger = useChartTooltipTrigger();
   const hasData = data.some((point) => point.income !== 0 || point.expenses !== 0 || point.net !== 0);
   // A single month has no line to draw, so the series opt into visible dots.
   // Explicit fills are required: Recharts' default marker fill is white.
@@ -72,7 +77,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                 months === 1 ? t('dashboard.thisMonth') : t('dashboard.lastMonthsRange', { count: months })
               }
               className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
+                `rounded-sm px-2.5 py-1 text-xs font-medium transition-colors active:bg-surface-hover ${tapClass}`,
                 range === months
                   ? 'bg-surface text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -94,7 +99,14 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
         ) : (
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <ComposedChart
+                data={data}
+                margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                onClick={(state) => {
+                  const point = chartPointAtIndex(state, data);
+                  if (point) onPointSelect?.(point);
+                }}
+              >
                 <defs>
                   <linearGradient id="cashflow-income" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="rgb(var(--success))" stopOpacity={0.28} />
@@ -138,6 +150,7 @@ export function CashFlowCard({ data, loading, range, onRangeChange }: CashFlowCa
                   tickFormatter={(value: number) => axisValue(value, intl)}
                 />
                 <Tooltip
+                  trigger={tooltipTrigger}
                   contentStyle={TOOLTIP_STYLE}
                   cursor={{ stroke: 'rgb(var(--border))' }}
                   content={(props) => (

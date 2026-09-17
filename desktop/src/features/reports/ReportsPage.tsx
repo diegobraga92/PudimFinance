@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CartesianGrid,
   Cell,
@@ -26,12 +27,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { resolveCategoryColors } from '@/lib/category-colors';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
+import { rowInteractiveClass, tapClass } from '@/lib/interactive';
+import { transactionsLink } from '@/lib/links';
+import { chartPointAtIndex, useChartTooltipTrigger } from '@/lib/chart-events';
 
 type ReportTab = 'overview' | 'breakdown' | 'trends';
 
 export function ReportsPage() {
   const { t, formatMoney, shortMonthNames } = useI18n();
-  const [tab, setTab] = React.useState<ReportTab>('overview');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tooltipTrigger = useChartTooltipTrigger();
+  const rawTab = searchParams.get('tab');
+  const tab: ReportTab = rawTab === 'breakdown' || rawTab === 'trends' ? rawTab : 'overview';
+  const selectedCategory = searchParams.get('category');
   const [trendMonths, setTrendMonths] = React.useState(6);
 
   const now = React.useMemo(() => new Date(), []);
@@ -114,6 +123,24 @@ export function ReportsPage() {
     [trendsQuery.data],
   );
 
+  const setReportTab = (next: ReportTab) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'overview') params.delete('tab');
+    else params.set('tab', next);
+    setSearchParams(params, { replace: true });
+  };
+
+  const openCategoryTransactions = (categoryId: string | null | undefined) => {
+    if (!categoryId) return;
+    navigate(
+      transactionsLink({
+        categoryId,
+        startDate: breakdownRange.firstDay,
+        endDate: breakdownRange.today,
+      }),
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -123,31 +150,31 @@ export function ReportsPage() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as ReportTab)}>
-        <TabsList>
-          <TabsTrigger value="overview">{t('reports.overview')}</TabsTrigger>
-          <TabsTrigger value="breakdown">{t('reports.breakdown')}</TabsTrigger>
-          <TabsTrigger value="trends">{t('reports.trends')}</TabsTrigger>
+      <Tabs value={tab} onValueChange={(v) => setReportTab(v as ReportTab)}>
+        <TabsList className="h-auto min-h-11 md:h-9 md:min-h-0">
+          <TabsTrigger className="min-h-9 md:min-h-0" value="overview">{t('reports.overview')}</TabsTrigger>
+          <TabsTrigger className="min-h-9 md:min-h-0" value="breakdown">{t('reports.breakdown')}</TabsTrigger>
+          <TabsTrigger className="min-h-9 md:min-h-0" value="trends">{t('reports.trends')}</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {tab === 'overview' && (
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="card-surface p-4">
+            <Link to={transactionsLink({ type: 'income' })} className="card-surface block p-4 transition-colors hover:bg-surface-hover/60 active:bg-surface-hover">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('reports.totalIncome')}</p>
               <p className="mt-1 text-lg font-semibold tabular-nums text-income">{formatMoney(totals.income)}</p>
-            </div>
-            <div className="card-surface p-4">
+            </Link>
+            <Link to={transactionsLink({ type: 'expense' })} className="card-surface block p-4 transition-colors hover:bg-surface-hover/60 active:bg-surface-hover">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('reports.totalExpenses')}</p>
               <p className="mt-1 text-lg font-semibold tabular-nums text-expense">{formatMoney(totals.expenses)}</p>
-            </div>
-            <div className="card-surface p-4">
+            </Link>
+            <Link to={transactionsLink()} className="card-surface block p-4 transition-colors hover:bg-surface-hover/60 active:bg-surface-hover">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('reports.net')}</p>
               <p className={cn('mt-1 text-lg font-semibold tabular-nums', totals.net >= 0 ? 'text-income' : 'text-expense')}>
                 {formatMoney(totals.net)}
               </p>
-            </div>
+            </Link>
           </div>
 
           <Card>
@@ -212,6 +239,9 @@ export function ReportsPage() {
                         innerRadius={55}
                         outerRadius={100}
                         paddingAngle={2}
+                        className="cursor-pointer"
+                        onClick={(sector) => openCategoryTransactions(String(sector.payload?.category_id ?? ''))}
+                        activeShape={{ outerRadius: 104 }}
                       >
                         {breakdownData.map((category, i) => (
                           <Cell
@@ -246,7 +276,19 @@ export function ReportsPage() {
               ) : (
                 <ul className="divide-y divide-border">
                   {breakdownData.map((cat, i) => (
-                    <li key={cat.category_id ?? `uncat-${i}`} className="flex items-center gap-3 py-2.5 text-sm">
+                    <li
+                      key={cat.category_id ?? `uncat-${i}`}
+                      className={cn(
+                        'flex min-h-11 items-center text-sm',
+                        selectedCategory === cat.category_id && 'rounded-md bg-primary/10',
+                      )}
+                    >
+                      {cat.category_id ? (
+                        <button
+                          type="button"
+                          onClick={() => openCategoryTransactions(cat.category_id)}
+                          className={cn('flex w-full items-center gap-3 rounded-sm px-2 py-1 text-left', rowInteractiveClass, tapClass)}
+                        >
                       <span
                         className="h-3 w-3 shrink-0 rounded-full"
                         style={{
@@ -266,6 +308,24 @@ export function ReportsPage() {
                       <span className="w-14 text-right text-xs text-dim">
                         {Math.round(parseFloat(cat.percentage))}%
                       </span>
+                        </button>
+                      ) : (
+                        <>
+                          <span
+                            className="h-3 w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: breakdownColors.get(`uncategorised-${i}`) }}
+                          />
+                          <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate">
+                            <CategoryIcon name={cat.icon} className="h-3.5 w-3.5" />
+                            {cat.category_name ?? t('common.uncategorised')}
+                          </span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {cat.transaction_count} {t('common.entries')}
+                          </span>
+                          <span className="w-24 text-right font-medium tabular-nums">{formatMoney(cat.total)}</span>
+                          <span className="w-14 text-right text-xs text-dim">{Math.round(parseFloat(cat.percentage))}%</span>
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -291,7 +351,7 @@ export function ReportsPage() {
                   onClick={() => setTrendMonths(n)}
                   className={cn(
                     'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                    trendMonths === n ? 'bg-surface text-foreground shadow-sm' : 'text-muted-foreground',
+                    trendMonths === n ? 'bg-surface text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground active:bg-surface-hover',
                   )}
                 >
                   {n}
@@ -305,11 +365,22 @@ export function ReportsPage() {
             ) : (
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendsData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                  <LineChart
+                    data={trendsData}
+                    margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
+                    onClick={(state) => {
+                      const point = chartPointAtIndex(state, trendsData);
+                      if (!point?.month || !point.year) return;
+                      const startDate = `${point.year}-${String(point.month).padStart(2, '0')}-01`;
+                      const endDate = new Date(point.year, point.month, 0).toISOString().slice(0, 10);
+                      navigate(transactionsLink({ startDate, endDate }));
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip
+                      trigger={tooltipTrigger}
                       formatter={(value) => formatMoney(Number(value))}
                       contentStyle={{
                         backgroundColor: 'rgb(var(--surface-elevated))',

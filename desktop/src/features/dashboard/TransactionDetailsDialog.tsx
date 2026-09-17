@@ -24,7 +24,7 @@ interface TransactionDetailsDialogProps {
   account?: AccountWithBalance;
   onOpenChange: (open: boolean) => void;
   /** Switches to the edit form. */
-  onEdit: () => void;
+  onEdit?: () => void;
 }
 
 /** One label/value pair inside the details list. */
@@ -137,10 +137,12 @@ export function TransactionDetailsDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.close')}
           </Button>
-          <Button type="button" onClick={onEdit}>
-            <Pencil className="h-4 w-4" />
-            {t('common.edit')}
-          </Button>
+          {onEdit && (
+            <Button type="button" onClick={onEdit}>
+              <Pencil className="h-4 w-4" />
+              {t('common.edit')}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

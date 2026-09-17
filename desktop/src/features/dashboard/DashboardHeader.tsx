@@ -41,7 +41,7 @@ export function DashboardHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="h-11 w-11 md:h-8 md:w-8"
+          className="h-11 w-11 touch-manipulation active:scale-95 md:h-8 md:w-8"
           onClick={onPrev}
           aria-label={t('dashboard.prevMonth')}
           title={t('dashboard.prevMonth')}
@@ -55,7 +55,7 @@ export function DashboardHeader({
           title={t('dashboard.thisMonth')}
           className={cn(
             'flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-semibold transition-colors',
-            isCurrentMonth ? 'cursor-default' : 'hover:bg-surface-hover',
+            isCurrentMonth ? 'cursor-default' : 'touch-manipulation hover:bg-surface-hover active:bg-surface-hover',
           )}
         >
           <CalendarDays className="h-4 w-4 text-primary" />
@@ -66,7 +66,7 @@ export function DashboardHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="h-11 w-11 md:h-8 md:w-8"
+          className="h-11 w-11 touch-manipulation active:scale-95 md:h-8 md:w-8"
           onClick={onNext}
           disabled={isCurrentMonth}
           aria-label={t('dashboard.nextMonth')}

@@ -1,9 +1,11 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { CategoryDonut } from '@/components/CategoryDonut';
 import type { CategorySummary } from '@/lib/api';
+import { reportsLink } from '@/lib/links';
+import { linkHitClass } from '@/lib/interactive';
 
 interface CategoryBreakdownCardProps {
   items: CategorySummary[];
@@ -14,6 +16,7 @@ interface CategoryBreakdownCardProps {
 /** Dashboard: where this month's money went. */
 export function CategoryBreakdownCard({ items, total, loading }: CategoryBreakdownCardProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
 
   const donutItems = items.map((item) => ({
     key: item.category_id ?? 'uncategorised',
@@ -31,10 +34,13 @@ export function CategoryBreakdownCard({ items, total, loading }: CategoryBreakdo
       title={t('dashboard.expensesByCategory')}
       centerLabel={t('common.total')}
       emptyTitle={t('reports.noExpensesMonth')}
+      onSelect={(key) => {
+        if (key !== 'uncategorised') navigate(reportsLink({ tab: 'breakdown', categoryId: key }));
+      }}
       action={
         <Link
           to="/reports"
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+          className={`${linkHitClass} inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline`}
         >
           {t('dashboard.viewReport')}
           <ArrowRight className="h-3.5 w-3.5" />

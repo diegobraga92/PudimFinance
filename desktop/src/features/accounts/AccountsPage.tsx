@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowLeftRight, Landmark, Plus, Search, SearchX } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
@@ -105,6 +106,7 @@ function AccountsListSkeleton() {
  */
 export function AccountsPage() {
   const { t } = useI18n();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -126,7 +128,10 @@ export function AccountsPage() {
   } | null>(null);
   const [transferOpen, setTransferOpen] = React.useState(false);
   const [adjusting, setAdjusting] = React.useState<AccountWithBalance | null>(null);
-  const [tab, setTab] = React.useState<TabKey>('all');
+  const [tab, setTab] = React.useState<TabKey>(() => {
+    const value = searchParams.get('tab');
+    return TABS.some((entry) => entry.key === value) ? (value as TabKey) : 'all';
+  });
   const [search, setSearch] = React.useState('');
 
   const accountsQuery = useQuery({
@@ -237,6 +242,14 @@ export function AccountsPage() {
     if (card) openDetail(card, 'pay');
   };
 
+  const selectAccountGroup = (next: TabKey) => {
+    setTab(next);
+    const params = new URLSearchParams(searchParams);
+    if (next === 'all') params.delete('tab');
+    else params.set('tab', next);
+    setSearchParams(params, { replace: true });
+  };
+
   const handleDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
@@ -339,7 +352,7 @@ export function AccountsPage() {
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setTab(key)}
+                        onClick={() => selectAccountGroup(key)}
                         aria-pressed={active}
                         className={cn(
                           'shrink-0 rounded-sm px-3 py-2 text-xs font-medium transition-colors md:py-1.5',
@@ -395,8 +408,25 @@ export function AccountsPage() {
             </div>
 
             <div className="flex flex-col gap-4">
-              <AccountDistributionCard accounts={balanceSheet} loading={loading} />
-              <InvestmentsSummaryCard accounts={balanceSheet} loading={loading} />
+              <AccountDistributionCard
+                accounts={balanceSheet}
+                loading={loading}
+                onSelect={(kind) => {
+                  const next: TabKey = kind === 'investment'
+                    ? 'investments'
+                    : kind === 'card' || kind === 'loan'
+                      ? 'liabilities'
+                      : kind === 'bank' || kind === 'cash'
+                        ? 'bank'
+                        : 'other';
+                  selectAccountGroup(next);
+                }}
+              />
+              <InvestmentsSummaryCard
+                accounts={balanceSheet}
+                loading={loading}
+                onView={(account) => openDetail(account)}
+              />
               <AccountQuickActions
                 onNewAccount={() => openCreate('bank')}
                 onNewInvestment={() => openCreate('investment')}

@@ -15,6 +15,7 @@ import { AccountIcon } from '@/components/AccountIcon';
 interface Props {
   accounts: AccountWithBalance[];
   loading: boolean;
+  onSelect?: (kind: string) => void;
 }
 
 interface Slice {
@@ -30,7 +31,7 @@ interface Slice {
  * the split. The segmented bar keeps the comparison readable even with a
  * narrow accounts sidebar.
  */
-export function AccountDistributionCard({ accounts, loading }: Props) {
+export function AccountDistributionCard({ accounts, loading, onSelect }: Props) {
   const { t, formatMoney } = useI18n();
 
   const { slices, total, distributionTotal } = React.useMemo(() => {
@@ -81,11 +82,14 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
         ) : (
           <>
             <div className="space-y-4">
-              <div className="flex h-4 overflow-hidden rounded-full bg-muted" aria-label={t('accounts.distribution.title')}>
+              <div className="flex h-6 overflow-hidden rounded-full bg-muted md:h-4" aria-label={t('accounts.distribution.title')}>
                 {slices.map((slice) => (
-                  <span
+                  <button
+                    type="button"
                     key={slice.kind}
-                    className="h-full min-w-[3px] transition-[width]"
+                    onClick={() => onSelect?.(slice.kind)}
+                    disabled={!onSelect}
+                    className="h-full min-w-[3px] transition-[width] disabled:cursor-default"
                     style={{
                       width: `${(slice.amount / distributionTotal) * 100}%`,
                       backgroundColor: slice.color,
@@ -109,7 +113,13 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
 
             <ul className="mt-5 space-y-2.5">
               {slices.map((slice) => (
-                <li key={slice.kind} className="flex items-center gap-2.5 text-sm">
+                <li key={slice.kind} className="flex min-h-11 items-center gap-2.5 text-sm">
+                  {onSelect ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelect(slice.kind)}
+                      className="flex w-full items-center gap-2.5 rounded-sm px-2 py-1 text-left transition-colors hover:bg-surface-hover/60 active:bg-surface-hover"
+                    >
                   <span
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-base"
                     style={{ backgroundColor: 'rgb(var(--muted))', color: slice.color }}
@@ -123,6 +133,20 @@ export function AccountDistributionCard({ accounts, loading }: Props) {
                   <span className="w-24 shrink-0 text-right font-medium tabular-nums">
                     {formatMoney(slice.amount)}
                   </span>
+                    </button>
+                  ) : (
+                    <>
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-base"
+                        style={{ backgroundColor: 'rgb(var(--muted))', color: slice.color }}
+                      >
+                        <AccountIcon kind={slice.kind} className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{slice.label}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-dim">{Math.round((slice.amount / distributionTotal) * 100)}%</span>
+                      <span className="w-24 shrink-0 text-right font-medium tabular-nums">{formatMoney(slice.amount)}</span>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

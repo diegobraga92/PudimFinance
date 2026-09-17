@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useI18n } from '@/app/i18n';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { MonthlyReportItem } from '@/lib/api';
+import { tapClass } from '@/lib/interactive';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -12,10 +13,11 @@ interface Props {
   error: unknown;
   open: boolean;
   onToggle: () => void;
+  onSelectMonth?: (year: number, month: number) => void;
 }
 
 /** Collapsed-by-default account monthly summary, with a phone-safe layout. */
-export function AccountMonthlySummary({ months, monthCount, loading, error, open, onToggle }: Props) {
+export function AccountMonthlySummary({ months, monthCount, loading, error, open, onToggle, onSelectMonth }: Props) {
   const { t, formatMoney, monthNames } = useI18n();
   const hasActivity = months.some(
     (month) => parseFloat(month.income_total) !== 0 || parseFloat(month.expense_total) !== 0,
@@ -68,7 +70,22 @@ export function AccountMonthlySummary({ months, monthCount, loading, error, open
                 return (
                   <div
                     key={`${month.year}-${month.month}`}
-                    className="border-b border-border px-3 py-2.5 last:border-b-0 md:grid md:grid-cols-4 md:gap-2 md:py-2"
+                    role={onSelectMonth ? 'button' : undefined}
+                    tabIndex={onSelectMonth ? 0 : undefined}
+                    onClick={onSelectMonth ? () => onSelectMonth(month.year, month.month) : undefined}
+                    onKeyDown={onSelectMonth ? (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onSelectMonth(month.year, month.month);
+                      }
+                    } : undefined}
+                    className={cn(
+                      'border-b border-border px-3 py-2.5 last:border-b-0 md:grid md:grid-cols-4 md:gap-2 md:py-2',
+                      onSelectMonth && cn(
+                        'cursor-pointer transition-colors hover:bg-surface-hover/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        tapClass,
+                      ),
+                    )}
                   >
                     <span className="flex items-center justify-between gap-2 text-sm text-muted-foreground md:block">
                       <span>{monthNames[month.month - 1]} {month.year}</span>

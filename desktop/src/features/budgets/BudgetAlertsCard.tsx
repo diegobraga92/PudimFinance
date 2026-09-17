@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { BudgetAlert, BudgetSummaryItem } from '@/lib/api';
 import { budgetHealth, budgetPercent } from './budget-health';
+import { rowInteractiveClass, tapClass } from '@/lib/interactive';
 
 interface Props {
   alerts: BudgetAlert[];
@@ -19,6 +20,7 @@ interface Props {
   onToggleAll: () => void;
   onAcknowledge: (id: string) => void;
   onAcknowledgeAll: () => void;
+  onViewCategory?: (name: string) => void;
 }
 
 /** Alerts shown before the list is collapsed behind "View all". */
@@ -39,6 +41,7 @@ export function BudgetAlertsCard({
   onToggleAll,
   onAcknowledge,
   onAcknowledgeAll,
+  onViewCategory,
 }: Props) {
   const { t, formatMoney } = useI18n();
 
@@ -107,7 +110,18 @@ export function BudgetAlertsCard({
                       health === 'over'
                         ? 'border-danger/30 bg-danger/10 text-danger'
                         : 'border-warning/30 bg-warning/10 text-warning',
+                      onViewCategory && alert.category_name && rowInteractiveClass,
+                      onViewCategory && alert.category_name && tapClass,
                     )}
+                      role={onViewCategory && alert.category_name ? 'button' : undefined}
+                      tabIndex={onViewCategory && alert.category_name ? 0 : undefined}
+                      onClick={onViewCategory && alert.category_name ? () => onViewCategory(alert.category_name ?? '') : undefined}
+                      onKeyDown={onViewCategory && alert.category_name ? (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onViewCategory(alert.category_name ?? '');
+                        }
+                      } : undefined}
                   >
                     <BellRing className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="min-w-0 flex-1">
@@ -132,7 +146,10 @@ export function BudgetAlertsCard({
                       size="sm"
                       className="shrink-0 text-xs text-current"
                       disabled={acknowledging}
-                      onClick={() => onAcknowledge(alert.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onAcknowledge(alert.id);
+                      }}
                     >
                       {t('budgets.acknowledge')}
                     </Button>

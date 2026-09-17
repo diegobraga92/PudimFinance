@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
@@ -16,6 +16,8 @@ import {
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
 import type { BudgetSummaryItem } from '@/lib/api';
+import { rowInteractiveClass, rowKeyboardProps, tapClass } from '@/lib/interactive';
+import { budgetsCategoriesLink } from '@/lib/links';
 
 interface BudgetsCardProps {
   items: BudgetSummaryItem[];
@@ -39,6 +41,7 @@ function barColor(pct: number): string {
 /** The most relevant category budgets for the selected month (closest to their limit). */
 export function BudgetsCard({ items, loading, month, year, viewAllLink }: BudgetsCardProps) {
   const { t, formatMoney, monthNames } = useI18n();
+  const navigate = useNavigate();
   // The dashboard lists category budgets; the overall monthly limit is a
   // headline figure that belongs on the budgets screen.
   const rows = [...items]
@@ -83,8 +86,13 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
               {rows.map((item) => {
                 const pct = Math.round(parseFloat(item.percentage));
                 const over = pct >= 100;
+                const categoryName = item.budget.category_name ?? t('common.uncategorised');
                 return (
                   <li key={item.budget.id} className="py-3 first:pt-0 last:pb-0">
+                    <Link
+                      to={budgetsCategoriesLink({ year, month, categoryName })}
+                      className={cn('block rounded-sm', rowInteractiveClass, tapClass)}
+                    >
                     <div className="flex min-w-0 items-center justify-between gap-3">
                       <span className="flex min-w-0 items-center gap-2">
                         <CategoryIcon name={item.budget.icon} className="h-4 w-4 shrink-0" />
@@ -122,6 +130,7 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
                         {t('common.overBudget')}
                       </span>
                     )}
+                    </Link>
                   </li>
                 );
               })}
@@ -142,8 +151,14 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
                   {rows.map((item) => {
                     const pct = Math.round(parseFloat(item.percentage));
                     const over = pct >= 100;
+                    const categoryName = item.budget.category_name ?? t('common.uncategorised');
                     return (
-                      <TableRow key={item.budget.id}>
+                      <TableRow
+                        key={item.budget.id}
+                        onClick={() => navigate(budgetsCategoriesLink({ year, month, categoryName }))}
+                        {...rowKeyboardProps(() => navigate(budgetsCategoriesLink({ year, month, categoryName })))}
+                        className={cn(rowInteractiveClass, tapClass)}
+                      >
                         <TableCell className="py-3">
                           <span className="flex items-center gap-2">
                             <CategoryIcon name={item.budget.icon} className="h-4 w-4" />

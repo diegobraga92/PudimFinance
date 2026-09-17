@@ -82,6 +82,9 @@ import { filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
 import { normalizeServerUrl } from '../src/lib/serverConfig';
 import { displayNameForGreeting } from '../src/features/dashboard/greeting';
+import { budgetsCategoriesLink, monthDateRange, reportsLink, transactionsLink } from '../src/lib/links';
+import { rowKeyboardProps } from '../src/lib/interactive';
+import { chartPointAtIndex, chartTooltipTriggerFor } from '../src/lib/chart-events';
 import {
   ACCOUNT_BRANDS,
   ACCOUNT_ICON_GROUPS,
@@ -842,6 +845,91 @@ await setAuthSession('access-1', 'refresh-1', {
   email: 'dev@pudim.test',
   role: 'user',
 });
+
+const interactionChecks: [string, boolean][] = [
+  [
+    'transaction links encode category and date filters',
+    transactionsLink({ categoryId: 'food & drink', type: 'expense', startDate: '2026-09-01', endDate: '2026-09-30' }) ===
+      '/transactions?category_id=food+%26+drink&type=expense&start_date=2026-09-01&end_date=2026-09-30',
+  ],
+  [
+    'report links preserve tab and category',
+    reportsLink({ tab: 'breakdown', categoryId: 'cat-1' }) === '/reports?tab=breakdown&category=cat-1',
+  ],
+  [
+    'budget links preserve period and category search',
+    budgetsCategoriesLink({ year: 2026, month: 9, categoryName: 'Home & bills' }) ===
+      '/budgets?year=2026&month=9&tab=categories&category=Home+%26+bills',
+  ],
+  [
+    'month ranges include the calendar month end',
+    JSON.stringify(monthDateRange(2024, 2)) === JSON.stringify({ startDate: '2024-02-01', endDate: '2024-02-29' }),
+  ],
+  [
+    'row keyboard props activate on Enter',
+    (() => {
+      let activated = false;
+      const props = rowKeyboardProps(() => {
+        activated = true;
+      });
+      props.onKeyDown?.({ key: 'Enter', preventDefault: () => undefined } as never);
+      return activated;
+    })(),
+  ],
+  [
+    'row keyboard props activate on Space',
+    (() => {
+      let activated = false;
+      const props = rowKeyboardProps(() => {
+        activated = true;
+      });
+      props.onKeyDown?.({ key: ' ', preventDefault: () => undefined } as never);
+      return activated;
+    })(),
+  ],
+  [
+    'chart event resolves the active Recharts index',
+    chartPointAtIndex(
+      { activeTooltipIndex: '1', activeCoordinate: { x: 40, y: 20 } },
+      ['first', 'second'],
+    ) === 'second',
+  ],
+  [
+    'chart event falls back to activeIndex',
+    chartPointAtIndex(
+      { activeIndex: 0, activeCoordinate: { x: 10, y: 30 } },
+      ['first'],
+    ) === 'first',
+  ],
+  [
+    'chart event rejects blank-area clicks',
+    chartPointAtIndex({ activeIndex: 0 }, ['first']) === undefined,
+  ],
+  [
+    'chart event rejects an out-of-range index',
+    chartPointAtIndex(
+      { activeTooltipIndex: 4, activeCoordinate: { x: 10, y: 30 } },
+      ['first'],
+    ) === undefined,
+  ],
+  [
+    'coarse layouts use click-triggered chart tooltips',
+    chartTooltipTriggerFor(true) === 'click',
+  ],
+  [
+    'pointer layouts preserve hover-triggered chart tooltips',
+    chartTooltipTriggerFor(false) === 'hover',
+  ],
+];
+for (const [label, ok] of interactionChecks) {
+  if (!ok) {
+    console.error(`FAIL: interaction helpers — ${label}`);
+    failures += 1;
+  }
+}
+if (interactionChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: interaction helpers (${interactionChecks.length} cases)`);
+}
 const storedToken = store.get('pudim_token');
 const storedUser = store.get('pudim_user') ?? '';
 const storedRefresh = store.get('pudim_refresh_token');

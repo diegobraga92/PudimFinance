@@ -63,7 +63,7 @@ export function BudgetsCategoriesPage() {
 
   const [year, setYear] = React.useState(initialPeriod.year);
   const [month, setMonth] = React.useState(initialPeriod.month);
-  const [categorySearch, setCategorySearch] = React.useState('');
+  const [categorySearch, setCategorySearch] = React.useState(() => searchParams.get('category') ?? '');
   const [formRequest, setFormRequest] = React.useState<BudgetFormRequest | null>(null);
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
@@ -84,8 +84,11 @@ export function BudgetsCategoriesPage() {
     const params = new URLSearchParams(searchParams);
     if (next === 'categories') {
       params.set('tab', 'categories');
+      if (search) params.set('category', search);
+      else params.delete('category');
     } else {
       params.delete('tab');
+      params.delete('category');
     }
     setSearchParams(params, { replace: true });
   };

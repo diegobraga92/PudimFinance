@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { resolveCategoryColors } from '@/lib/category-colors';
 import { fitTextSize } from '@/lib/fit-text';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { cn } from '@/lib/utils';
+import { linkHitClass, rowInteractiveClass, tapClass } from '@/lib/interactive';
 
 /** Aggregated remainder glyph tone (muted slate). */
 const OTHERS_COLOR = '#64748b';
@@ -33,6 +35,8 @@ interface CategoryDonutProps {
   emptyHint?: string;
   /** Optional class for the loading/empty placeholders' height. */
   className?: string;
+  /** Called when a real category slice or legend row is activated. */
+  onSelect?: (key: string) => void;
 }
 
 /** Donut + legend of where money went, shared by the dashboard and budgets. */
@@ -46,6 +50,7 @@ export function CategoryDonut({
   emptyTitle,
   emptyHint,
   className,
+  onSelect,
 }: CategoryDonutProps) {
   const { t, formatMoney } = useI18n();
 
@@ -112,6 +117,12 @@ export function CategoryDonut({
                       outerRadius={88}
                       paddingAngle={2}
                       stroke="none"
+                      className={onSelect ? 'cursor-pointer' : undefined}
+                      onClick={(sector) => {
+                        const key = String(sector.payload?.key ?? '');
+                        if (key && key !== 'others' && key !== 'uncategorised') onSelect?.(key);
+                      }}
+                      activeShape={onSelect ? { outerRadius: 92 } : undefined}
                     >
                       {rows.map((row) => (
                         <Cell key={row.key} fill={row.color} />
@@ -141,22 +152,41 @@ export function CategoryDonut({
               </div>
 
               <ul className="min-w-[12rem] flex-1 space-y-2.5">
-                {rows.map((row) => (
-                  <li key={row.key} className="flex items-center gap-2.5 text-sm">
+                {rows.map((row) => {
+                  const content = (
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: row.color }}
-                    />
-                    <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate">
-                      <CategoryIcon name={row.icon} className="h-3.5 w-3.5" />
-                      {row.name}
+                      className="flex w-full items-center gap-2.5 text-left text-sm"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: row.color }}
+                      />
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate">
+                        <CategoryIcon name={row.icon} className="h-3.5 w-3.5" />
+                        {row.name}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-dim">{row.pct}%</span>
+                      <span className="w-[5.5rem] shrink-0 whitespace-nowrap text-right font-medium tabular-nums">
+                        {formatMoney(row.amount)}
+                      </span>
                     </span>
-                    <span className="shrink-0 text-xs tabular-nums text-dim">{row.pct}%</span>
-                    <span className="w-[5.5rem] shrink-0 whitespace-nowrap text-right font-medium tabular-nums">
-                      {formatMoney(row.amount)}
-                    </span>
-                  </li>
-                ))}
+                  );
+                  return (
+                    <li key={row.key} className="flex min-h-11 items-center">
+                      {onSelect && row.key !== 'others' && row.key !== 'uncategorised' ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelect(row.key)}
+                          className={cn('w-full rounded-sm px-2', rowInteractiveClass, tapClass, linkHitClass)}
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        content
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </>

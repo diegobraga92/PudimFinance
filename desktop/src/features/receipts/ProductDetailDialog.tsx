@@ -184,7 +184,13 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
               </div>
 
               {enoughHistory ? (
-                <PriceHistoryChart records={ranged} loading={false} />
+                <PriceHistoryChart
+                  records={ranged}
+                  loading={false}
+                  onSelectRecord={(record) => {
+                    if (record.store_id && onOpenStore) onOpenStore(record.store_id);
+                  }}
+                />
               ) : (
                 <div className="rounded-md border border-dashed border-border px-4 py-8 text-center">
                   <p className="text-sm font-medium">{t('receipts.notEnoughHistory')}</p>

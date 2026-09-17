@@ -64,10 +64,14 @@ export function TransactionsPage() {
   const [pendingDelete, setPendingDelete] = React.useState<Transaction | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   const [query, setQuery] = React.useState('');
-  const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
-  const [startDate, setStartDate] = React.useState('');
-  const [endDate, setEndDate] = React.useState('');
-  const [filterCategory, setFilterCategory] = React.useState('');
+  const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>(() => {
+    const value = searchParams.get('type');
+    return value === 'income' || value === 'expense' ? value : 'all';
+  });
+  const [startDate, setStartDate] = React.useState(() => searchParams.get('start_date') ?? '');
+  const [endDate, setEndDate] = React.useState(() => searchParams.get('end_date') ?? '');
+  const [filterCategory, setFilterCategory] = React.useState(() => searchParams.get('category_id') ?? '');
+  const [filterAccount, setFilterAccount] = React.useState(() => searchParams.get('account_id') ?? '');
   const [sort, setSort] = React.useState<TransactionFilters['sort']>('date');
   const [order, setOrder] = React.useState<TransactionFilters['order']>('desc');
 
@@ -82,6 +86,15 @@ export function TransactionsPage() {
   /** Rows ticked in the table, for bulk deletion. */
   const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(new Set());
   const [bulkConfirmOpen, setBulkConfirmOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const type = searchParams.get('type');
+    setFilterType(type === 'income' || type === 'expense' ? type : 'all');
+    setStartDate(searchParams.get('start_date') ?? '');
+    setEndDate(searchParams.get('end_date') ?? '');
+    setFilterCategory(searchParams.get('category_id') ?? '');
+    setFilterAccount(searchParams.get('account_id') ?? '');
+  }, [searchParams]);
 
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const accountsQuery = useQuery({
@@ -106,6 +119,7 @@ export function TransactionsPage() {
         if (startDate) filters.start_date = startDate;
         if (endDate) filters.end_date = endDate;
         if (filterCategory) filters.category_id = filterCategory;
+        if (filterAccount) filters.account_id = filterAccount;
         filters.sort = sort;
         filters.order = order;
         const res = await fetchTransactions(filters);
@@ -121,7 +135,7 @@ export function TransactionsPage() {
         setLoadingMore(false);
       }
     },
-    [t, filterType, startDate, endDate, filterCategory, sort, order],
+    [t, filterType, startDate, endDate, filterCategory, filterAccount, sort, order],
   );
 
   React.useEffect(() => {
@@ -281,12 +295,13 @@ export function TransactionsPage() {
     toast({ title: t('transactions.exported', { count: visible.length }), variant: 'success' });
   };
 
-  const hasFilters = filterType !== 'all' || !!startDate || !!endDate || !!filterCategory;
+  const hasFilters = filterType !== 'all' || !!startDate || !!endDate || !!filterCategory || !!filterAccount;
   const clearFilters = () => {
     setFilterType('all');
     setStartDate('');
     setEndDate('');
     setFilterCategory('');
+    setFilterAccount('');
   };
   const clearAll = () => {
     clearFilters();
@@ -704,7 +719,7 @@ export function TransactionsPage() {
         </div>
 
         <div className="min-w-0">
-          <TransactionsSidebar />
+          <TransactionsSidebar onSelectCategory={setFilterCategory} />
         </div>
       </div>
 

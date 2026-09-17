@@ -12,13 +12,14 @@ interface Props {
   /** Balance-sheet accounts; only investment kinds are listed. */
   accounts: AccountWithBalance[];
   loading: boolean;
+  onView?: (account: AccountWithBalance) => void;
 }
 
 /**
  * Investments sidebar card: each investment account as a row (name, value,
  * share of the portfolio and a bar for that share), biggest first.
  */
-export function InvestmentsSummaryCard({ accounts, loading }: Props) {
+export function InvestmentsSummaryCard({ accounts, loading, onView }: Props) {
   const { t, formatMoney } = useI18n();
 
   const { rows, total } = React.useMemo(() => {
@@ -70,6 +71,12 @@ export function InvestmentsSummaryCard({ accounts, loading }: Props) {
           <ul className="space-y-3.5">
             {rows.map((row) => (
               <li key={row.id} className="space-y-1.5">
+                {onView ? (
+                  <button
+                    type="button"
+                    onClick={() => onView(accounts.find((account) => account.id === row.id) as AccountWithBalance)}
+                    className="block w-full rounded-sm p-2 text-left transition-colors hover:bg-surface-hover/60 active:bg-surface-hover"
+                  >
                 <div className="flex items-center gap-2 text-sm">
                   <AccountIcon name={row.icon} kind={row.kind} className="h-4 w-4" />
                   <span className="min-w-0 flex-1 truncate">{row.name}</span>
@@ -87,6 +94,20 @@ export function InvestmentsSummaryCard({ accounts, loading }: Props) {
                     {row.pct}%
                   </span>
                 </div>
+                  </button>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <AccountIcon name={row.icon} kind={row.kind} className="h-4 w-4" />
+                      <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                      <span className="shrink-0 font-medium tabular-nums">{formatMoney(row.amount)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Progress value={Math.min(row.pct, 100)} className="h-1.5 flex-1" indicatorClassName="bg-success" />
+                      <span className="w-9 shrink-0 text-right text-xs tabular-nums text-dim">{row.pct}%</span>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
           </ul>

@@ -292,6 +292,7 @@ export function BudgetsTab({
             onToggleAll={() => setShowAllAlerts((value) => !value)}
             onAcknowledge={(id) => void handleAcknowledge(id)}
             onAcknowledgeAll={() => void handleAcknowledgeAll()}
+            onViewCategory={onViewCategory}
           />
           <BudgetQuickActions
             hasOverall={totals.hasOverall}

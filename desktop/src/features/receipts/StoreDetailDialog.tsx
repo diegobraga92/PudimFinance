@@ -80,6 +80,7 @@ export function StoreDetailDialog({
 }: Props) {
   const { t, formatMoney } = useI18n();
   const [section, setSection] = React.useState<StoreSection>('overview');
+  const [selectedMonth, setSelectedMonth] = React.useState<string | null>(null);
 
   const storeQuery = useQuery({
     queryKey: ['store', storeId],
@@ -90,8 +91,14 @@ export function StoreDetailDialog({
   // The detail payload carries only the ten latest receipts, so the full list
   // is fetched when the user asks for that section.
   const receiptsQuery = useQuery({
-    queryKey: ['receipts', { storeId, all: true }],
-    queryFn: () => fetchReceipts({ store_id: storeId ?? '', page_size: 100 }),
+    queryKey: ['receipts', { storeId, all: true, month: selectedMonth }],
+    queryFn: () => {
+      if (!selectedMonth) return fetchReceipts({ store_id: storeId ?? '', page_size: 100 });
+      const start = `${selectedMonth.slice(0, 7)}-01`;
+      const date = new Date(`${start}T00:00:00`);
+      const end = new Date(date.getFullYear(), date.getMonth() + 1, 1).toISOString().slice(0, 10);
+      return fetchReceipts({ store_id: storeId ?? '', from: start, to: end, page_size: 100 });
+    },
     enabled: Boolean(storeId) && section === 'receipts',
   });
 
@@ -160,6 +167,10 @@ export function StoreDetailDialog({
                   <StoreSpendingChart
                     months={storeQuery.data?.monthly_spend ?? []}
                     loading={false}
+                    onSelectMonth={(month) => {
+                      setSelectedMonth(month);
+                      setSection('receipts');
+                    }}
                   />
                 </div>
 

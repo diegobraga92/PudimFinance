@@ -15,12 +15,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Category, Transaction } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { rowInteractiveClass, rowKeyboardProps, tapClass } from '@/lib/interactive';
 
 interface Props {
   transactions: Transaction[];
   categories: Category[];
   loading: boolean;
   error: unknown;
+  onSelect?: (transaction: Transaction) => void;
 }
 
 function TransactionTableSkeleton() {
@@ -43,7 +45,7 @@ function TransactionTableSkeleton() {
 }
 
 /** Read-only account transactions table with a compact phone layout. */
-export function AccountTransactionsTable({ transactions, categories, loading, error }: Props) {
+export function AccountTransactionsTable({ transactions, categories, loading, error, onSelect }: Props) {
   const { t, formatMoney, formatDate } = useI18n();
   const categoryById = React.useMemo(() => new Map(categories.map((item) => [item.id, item])), [categories]);
 
@@ -82,7 +84,12 @@ export function AccountTransactionsTable({ transactions, categories, loading, er
             const isIncome = tx.type === 'income';
             const DirectionIcon = isIncome ? ArrowUpRight : ArrowDownRight;
             return (
-              <TableRow key={tx.id}>
+              <TableRow
+                key={tx.id}
+                onClick={onSelect ? () => onSelect(tx) : undefined}
+                {...(onSelect ? rowKeyboardProps(() => onSelect(tx)) : {})}
+                className={onSelect ? cn(rowInteractiveClass, tapClass) : undefined}
+              >
                 <TableCell className="whitespace-nowrap px-2 align-top text-xs text-muted-foreground sm:px-3 sm:text-sm">
                   <span className="block">{formatDate(tx.date)}</span>
                   {tx.card_due_date && tx.card_due_date !== tx.date && (

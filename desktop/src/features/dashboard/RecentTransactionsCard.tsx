@@ -22,6 +22,7 @@ import { AccountIcon } from '@/components/AccountIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { TransactionForm } from '@/features/transactions/TransactionForm';
 import { cn } from '@/lib/utils';
+import { rowInteractiveClass, rowKeyboardProps, tapClass } from '@/lib/interactive';
 import type { AccountWithBalance, Category, Transaction } from '@/lib/api';
 import { TransactionDetailsDialog } from './TransactionDetailsDialog';
 
@@ -53,7 +54,7 @@ function RecentTransactionRow({
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-h-[64px] w-full min-w-0 items-center gap-3 px-5 py-2.5 text-left transition-colors active:bg-surface-hover"
+        className={cn('flex min-h-[64px] w-full min-w-0 items-center gap-3 px-5 py-2.5 text-left', rowInteractiveClass, tapClass)}
       >
         <span
           className={cn(
@@ -206,7 +207,12 @@ export function RecentTransactionsCard({
                 const account = tx.account_id ? accountById.get(tx.account_id) : undefined;
                 const isIncome = tx.type === 'income';
                 return (
-                  <TableRow key={tx.id} onClick={() => setSelected(tx)} className="cursor-pointer">
+                  <TableRow
+                    key={tx.id}
+                    onClick={() => setSelected(tx)}
+                    {...rowKeyboardProps(() => setSelected(tx))}
+                    className={cn(rowInteractiveClass, tapClass)}
+                  >
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {formatDate(tx.date)}
                       {tx.card_due_date && tx.card_due_date !== tx.date && (

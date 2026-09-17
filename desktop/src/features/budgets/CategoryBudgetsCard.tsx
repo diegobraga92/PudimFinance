@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { rowInteractiveClass, rowKeyboardProps, tapClass } from '@/lib/interactive';
 import type { BudgetSummaryItem } from '@/lib/api';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import {
@@ -152,8 +153,12 @@ function BudgetRow({
   const categoryName = item.budget.category_name ?? t('common.uncategorised');
 
   return (
-    <li className="transition-colors hover:bg-primary/[0.045]">
-      <div className={cn('flex flex-col gap-2.5 px-4 py-3', ROW_COLUMNS)}>
+    <li>
+      <div
+        className={cn('flex flex-col gap-2.5 px-4 py-3', ROW_COLUMNS, rowInteractiveClass, tapClass)}
+        onClick={() => onEdit(item)}
+        {...rowKeyboardProps(() => onEdit(item))}
+      >
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md text-base"
@@ -220,7 +225,7 @@ function BudgetRow({
           </span>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

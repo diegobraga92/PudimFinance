@@ -8,10 +8,11 @@ import type { StoreMonthlySpend } from '@/lib/api';
 interface Props {
   months: StoreMonthlySpend[];
   loading: boolean;
+  onSelectMonth?: (month: string) => void;
 }
 
 /** Spend per month at one store (backend buckets, nothing recalculated here). */
-export function StoreSpendingChart({ months, loading }: Props) {
+export function StoreSpendingChart({ months, loading, onSelectMonth }: Props) {
   const { t, formatMoney, shortMonthNames } = useI18n();
 
   const data = React.useMemo(
@@ -78,7 +79,17 @@ export function StoreSpendingChart({ months, loading }: Props) {
               }),
             ]}
           />
-          <Bar dataKey="total" fill="rgb(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={38} />
+          <Bar
+            dataKey="total"
+            fill="rgb(var(--primary))"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={38}
+            className={onSelectMonth ? 'cursor-pointer' : undefined}
+            onClick={(entry) => {
+              const month = (entry as { month?: string }).month;
+              if (month) onSelectMonth?.(month);
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

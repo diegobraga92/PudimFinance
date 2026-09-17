@@ -142,7 +142,7 @@ export function ReceiptsPage() {
               aria-selected={tab === key}
               onClick={() => goToTab(key)}
               className={cn(
-                'shrink-0 rounded-sm px-3.5 py-1.5 text-sm font-medium transition-colors',
+                'shrink-0 rounded-sm px-3.5 py-1.5 text-sm font-medium transition-colors min-h-11 md:min-h-0',
                 tab === key
                   ? 'bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40'
                   : 'text-muted-foreground hover:bg-surface-hover hover:text-foreground',

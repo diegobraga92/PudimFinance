@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useI18n } from '@/app/i18n';
 import {
@@ -8,11 +9,14 @@ import {
   type AccountWithBalance,
   type CardBill,
   type Category,
+  type Transaction,
 } from '@/lib/api';
 import { isCreditCard } from './account-groups';
 import { AccountMonthlySummary } from './AccountMonthlySummary';
 import { AccountTransactionsTable } from './AccountTransactionsTable';
 import { CardAccountSection } from '@/features/creditCards/CardAccountSection';
+import { TransactionDetailsDialog } from '@/features/dashboard/TransactionDetailsDialog';
+import { transactionsLink, monthDateRange } from '@/lib/links';
 
 /** Number of months shown in the per-account monthly summary. */
 const SUMMARY_MONTHS = 12;
@@ -42,10 +46,13 @@ export function AccountDetail({
   initialCardAction = null,
 }: Props & { account: AccountLike }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [summaryOpen, setSummaryOpen] = React.useState(false);
+  const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null);
 
   React.useEffect(() => {
     setSummaryOpen(false);
+    setSelectedTransaction(null);
   }, [account.id]);
 
   const now = React.useMemo(() => new Date(), []);
@@ -105,6 +112,7 @@ export function AccountDetail({
               categories={categories}
               loading={txQuery.isLoading}
               error={txQuery.error}
+              onSelect={setSelectedTransaction}
             />
           </section>
 
@@ -115,9 +123,19 @@ export function AccountDetail({
             error={reportQuery.error}
             open={summaryOpen}
             onToggle={() => setSummaryOpen((value) => !value)}
+            onSelectMonth={(year, month) => {
+              onClose();
+              navigate(transactionsLink({ accountId: account.id, ...monthDateRange(year, month) }));
+            }}
           />
         </div>
       </DialogContent>
+      <TransactionDetailsDialog
+        transaction={selectedTransaction}
+        category={selectedTransaction?.category_id ? categories.find((category) => category.id === selectedTransaction.category_id) : undefined}
+        account={account}
+        onOpenChange={(next) => !next && setSelectedTransaction(null)}
+      />
     </Dialog>
   );
 }

@@ -19,7 +19,7 @@ const MONTH_CHOICES = 12;
  * (income, expenses and a headline net) and the categories eating most of it.
  * Both cards read the same `summary` payload, so switching month refetches once.
  */
-export function TransactionsSidebar() {
+export function TransactionsSidebar({ onSelectCategory }: { onSelectCategory?: (categoryId: string) => void }) {
   const { t, formatMoney, monthNames } = useI18n();
   const [period, setPeriod] = React.useState(() => {
     const now = new Date();
@@ -151,6 +151,13 @@ export function TransactionsSidebar() {
             <ul className="space-y-3.5">
               {categories.map((row) => (
                 <li key={row.key} className="space-y-1.5">
+                  {onSelectCategory ? (
+                    <button
+                      type="button"
+                      onClick={() => row.key !== 'uncategorised' && onSelectCategory(row.key)}
+                      disabled={row.key === 'uncategorised'}
+                      className="block w-full rounded-sm text-left transition-colors hover:bg-surface-hover/60 active:bg-surface-hover disabled:cursor-default"
+                    >
                   <div className="flex items-center gap-2 text-sm">
                     <CategoryIcon name={row.icon} className="h-4 w-4" />
                     <span className="min-w-0 flex-1 truncate">{row.name}</span>
@@ -168,6 +175,24 @@ export function TransactionsSidebar() {
                       {row.pct}%
                     </span>
                   </div>
+                    </button>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        <CategoryIcon name={row.icon} className="h-4 w-4" />
+                        <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                        <span className="shrink-0 font-medium tabular-nums">{formatMoney(row.amount)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Progress
+                          value={Math.min(row.pct, 100)}
+                          className="h-1.5 flex-1"
+                          indicatorStyle={row.color ? { backgroundColor: row.color } : undefined}
+                        />
+                        <span className="w-9 shrink-0 text-right text-xs tabular-nums text-dim">{row.pct}%</span>
+                      </div>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
