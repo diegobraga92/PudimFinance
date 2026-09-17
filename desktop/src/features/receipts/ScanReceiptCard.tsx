@@ -4,9 +4,10 @@ import { Camera, ImagePlus, QrCode, RefreshCw, ScanLine, UploadCloud } from 'luc
 import { useI18n } from '@/app/i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { CameraCapture, type CameraCaptureMode } from './CameraCapture';
+import { cameraScanSupported, captureIntentTarget } from './qr-scan';
 import type { ReceiptScanner } from './useReceiptScanner';
 
 interface Props {
@@ -15,43 +16,79 @@ interface Props {
   onParsed?: () => void;
 }
 
+type CaptureAction = 'qr-camera' | 'qr-image' | 'photo-camera' | 'photo-image';
+
 const DROP_ZONE =
   'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-border bg-surface-hover/20 px-6 py-8 text-center transition-colors hover:border-primary hover:bg-primary/[0.04]';
 
-/**
- * The scanner: NFC-e QR data or a receipt photo.
- *
- * OCR runs in the client (tesseract.js) and the extracted text is parsed by the
- * backend, so the review step is identical for both sources.
- */
+/** Receipt capture card with QR-camera, QR-image, OCR-camera and OCR-image paths. */
 export function ScanReceiptCard({ scanner, onParsed }: Props) {
   const { t } = useI18n();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const cameraInputRef = React.useRef<HTMLInputElement>(null);
-  const [lastAction, setLastAction] = React.useState<'qr' | 'ocr' | null>(null);
+  const qrImageInputRef = React.useRef<HTMLInputElement>(null);
+  const receiptImageInputRef = React.useRef<HTMLInputElement>(null);
+  const [lastAction, setLastAction] = React.useState<CaptureAction | null>(null);
   const [dragging, setDragging] = React.useState(false);
-
+  const [cameraMode, setCameraMode] = React.useState<CameraCaptureMode | null>(null);
+  const cameraSupported = cameraScanSupported();
   const processing = scanner.status === 'processing';
+  const { captureIntent, clearCaptureIntent } = scanner;
+  const captureTarget = captureIntentTarget(captureIntent, cameraSupported);
 
-  const runQr = async () => {
-    setLastAction('qr');
-    if (await scanner.runQr()) onParsed?.();
+  React.useEffect(() => {
+    if (!captureTarget) return;
+    if (captureTarget === 'qr-camera' || captureTarget === 'photo-camera') {
+      setCameraMode(captureTarget === 'qr-camera' ? 'qr' : 'photo');
+    } else if (captureTarget === 'qr-picture') {
+      qrImageInputRef.current?.click();
+    } else {
+      receiptImageInputRef.current?.click();
+    }
+    clearCaptureIntent();
+  }, [captureTarget, clearCaptureIntent]);
+
+  const runQrImage = async (file: File | null) => {
+    setLastAction('qr-image');
+    if (await scanner.runQrFile(file)) onParsed?.();
   };
 
-  const runOcr = async () => {
-    setLastAction('ocr');
-    if (await scanner.runOcr()) onParsed?.();
+  const runPhotoImage = async (file: File | null) => {
+    setLastAction('photo-image');
+    if (await scanner.runOcrFile(file)) onParsed?.();
   };
 
-  const retry = () => {
-    if (lastAction === 'qr') void runQr();
-    if (lastAction === 'ocr') void runOcr();
+  const runQrCamera = async (value: string) => {
+    setLastAction('qr-camera');
+    setCameraMode(null);
+    if (await scanner.runQr(value)) onParsed?.();
+  };
+
+  const runPhotoCamera = async (source: string) => {
+    setLastAction('photo-camera');
+    setCameraMode(null);
+    scanner.setImageData(source, t('receipts.cameraPhotoName'));
+    if (await scanner.runOcr(source)) onParsed?.();
+  };
+
+  const retryAvailable = lastAction === 'qr-camera' || Boolean(scanner.image);
+
+  const retry = async () => {
+    if (lastAction === 'qr-camera') {
+      setCameraMode('qr');
+      return;
+    }
+    if (!scanner.image) return;
+
+    const succeeded =
+      lastAction === 'qr-image'
+        ? await scanner.runQrImage(scanner.image)
+        : await scanner.runOcr(scanner.image);
+    if (succeeded) onParsed?.();
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragging(false);
-    scanner.onPickFile(event.dataTransfer.files?.[0] ?? null);
+    void runPhotoImage(event.dataTransfer.files?.[0] ?? null);
   };
 
   return (
@@ -62,65 +99,112 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
           <p className="mt-0.5 text-sm text-muted-foreground">{t('receipts.scanCardBlurb')}</p>
         </div>
 
-        <div className="flex gap-1 rounded-md bg-muted p-1" role="tablist">
-          {(
-            [
-              { key: 'qr', label: t('receipts.methodQr'), icon: QrCode },
-              { key: 'photo', label: t('receipts.methodPhoto'), icon: ImagePlus },
-            ] as const
-          ).map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              role="tab"
-              aria-selected={scanner.method === option.key}
-              disabled={processing}
-              onClick={() => scanner.setMethod(option.key)}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-2 rounded-sm px-3 py-2 text-sm font-medium transition-colors',
-                scanner.method === option.key
-                  ? 'bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <option.icon className="h-4 w-4" aria-hidden="true" />
-              {option.label}
-            </button>
-          ))}
-        </div>
-
-        {processing ? (
+        {cameraMode ? (
+          <CameraCapture
+            mode={cameraMode}
+            onDecoded={runQrCamera}
+            onCaptured={runPhotoCamera}
+            onClose={() => setCameraMode(null)}
+          />
+        ) : processing ? (
           <div className="space-y-3 py-2" role="status" aria-live="polite">
             <p className="text-sm font-medium">{scanner.processingLabel}</p>
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />
             <Skeleton className="h-24 w-full rounded-[12px]" />
           </div>
-        ) : scanner.method === 'qr' ? (
-          <div className="space-y-2">
-            <Label htmlFor="receipt-qr">{t('receipts.qrData')}</Label>
-            <textarea
-              id="receipt-qr"
-              value={scanner.qrData}
-              onChange={(event) => scanner.setQrData(event.target.value)}
-              placeholder={t('receipts.qrPlaceholder')}
-              spellCheck={false}
-              className="min-h-[90px] w-full resize-y rounded-md border border-input bg-surface px-3 py-2 font-mono text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            <Button
-              className="min-h-[44px] w-full gap-2 sm:w-auto"
-              onClick={() => void runQr()}
-              disabled={!scanner.qrData.trim()}
-            >
-              <ScanLine className="h-4 w-4" />
-              {t('receipts.scanQrButton')}
-            </Button>
-          </div>
         ) : (
-          <div className="space-y-3">
+          <>
+            <section className="space-y-3" aria-labelledby="receipt-qr-section">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-4 w-4 text-primary" aria-hidden="true" />
+                <h3 id="receipt-qr-section" className="font-medium">
+                  {t('receipts.qrSectionTitle')}
+                </h3>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {cameraSupported ? (
+                  <Button
+                    variant="outline"
+                    className="min-h-[48px] justify-start gap-2"
+                    onClick={() => setCameraMode('qr')}
+                  >
+                    <Camera className="h-4 w-4" />
+                    {t('receipts.scanQrWithCamera')}
+                  </Button>
+                ) : (
+                  <p className="rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">
+                    {t('receipts.cameraUnsupported')}
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  className="min-h-[48px] justify-start gap-2"
+                  onClick={() => qrImageInputRef.current?.click()}
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  {t('receipts.readQrFromPicture')}
+                </Button>
+              </div>
+            </section>
+
+            <section className="space-y-3" aria-labelledby="receipt-photo-section">
+              <div className="flex items-center gap-2">
+                <ScanLine className="h-4 w-4 text-primary" aria-hidden="true" />
+                <h3 id="receipt-photo-section" className="font-medium">
+                  {t('receipts.photoSectionTitle')}
+                </h3>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {cameraSupported ? (
+                  <Button
+                    variant="outline"
+                    className="min-h-[48px] justify-start gap-2"
+                    onClick={() => setCameraMode('photo')}
+                  >
+                    <Camera className="h-4 w-4" />
+                    {t('receipts.photographReceipt')}
+                  </Button>
+                ) : (
+                  <p className="rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">
+                    {t('receipts.cameraUnsupported')}
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  className="min-h-[48px] justify-start gap-2"
+                  onClick={() => receiptImageInputRef.current?.click()}
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  {t('receipts.readReceiptFromPicture')}
+                </Button>
+              </div>
+            </section>
+
+            <input
+              ref={qrImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                void runQrImage(event.target.files?.[0] ?? null);
+                event.target.value = '';
+              }}
+            />
+            <input
+              ref={receiptImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                void runPhotoImage(event.target.files?.[0] ?? null);
+                event.target.value = '';
+              }}
+            />
+
             <div
               className={cn(DROP_ZONE, dragging && 'border-primary bg-primary/[0.06]')}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => receiptImageInputRef.current?.click()}
               onDragOver={(event) => {
                 event.preventDefault();
                 setDragging(true);
@@ -130,7 +214,7 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
               role="button"
               tabIndex={0}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') fileInputRef.current?.click();
+                if (event.key === 'Enter' || event.key === ' ') receiptImageInputRef.current?.click();
               }}
               aria-label={t('receipts.dropZoneLabel')}
             >
@@ -158,42 +242,7 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
                 </Button>
               </div>
             )}
-
-            <div className="flex flex-wrap gap-2">
-              {/* A camera input keeps mobile usable; drag & drop is desktop-only. */}
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(event) => scanner.onPickFile(event.target.files?.[0] ?? null)}
-              />
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => scanner.onPickFile(event.target.files?.[0] ?? null)}
-              />
-              <Button
-                variant="outline"
-                className="min-h-[44px] gap-2"
-                onClick={() => cameraInputRef.current?.click()}
-              >
-                <Camera className="h-4 w-4" />
-                {t('receipts.takePhoto')}
-              </Button>
-              <Button
-                className="min-h-[44px] gap-2"
-                onClick={() => void runOcr()}
-                disabled={!scanner.image}
-              >
-                <ScanLine className="h-4 w-4" />
-                {t('receipts.readReceipt')}
-              </Button>
-            </div>
-          </div>
+          </>
         )}
 
         {scanner.error && (
@@ -203,12 +252,12 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
           >
             <p className="font-medium">{t('receipts.scanFailedTitle')}</p>
             <p className="mt-0.5 text-xs opacity-90">{scanner.error}</p>
-            {lastAction && (
+            {retryAvailable && (
               <Button
                 variant="outline"
                 size="sm"
                 className="mt-2 gap-1.5 border-destructive/40 text-destructive"
-                onClick={retry}
+                onClick={() => void retry()}
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 {t('common.retry')}

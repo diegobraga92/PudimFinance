@@ -3,6 +3,10 @@
 
     <!-- Posting the import prompt on Android 13+ requires the runtime opt-in. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Used by the shared webview QR scanner. wry requests runtime access when getUserMedia starts. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application>
         <!--

@@ -975,10 +975,10 @@ export async function fetchReconciliationHistory(): Promise<{ items: Reconciliat
   return request<{ items: ReconciliationHistoryItem[] }>('/api/reconciliation/history');
 }
 
-export async function scanReceipt(qrData: string): Promise<Record<string, unknown>> {
+export async function scanReceipt(qrPayload: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('/api/receipts/scan', {
     method: 'POST',
-    body: JSON.stringify({ qr_data: qrData } satisfies ScanRequest),
+    body: JSON.stringify({ qr_data: qrPayload } satisfies ScanRequest),
   });
 }
 

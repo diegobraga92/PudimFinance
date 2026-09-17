@@ -64,7 +64,7 @@ export function ReceiptsPage() {
 
   // "Scan receipt" in the header picks a method and lands on the scan tab.
   const startScan = (method: 'qr' | 'photo') => {
-    scanner.setMethod(method);
+    scanner.startCapture(method);
     goToTab('scan');
   };
 

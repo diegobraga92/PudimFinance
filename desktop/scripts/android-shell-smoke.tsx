@@ -59,6 +59,7 @@ import { ReconciliationPage } from '../src/features/reconciliation/Reconciliatio
 import { LedgerPage } from '../src/features/ledger/LedgerPage';
 import { AuditPage } from '../src/features/audit/AuditPage';
 import { ReceiptsPage } from '../src/features/receipts/ReceiptsPage';
+import { CameraCapture } from '../src/features/receipts/CameraCapture';
 import {
   PRIMARY_NAV,
   MOBILE_TABS,
@@ -96,14 +97,22 @@ import {
   suggestAccountIcon,
 } from '@shared/account-icons';
 
-function Providers({ children, client }: { children: React.ReactNode; client?: QueryClient }) {
+function Providers({
+  children,
+  client,
+  initialEntry = '/dashboard',
+}: {
+  children: React.ReactNode;
+  client?: QueryClient;
+  initialEntry?: string;
+}) {
   const fallback = React.useMemo(() => new QueryClient(), []);
   return (
     <QueryClientProvider client={client ?? fallback}>
       <AuthProvider>
         <I18nProvider>
           <ThemeProvider>
-            <MemoryRouter initialEntries={['/dashboard']}>
+            <MemoryRouter initialEntries={[initialEntry]}>
               <TooltipProvider>
                 <Toaster>
                   <NotificationCaptureProvider>{children}</NotificationCaptureProvider>
@@ -119,11 +128,43 @@ function Providers({ children, client }: { children: React.ReactNode; client?: Q
 
 let failures = 0;
 
-function check(label: string, node: React.ReactNode, needles: string[], client?: QueryClient) {
-  const html = renderToStaticMarkup(<Providers client={client}>{node}</Providers>);
+function renderNode(node: React.ReactNode, client?: QueryClient, initialEntry = '/dashboard') {
+  return renderToStaticMarkup(
+    <Providers client={client} initialEntry={initialEntry}>
+      {node}
+    </Providers>,
+  );
+}
+
+function check(
+  label: string,
+  node: React.ReactNode,
+  needles: string[],
+  client?: QueryClient,
+  initialEntry = '/dashboard',
+) {
+  const html = renderNode(node, client, initialEntry);
   for (const needle of needles) {
     if (!html.includes(needle)) {
       console.error(`FAIL: ${label} — missing "${needle}"`);
+      failures += 1;
+      return;
+    }
+  }
+  console.log(`PASS: ${label} (${html.length} chars)`);
+}
+
+function checkAbsent(
+  label: string,
+  node: React.ReactNode,
+  needles: string[],
+  client?: QueryClient,
+  initialEntry = '/dashboard',
+) {
+  const html = renderNode(node, client, initialEntry);
+  for (const needle of needles) {
+    if (html.includes(needle)) {
+      console.error(`FAIL: ${label} — unexpectedly found "${needle}"`);
       failures += 1;
       return;
     }
@@ -705,11 +746,55 @@ check('AuditPage (non-admin gate)', <AuditPage />, ['Admin access required']);
 
 check('ReceiptsPage (phone capture shortcuts)', <ReceiptsPage />, [
   'Scan QR code',
-  'Upload photo',
+  'Receipt photo',
   'Overview',
   'Items &amp; Prices',
   'w-fit max-w-full', // tab bar hugs its tabs instead of spanning the page
 ]);
+
+Object.defineProperty(globalThis, 'window', {
+  configurable: true,
+  value: {
+    __TAURI_INTERNALS__: {},
+    isSecureContext: true,
+    dispatchEvent: () => true,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  },
+});
+Object.defineProperty(globalThis, 'navigator', {
+  configurable: true,
+  value: { mediaDevices: { getUserMedia: () => Promise.resolve({}) } },
+});
+
+check(
+  'ReceiptsPage (four capture paths)',
+  <ReceiptsPage />,
+  [
+    'NFC-e QR code',
+    'Read QR code with camera',
+    'Read QR code from picture',
+    'Receipt OCR',
+    'Photograph receipt',
+    'Read receipt from picture',
+  ],
+  undefined,
+  '/receipts?tab=scan',
+);
+checkAbsent(
+  'ReceiptsPage (manual QR entry removed)',
+  <ReceiptsPage />,
+  ['<textarea'],
+  undefined,
+  '/receipts?tab=scan',
+);
+check(
+  'CameraCapture (close control)',
+  <CameraCapture mode="photo" onClose={() => undefined} />,
+  ['Close camera'],
+  undefined,
+  '/receipts?tab=scan',
+);
 
 const tabRoutes = MOBILE_TABS.map((tab) => tab.route);
 const toolKeys = TOOL_GROUPS.flatMap((group) => group.items.map((item) => item.key));

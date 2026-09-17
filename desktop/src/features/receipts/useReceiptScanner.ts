@@ -5,6 +5,7 @@ import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
 import { saveReceipt, scanReceipt, scanReceiptOcr, isNetworkError } from '@/lib/api';
 import { toIsoDate } from '@/lib/date-input';
+import { decodeQrFromImage, normalizeNfceQrValue, type CaptureIntent } from './qr-scan';
 
 /** One line of a parsed receipt, editable before saving. */
 export interface EditableReceiptItem {
@@ -25,10 +26,21 @@ export interface ReceiptDraft {
   source: 'nfce' | 'ocr';
 }
 
-type ScanMethod = 'qr' | 'photo';
 type ScanStatus = 'idle' | 'processing' | 'ready';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('Unable to read receipt image'));
+    };
+    reader.onerror = () => reject(new Error('Unable to read receipt image'));
+    reader.readAsDataURL(file);
+  });
+}
 
 /**
  * Scanning, OCR parsing and saving of receipts, shared by the Overview and Scan
@@ -39,8 +51,7 @@ export function useReceiptScanner() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [method, setMethod] = React.useState<ScanMethod>('qr');
-  const [qrData, setQrData] = React.useState('');
+  const [captureIntent, setCaptureIntent] = React.useState<CaptureIntent | null>(null);
   const [image, setImage] = React.useState<string | null>(null);
   const [imageName, setImageName] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<ScanStatus>('idle');
@@ -52,9 +63,16 @@ export function useReceiptScanner() {
     setDraft(null);
     setError(null);
     setStatus('idle');
-    setQrData('');
     setImage(null);
     setImageName(null);
+  }, []);
+
+  const startCapture = React.useCallback((intent: CaptureIntent) => {
+    setCaptureIntent(intent);
+  }, []);
+
+  const clearCaptureIntent = React.useCallback(() => {
+    setCaptureIntent(null);
   }, []);
 
   /** Turns a raw parse response into a draft the user can review. */
@@ -79,13 +97,13 @@ export function useReceiptScanner() {
     [t],
   );
 
-  const runQr = React.useCallback(async () => {
-    if (!qrData.trim()) return false;
+  const runQr = React.useCallback(async (value: string) => {
+    if (!value.trim()) return false;
     setStatus('processing');
     setProcessingLabel(t('receipts.parsing'));
     setError(null);
     try {
-      const result = await scanReceipt(qrData.trim());
+      const result = await scanReceipt(value.trim());
       applyParsed(result, 'nfce');
       return true;
     } catch (err) {
@@ -102,7 +120,12 @@ export function useReceiptScanner() {
       setStatus('idle');
       return false;
     }
-  }, [qrData, applyParsed, t]);
+  }, [applyParsed, t]);
+
+  const setImageData = React.useCallback((source: string, name: string) => {
+    setImage(source);
+    setImageName(name);
+  }, []);
 
   const onPickFile = React.useCallback(
     (file: File | null) => {
@@ -118,25 +141,87 @@ export function useReceiptScanner() {
         setImageName(null);
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImage(typeof reader.result === 'string' ? reader.result : null);
-        setImageName(file.name);
-      };
-      reader.readAsDataURL(file);
+      void readFileAsDataUrl(file)
+        .then((source) => setImageData(source, file.name))
+        .catch(() => setError(t('receipts.ocrFailed')));
     },
-    [t],
+    [setImageData, t],
   );
 
-  const runOcr = React.useCallback(async () => {
-    if (!image) return false;
+  const runQrImage = React.useCallback(
+    async (source: string) => {
+      setStatus('processing');
+      setProcessingLabel(t('receipts.parsing'));
+      setError(null);
+      try {
+        const rawValue = await decodeQrFromImage(source);
+        if (!rawValue) {
+          setError(t('receipts.qrNotFound'));
+          setStatus('idle');
+          return false;
+        }
+        const value = normalizeNfceQrValue(rawValue);
+        if (!value) {
+          setError(t('receipts.cameraNotNfce'));
+          setStatus('idle');
+          return false;
+        }
+        return runQr(value);
+      } catch {
+        setError(t('receipts.qrNotFound'));
+        setStatus('idle');
+        return false;
+      }
+    },
+    [runQr, t],
+  );
+
+  const runQrFile = React.useCallback(
+    async (file: File | null) => {
+      if (!file) return false;
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError(t('receipts.imageTooLarge'));
+        setStatus('idle');
+        return false;
+      }
+      try {
+        const source = await readFileAsDataUrl(file);
+        setImageData(source, file.name);
+        return runQrImage(source);
+      } catch {
+        setError(t('receipts.qrNotFound'));
+        setStatus('idle');
+        return false;
+      }
+    },
+    [runQrImage, setImageData, t],
+  );
+
+  const runOcr = React.useCallback(async (source = image) => {
+    if (!source) return false;
     setStatus('processing');
-    setProcessingLabel(t('receipts.ocrRunning'));
     setError(null);
     try {
+      // NFC-e QR codes are more reliable than OCR when a receipt photo contains
+      // one. A failed image decode is intentionally ignored so ordinary receipt
+      // photos continue through the existing OCR path.
+      let qrValue: string | null = null;
+      try {
+        qrValue = normalizeNfceQrValue(await decodeQrFromImage(source));
+      } catch {
+        qrValue = null;
+      }
+      if (qrValue) {
+        setProcessingLabel(t('receipts.parsing'));
+        const result = await scanReceipt(qrValue);
+        applyParsed(result, 'nfce');
+        return true;
+      }
+
+      setProcessingLabel(t('receipts.ocrRunning'));
       // Lazy-loaded so the OCR engine stays out of the initial bundle.
       const Tesseract = (await import('tesseract.js')).default;
-      const result = await Tesseract.recognize(image, 'por', { logger: () => {} });
+      const result = await Tesseract.recognize(source, 'por', { logger: () => {} });
       const rawText = result.data.text;
       if (!rawText.trim()) {
         setError(t('receipts.ocrNoText'));
@@ -158,6 +243,27 @@ export function useReceiptScanner() {
       return false;
     }
   }, [image, applyParsed, t]);
+
+  const runOcrFile = React.useCallback(
+    async (file: File | null) => {
+      if (!file) return false;
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError(t('receipts.imageTooLarge'));
+        setStatus('idle');
+        return false;
+      }
+      try {
+        const source = await readFileAsDataUrl(file);
+        setImageData(source, file.name);
+        return runOcr(source);
+      } catch {
+        setError(t('receipts.ocrFailed'));
+        setStatus('idle');
+        return false;
+      }
+    },
+    [runOcr, setImageData, t],
+  );
 
   const updateItem = React.useCallback(
     (index: number, field: keyof EditableReceiptItem, value: string) => {
@@ -201,8 +307,6 @@ export function useReceiptScanner() {
     },
     [],
   );
-
-
   const save = React.useCallback(async () => {
     if (!draft) return false;
     const items = draft.items.filter((item) => item.description.trim().length > 0);
@@ -243,20 +347,23 @@ export function useReceiptScanner() {
   }, [draft, reset, queryClient, toast, t]);
 
   return {
-    method,
-    setMethod,
-    qrData,
-    setQrData,
+    captureIntent,
+    startCapture,
+    clearCaptureIntent,
     image,
     imageName,
     onPickFile,
+    setImageData,
     status,
     error,
     setError,
     draft,
     processingLabel,
     runQr,
+    runQrImage,
+    runQrFile,
     runOcr,
+    runOcrFile,
     updateItem,
     updateDraft,
     addItem,
