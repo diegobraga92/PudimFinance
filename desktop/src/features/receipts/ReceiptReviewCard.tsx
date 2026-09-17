@@ -78,6 +78,12 @@ export function ReceiptReviewCard({ scanner, onSaved }: Props) {
           {t('receipts.reviewSummary', { count: itemCount, total: formatMoney(draft.total || '0') })}
         </p>
 
+        {draft.detailsUnavailable && (
+          <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            {t('receipts.detailsUnavailable')}
+          </p>
+        )}
+
         <div className="space-y-2">
           <div className={`${ITEM_GRID} px-1 text-[11px] font-semibold uppercase tracking-wide text-dim`}>
             <span>{t('receipts.item')}</span>

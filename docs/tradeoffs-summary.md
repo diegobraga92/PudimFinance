@@ -13,7 +13,7 @@ are in the [ADRs](adr/).
 | Budgets | Monthly limits with read-time aggregation | Simple and consistent; reports become more expensive at high volume |
 | Isolation | PostgreSQL `READ COMMITTED` transactions | Lower retry cost; stronger isolation is not used for ledger writes |
 | Reconciliation | Amount and date matching with user review | Predictable matching; no fuzzy description matching |
-| Receipts | NFC-e QR and OCR-text parsing | Server-backed parsing is simple; image capture/OCR pipelines are out of scope |
+| Receipts | NFC-e QR, public DANFE enrichment, and OCR-text parsing | Complete QR URLs can fill store/items through a best-effort public portal request; portal markup and availability are external dependencies |
 | Auth | JWT access/refresh tokens, Argon2id, user/admin roles | Appropriate for the app; token revocation and rotation are not implemented |
 | Rate limiting | In-memory fixed window per forwarded IP | No extra service; limits are process-local |
 | Observability | Prometheus exporter and tracing | Simple local setup; production retention and alerting need deployment work |
@@ -27,3 +27,6 @@ are in the [ADRs](adr/).
 - The Terraform directory does not provision a complete AWS application stack.
 - SLO and benchmark figures in the documentation are targets or local
   observations, not production guarantees.
+- NFC-e QR-only values do not contain store names or line items; those fields are
+  only enriched when the complete URL's public portal is reachable and its HTML
+  still matches the supported structure.

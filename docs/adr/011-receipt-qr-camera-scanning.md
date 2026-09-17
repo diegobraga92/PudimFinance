@@ -44,9 +44,15 @@ Use shared web capture flows in the receipt scanner:
 The `/api/receipts/scan` parser follows the official NFC-e QR payload shapes:
 online codes contain the access key, QR version, and tax environment, while
 offline-contingency codes additionally contain the emission day and invoice
-total. The emitter CNPJ and year/month are derived from the access key. QR codes
-do not contain the store name or line items, and online codes do not contain a
-receipt total or date, so those fields remain unavailable until the user fills
+  do not contain the store name or line items, and online codes do not contain a
+  receipt total or date. When the scanner provides the complete HTTPS QR URL, the
+  backend makes a best-effort request to the public NFC-e consultation page on a
+  `.gov.br` host and extracts the issuer, date, total, and line items from its
+  DANFE HTML. The portal is not required for a successful QR parse: timeouts,
+  changed markup, unavailable invoices, and QR-only values degrade to a review
+  draft with missing fields. The portal's `Valor total R$` is used as the receipt
+  total; discounts are returned for display but are not persisted separately.
+  QR-only parsing can be explicitly selected with `fetch_details: false`.
 them in during review.
 
 ## Consequences
@@ -61,6 +67,9 @@ them in during review.
   plumbing is required.
 - Picture selection and OCR preserve compatibility with unsupported browsers,
   denied permissions, damaged codes, and ordinary non-QR receipt photos.
+- Public portal enrichment fills the fields that the QR payload cannot carry,
+  while preserving a QR-only fallback and never blocking parsing on a portal
+  failure.
 
 ### Trade-offs
 
@@ -71,3 +80,5 @@ them in during review.
   scanner does not expose a torch button.
 - The `jsqr` decoder adds a client dependency, although it is lazy-loaded and
   therefore excluded from the initial application bundle.
+- Portal enrichment depends on state-government HTML that can change or be
+  unavailable; only HTTPS `.gov.br` URLs from complete QR values are fetched.

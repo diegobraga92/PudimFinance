@@ -22,6 +22,8 @@ export interface ReceiptDraft {
   date: string;
   total: string;
   items: EditableReceiptItem[];
+  /** QR-only scans could not obtain the public DANFE details automatically. */
+  detailsUnavailable: boolean;
   /** Where the data came from, stored with the receipt. */
   source: 'nfce' | 'ocr';
 }
@@ -79,11 +81,16 @@ export function useReceiptScanner() {
   const applyParsed = React.useCallback(
     (result: Record<string, unknown>, source: 'nfce' | 'ocr') => {
       const items = (result.items as Array<Record<string, unknown>> | undefined) ?? [];
+      const detailsUnavailable =
+        source === 'nfce' && result.details_source !== 'portal' && items.length === 0;
       setDraft({
         store_name: (result.store_name as string | undefined) ?? t('receipts.unknownStore'),
         cnpj: (result.cnpj as string | null | undefined) ?? null,
-        date: (result.date as string | undefined) ?? toIsoDate(new Date()),
+        date:
+          (result.date as string | undefined) ??
+          (detailsUnavailable ? '' : toIsoDate(new Date())),
         total: (result.total as string | undefined) ?? '0',
+        detailsUnavailable,
         source,
         items: items.map((item) => ({
           description: (item.description as string | undefined) ?? '',
@@ -309,6 +316,10 @@ export function useReceiptScanner() {
   );
   const save = React.useCallback(async () => {
     if (!draft) return false;
+    if (!draft.date.trim()) {
+      setError(t('receipts.needDate'));
+      return false;
+    }
     const items = draft.items.filter((item) => item.description.trim().length > 0);
     if (items.length === 0) {
       setError(t('receipts.needOneItem'));

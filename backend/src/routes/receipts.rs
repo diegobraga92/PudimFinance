@@ -13,13 +13,14 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::AssertSqlSafe;
-use tracing::error;
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::models::{
     ReceiptDetail, ReceiptItemDetail, ReceiptListResponse, ReceiptStats, ReceiptSummary,
     SaveReceiptBody, UpdateReceiptItemRequest,
 };
+use crate::nfce_portal;
 use crate::receipt_ocr;
 use crate::receipt_scanner;
 use crate::state::AppState;
@@ -29,6 +30,9 @@ use crate::state::AppState;
 pub struct ScanRequest {
     /// Raw QR code content (URL or `p=` payload).
     pub qr_data: String,
+    /// Whether to fetch public DANFE details when the QR contains a full URL.
+    /// Defaults to `true`; set to `false` for QR-only parsing.
+    pub fetch_details: Option<bool>,
 }
 
 /// Request payload for parsing raw OCR text from a receipt photo.
@@ -239,15 +243,68 @@ pub async fn scan(
         )
     })?;
 
+    let portal_details = if payload.fetch_details != Some(false) {
+        nfce_portal::consultation_url(&payload.qr_data).map(|url| async move {
+            match nfce_portal::fetch_danfe(&url).await {
+                Ok(details) => Some(details),
+                Err(error) => {
+                    warn!(error = %error, "NFC-e portal enrichment failed");
+                    None
+                }
+            }
+        })
+    } else {
+        None
+    };
+    let portal_details = match portal_details {
+        Some(future) => future.await,
+        None => None,
+    };
+
+    let store_name = portal_details
+        .as_ref()
+        .and_then(|details| details.store_name.clone())
+        .or(parsed.store_name);
+    let total = parsed
+        .total
+        .or_else(|| portal_details.as_ref().and_then(|details| details.total));
+    let date = parsed.date.or_else(|| {
+        portal_details
+            .as_ref()
+            .and_then(|details| details.date.clone())
+    });
+    let items = portal_details
+        .as_ref()
+        .map(|details| {
+            details
+                .items
+                .iter()
+                .map(|item| {
+                    json!({
+                        "description": item.description,
+                        "quantity": item.quantity.map(|quantity| quantity.to_string()),
+                        "unit_price": item.unit_price.map(|price| price.to_string()),
+                        "total_price": item.total_price.map(|price| price.to_string()),
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let discount = portal_details
+        .as_ref()
+        .and_then(|details| details.discount.map(|discount| discount.to_string()));
+
     Ok(Json(json!({
         "access_key": parsed.access_key,
-        "total": parsed.total.map(|total| total.to_string()),
-        "date": parsed.date,
+        "total": total.map(|total| total.to_string()),
+        "date": date,
         "cnpj": parsed.cnpj,
-        "store_name": parsed.store_name,
+        "store_name": store_name,
         "version": parsed.version,
         "environment": parsed.environment,
-        "items": [],
+        "discount": discount,
+        "details_source": portal_details.as_ref().map(|_| "portal"),
+        "items": items,
     })))
 }
 

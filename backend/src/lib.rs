@@ -26,6 +26,8 @@ pub mod metrics;
 pub mod middleware;
 /// Data models across all layers.
 pub mod models;
+/// Best-effort enrichment from public NFC-e consultation pages.
+pub mod nfce_portal;
 /// OpenAPI 3.1 spec generation via utoipa.
 pub mod openapi;
 /// Receipt text parsing for OCR-assisted scanning.

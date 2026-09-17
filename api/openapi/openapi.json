@@ -5770,6 +5770,13 @@
           "qr_data"
         ],
         "properties": {
+          "fetch_details": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether to fetch public DANFE details when the QR contains a full URL.\nDefaults to `true`; set to `false` for QR-only parsing."
+          },
           "qr_data": {
             "type": "string",
             "description": "Raw QR code content (URL or `p=` payload)."

@@ -2590,6 +2590,11 @@ export interface components {
         };
         /** @description Request payload for scanning a raw NFC-e QR code. */
         ScanRequest: {
+            /**
+             * @description Whether to fetch public DANFE details when the QR contains a full URL.
+             *     Defaults to `true`; set to `false` for QR-only parsing.
+             */
+            fetch_details?: boolean | null;
             /** @description Raw QR code content (URL or `p=` payload). */
             qr_data: string;
         };
