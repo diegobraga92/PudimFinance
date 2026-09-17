@@ -64,7 +64,7 @@ export function AccountDistributionCard({ accounts, loading, onSelect }: Props) 
   const hasData = slices.length > 0 && distributionTotal > 0;
 
   return (
-    <Card className="flex h-full flex-col border-border bg-surface shadow-card">
+    <Card className="flex h-full min-w-0 flex-col border-border bg-surface shadow-card">
       <CardHeader className="p-5 pb-3">
         <CardTitle className="text-lg font-semibold">{t('accounts.distribution.title')}</CardTitle>
       </CardHeader>

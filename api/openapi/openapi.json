@@ -2534,6 +2534,15 @@
             }
           },
           {
+            "name": "include_subcategories",
+            "in": "query",
+            "description": "Include descendants of category_id",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "category_id",
             "in": "query",
             "description": "Filter by category UUID",
@@ -6427,6 +6436,10 @@
             "type": "string",
             "format": "date",
             "description": "Filter by end date (inclusive, ISO `YYYY-MM-DD`)."
+          },
+          "include_subcategories": {
+            "type": "boolean",
+            "description": "Include the selected category's descendants in the category filter."
           },
           "order": {
             "type": [

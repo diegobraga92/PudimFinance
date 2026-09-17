@@ -162,6 +162,9 @@ pub struct TransactionListParams {
     pub page: u32,
     /// Filter by category UUID.
     pub category_id: Option<Uuid>,
+    /// Include the selected category's descendants in the category filter.
+    #[serde(default)]
+    pub include_subcategories: bool,
     /// Filter by `income` or `expense`.
     pub r#type: Option<String>,
     /// Filter by start date (inclusive, ISO `YYYY-MM-DD`).

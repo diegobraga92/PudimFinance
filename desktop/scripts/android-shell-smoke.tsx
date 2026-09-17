@@ -78,11 +78,11 @@ import {
   markCaptureImported,
   parseNotification,
 } from '../src/notifications/capture';
-import { filterAndSortLocalTransactions } from '../src/offline/filters';
+import { expandLocalCategoryIds, filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
 import { normalizeServerUrl } from '../src/lib/serverConfig';
 import { displayNameForGreeting } from '../src/features/dashboard/greeting';
-import { budgetsCategoriesLink, monthDateRange, transactionsLink } from '../src/lib/links';
+import { monthDateRange, transactionsLink } from '../src/lib/links';
 import { rowKeyboardProps } from '../src/lib/interactive';
 import { chartPointAtIndex, chartTooltipTriggerFor } from '../src/lib/chart-events';
 import {
@@ -229,6 +229,7 @@ for (const needle of [
   'Bank accounts',
   'Nubank',
   'max-md:w-full',
+  'grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,1fr)]', // phone-safe account grid
   'aria-label="Transfer"',
   'Total in accounts', // friendly summary labels
   'Card bills &amp; loans', // React escapes the `&`
@@ -297,6 +298,8 @@ const dashMonth = dashNow.getMonth() + 1;
 const dashDate = `${dashYear}-${String(dashMonth).padStart(2, '0')}-05`;
 const dashCategoryId = '33333333-3333-3333-3333-333333333333';
 const dashAccountId = '11111111-1111-1111-1111-111111111111';
+const dashCardAccountId = '22222222-2222-2222-2222-222222222222';
+const dashCardDueDate = `${dashYear}-${String(dashMonth).padStart(2, '0')}-22`;
 
 dashClient.setQueryData(['accounts'], [
   {
@@ -305,6 +308,17 @@ dashClient.setQueryData(['accounts'], [
     account_kind: 'bank',
     type: 'asset',
     balance: '5420.20',
+    created_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: dashCardAccountId,
+    name: 'Nubank Visa',
+    account_kind: 'card',
+    type: 'liability',
+    balance: '-1240.80',
+    closing_day: 15,
+    due_day: 22,
+    credit_limit: '5000.00',
     created_at: '2026-01-01T00:00:00Z',
   },
 ]);
@@ -339,9 +353,9 @@ dashClient.setQueryData(['transactions', 'recent', dashYear, dashMonth], {
       amount: '89.90',
       type: 'expense',
       category_id: dashCategoryId,
-      account_id: dashAccountId,
+      account_id: dashCardAccountId,
       date: dashDate,
-      card_due_date: null,
+      card_due_date: dashCardDueDate,
       installment_plan_id: null,
       notes: null,
       created_at: '2026-01-01T00:00:00Z',
@@ -382,6 +396,7 @@ const dashboardHtml = renderToStaticMarkup(
   </Providers>,
 );
 const dashboardNeedles = [
+  'Cash flow', // cash-flow card title remains after removing its redundant subtitle
   'Account/Card', // activity table gained an account/card column
   'Padaria breakfast', // seeded activity row
   'Spent / Limit', // budget card renders as a table
@@ -390,8 +405,17 @@ const dashboardNeedles = [
   'hidden md:block', // desktop tables remain gated to wider layouts
 ];
 const dashboardMissing = dashboardNeedles.filter((needle) => !dashboardHtml.includes(needle));
-if (dashboardMissing.length > 0) {
-  console.error(`FAIL: DashboardPage (with data) — missing ${JSON.stringify(dashboardMissing)}`);
+const dashboardUnexpected = ['Income, expenses and running net'].filter((needle) => dashboardHtml.includes(needle));
+const billDueOccurrences = (dashboardHtml.match(/bill due/g) ?? []).length;
+if (dashboardMissing.length > 0 || dashboardUnexpected.length > 0) {
+  console.error(
+    `FAIL: DashboardPage (with data) — missing ${JSON.stringify(dashboardMissing)}, unexpected ${JSON.stringify(dashboardUnexpected)}`,
+  );
+  failures += 1;
+} else if (billDueOccurrences !== 1) {
+  console.error(
+    `FAIL: DashboardPage (card bill due text) — expected one desktop occurrence, found ${billDueOccurrences}`,
+  );
   failures += 1;
 } else {
   console.log(`PASS: DashboardPage (with data) (${dashboardHtml.length} chars)`);
@@ -563,7 +587,7 @@ if (hasImportedCapture(persistedDedupKey)) {
 const localFilterRows = [
   {
     id: 'a', server_id: null, description: 'Later expense', amount: '20.00', type: 'expense' as const,
-    category_id: 'food', date: '2026-09-15', notes: null, installment_plan_id: null, account_id: 'bank',
+    category_id: 'child', date: '2026-09-15', notes: null, installment_plan_id: null, account_id: 'bank',
     synced: 0, updated_at: '2026-09-15T00:00:00Z',
   },
   {
@@ -576,11 +600,31 @@ const localFilterResult = filterAndSortLocalTransactions(localFilterRows, {
   type: 'expense', start_date: '2026-09-16', end_date: '2026-09-16',
 });
 const localIncomeResult = filterAndSortLocalTransactions(localFilterRows, { type: 'income' });
+const expandedCategoryIds = expandLocalCategoryIds([
+  {
+    id: 'parent', server_id: null, name: 'Parent', type: 'expense', parent_id: null,
+    icon: null, color: null, synced: 1, updated_at: '2026-09-01T00:00:00Z',
+  },
+  {
+    id: 'child', server_id: null, name: 'Child', type: 'expense', parent_id: 'parent',
+    icon: null, color: null, synced: 1, updated_at: '2026-09-01T00:00:00Z',
+  },
+  {
+    id: 'grandchild', server_id: null, name: 'Grandchild', type: 'expense', parent_id: 'child',
+    icon: null, color: null, synced: 1, updated_at: '2026-09-01T00:00:00Z',
+  },
+], 'parent');
+const localSubcategoryResult = filterAndSortLocalTransactions(localFilterRows, {
+  category_id: 'parent', category_ids: expandedCategoryIds,
+});
 if (
   localFilterResult.total === 0 &&
   localFilterResult.items.length === 0 &&
   localIncomeResult.total === 1 &&
-  localIncomeResult.items[0]?.description === 'Income'
+  localIncomeResult.items[0]?.description === 'Income' &&
+  expandedCategoryIds.length === 3 &&
+  localSubcategoryResult.total === 1 &&
+  localSubcategoryResult.items[0]?.description === 'Later expense'
 ) {
   console.log('PASS: offline transaction filters');
 } else {
@@ -852,9 +896,15 @@ const interactionChecks: [string, boolean][] = [
       '/transactions?category_id=food+%26+drink&type=expense&start_date=2026-09-01&end_date=2026-09-30',
   ],
   [
-    'budget links preserve period and category search',
-    budgetsCategoriesLink({ year: 2026, month: 9, categoryName: 'Home & bills' }) ===
-      '/budgets?year=2026&month=9&tab=categories&category=Home+%26+bills',
+    'budget links open filtered transactions including subcategories',
+    transactionsLink({
+      categoryId: 'home & bills',
+      type: 'expense',
+      startDate: '2026-09-01',
+      endDate: '2026-09-30',
+      includeSubcategories: true,
+    }) ===
+      '/transactions?category_id=home+%26+bills&type=expense&start_date=2026-09-01&end_date=2026-09-30&include_subcategories=true',
   ],
   [
     'month ranges include the calendar month end',

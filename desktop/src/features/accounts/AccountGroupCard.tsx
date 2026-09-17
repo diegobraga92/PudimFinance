@@ -45,7 +45,7 @@ export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete, onA
     accounts.length === 1 ? 'accounts.group.count_one' : 'accounts.group.count_other';
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-surface shadow-card">
+    <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-surface shadow-card">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}

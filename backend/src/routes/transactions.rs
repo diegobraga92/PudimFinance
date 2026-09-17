@@ -43,6 +43,7 @@ pub fn router() -> Router<AppState> {
     params(
         ("page_size" = Option<u32>, Query, description = "Page size (default 50, max 200)"),
         ("page" = Option<u32>, Query, description = "Page offset (default 0)"),
+        ("include_subcategories" = Option<bool>, Query, description = "Include descendants of category_id"),
         ("category_id" = Option<Uuid>, Query, description = "Filter by category UUID"),
         ("type" = Option<String>, Query, description = "Filter by 'income' or 'expense'"),
         ("start_date" = Option<String>, Query, description = "Filter by start date (inclusive)"),
@@ -99,8 +100,8 @@ pub async fn list_transactions(
         ));
     }
 
-    // Use the nullable bind pattern `$1::uuid IS NULL OR category_id = $1`
-    // allows a single static SQL query with optional filters.
+    // Use the nullable bind pattern `$1::uuid[] IS NULL OR category_id = ANY($1)`
+    // to allow a single static SQL query with optional exact or subtree filters.
     //
     // Date filters compare the *reporting* date
     // (`effective_transaction_date`), so the list matches the dashboard,
@@ -109,10 +110,29 @@ pub async fn list_transactions(
     // The extra `t.date` predicates are exact pre-filters (a reporting date is
     // never earlier than its transaction, nor more than a cycle later) that
     // keep the date index usable.
+    let category_ids = if let Some(category_id) = params.category_id {
+        if params.include_subcategories {
+            Some(
+                category_subtree_ids(&state.pg_pool, category_id)
+                    .await
+                    .map_err(|e| {
+                        error!("Failed to resolve category descendants: {}", e);
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(json!({ "error": "Failed to resolve category filter" })),
+                        )
+                    })?,
+            )
+        } else {
+            Some(vec![category_id])
+        }
+    } else {
+        None
+    };
     let dating = settings::card_expense_dating(&state.pg_pool).await;
     let total: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM transactions t
-         WHERE ($1::uuid IS NULL OR t.category_id = $1)
+         WHERE ($1::uuid[] IS NULL OR t.category_id = ANY($1))
            AND ($2::text IS NULL OR t.type = $2)
            AND ($3::date IS NULL OR t.date >= $3 - INTERVAL '3 months')
            AND ($4::date IS NULL OR t.date <= $4)
@@ -120,7 +140,7 @@ pub async fn list_transactions(
            AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6) >= $3)
            AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6) <= $4)",
     )
-    .bind(params.category_id)
+    .bind(&category_ids)
     .bind(&params.r#type)
     .bind(params.start_date)
     .bind(params.end_date)
@@ -155,7 +175,7 @@ pub async fn list_transactions(
          FROM transactions t
          LEFT JOIN categories c ON c.id = t.category_id
          LEFT JOIN accounts a ON a.id = t.account_id
-         WHERE ($1::uuid IS NULL OR t.category_id = $1)
+         WHERE ($1::uuid[] IS NULL OR t.category_id = ANY($1))
            AND ($2::text IS NULL OR t.type = $2)
            AND ($3::date IS NULL OR t.date >= $3 - INTERVAL '3 months')
            AND ($4::date IS NULL OR t.date <= $4)
@@ -166,7 +186,7 @@ pub async fn list_transactions(
          LIMIT $6 OFFSET $7"
     );
     let items: Vec<Transaction> = sqlx::query_as(AssertSqlSafe(query))
-        .bind(params.category_id)
+        .bind(&category_ids)
         .bind(&params.r#type)
         .bind(params.start_date)
         .bind(params.end_date)
@@ -190,6 +210,22 @@ pub async fn list_transactions(
         page: params.page,
         page_size,
     }))
+}
+
+/// Returns a category and all of its descendants for budget-aligned filtering.
+async fn category_subtree_ids(pool: &PgPool, category_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+    sqlx::query_scalar(
+        "WITH RECURSIVE category_tree AS (
+             SELECT id FROM categories WHERE id = $1
+             UNION
+             SELECT c.id
+             FROM categories c JOIN category_tree parent ON c.parent_id = parent.id
+         )
+         SELECT id FROM category_tree",
+    )
+    .bind(category_id)
+    .fetch_all(pool)
+    .await
 }
 
 /// Resolves the payment and posting accounts and their display names for a

@@ -70,6 +70,9 @@ export function TransactionsPage() {
   const [startDate, setStartDate] = React.useState(() => searchParams.get('start_date') ?? '');
   const [endDate, setEndDate] = React.useState(() => searchParams.get('end_date') ?? '');
   const [filterCategory, setFilterCategory] = React.useState(() => searchParams.get('category_id') ?? '');
+  const [includeSubcategories, setIncludeSubcategories] = React.useState(
+    () => searchParams.get('include_subcategories') === 'true',
+  );
   const [filterAccount, setFilterAccount] = React.useState(() => searchParams.get('account_id') ?? '');
   const [sort, setSort] = React.useState<TransactionFilters['sort']>('date');
   const [order, setOrder] = React.useState<TransactionFilters['order']>('desc');
@@ -92,6 +95,7 @@ export function TransactionsPage() {
     setStartDate(searchParams.get('start_date') ?? '');
     setEndDate(searchParams.get('end_date') ?? '');
     setFilterCategory(searchParams.get('category_id') ?? '');
+    setIncludeSubcategories(searchParams.get('include_subcategories') === 'true');
     setFilterAccount(searchParams.get('account_id') ?? '');
   }, [searchParams]);
 
@@ -118,6 +122,7 @@ export function TransactionsPage() {
         if (startDate) filters.start_date = startDate;
         if (endDate) filters.end_date = endDate;
         if (filterCategory) filters.category_id = filterCategory;
+        if (includeSubcategories && filterCategory) filters.include_subcategories = true;
         if (filterAccount) filters.account_id = filterAccount;
         filters.sort = sort;
         filters.order = order;
@@ -134,7 +139,7 @@ export function TransactionsPage() {
         setLoadingMore(false);
       }
     },
-    [t, filterType, startDate, endDate, filterCategory, filterAccount, sort, order],
+    [t, filterType, startDate, endDate, filterCategory, includeSubcategories, filterAccount, sort, order],
   );
 
   React.useEffect(() => {
@@ -293,12 +298,19 @@ export function TransactionsPage() {
     toast({ title: t('transactions.exported', { count: visible.length }), variant: 'success' });
   };
 
-  const hasFilters = filterType !== 'all' || !!startDate || !!endDate || !!filterCategory || !!filterAccount;
+  const hasFilters =
+    filterType !== 'all' ||
+    !!startDate ||
+    !!endDate ||
+    !!filterCategory ||
+    includeSubcategories ||
+    !!filterAccount;
   const clearFilters = () => {
     setFilterType('all');
     setStartDate('');
     setEndDate('');
     setFilterCategory('');
+    setIncludeSubcategories(false);
     setFilterAccount('');
   };
   const clearAll = () => {
@@ -422,7 +434,10 @@ export function TransactionsPage() {
                     aria-label={t('transactions.filters.category')}
                     className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] md:h-9 md:max-w-[12rem] md:w-auto"
                     value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
+                    onChange={(e) => {
+                      setFilterCategory(e.target.value);
+                      setIncludeSubcategories(false);
+                    }}
                   >
                     <option value="">{t('transactions.filters.allCategories')}</option>
                     {categories.map((c) => (
@@ -431,6 +446,11 @@ export function TransactionsPage() {
                       </option>
                     ))}
                   </select>
+                  {includeSubcategories && filterCategory && (
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                      {t('transactions.filters.includesSubcategories')}
+                    </span>
+                  )}
                   {(hasFilters || searching) && (
                     <Button variant="ghost" size="sm" className="max-md:hidden" onClick={clearAll}>
                       <Filter className="h-4 w-4" />

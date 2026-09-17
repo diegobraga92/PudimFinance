@@ -341,9 +341,9 @@ export function AccountsPage() {
             hasCreditLimits={totals.creditLimit > 0}
           />
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,1fr)]">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,1fr)]">
             <div className="flex min-w-0 flex-col gap-3 md:gap-4">
-              <Card className="shadow-card">
+              <Card className="min-w-0 shadow-card">
                 <div className="flex flex-wrap items-center gap-3 p-4 md:p-5">
                 <div className="-mx-1 flex gap-1 overflow-x-auto rounded-md bg-muted p-1 px-1 max-md:w-full md:flex-wrap">
                   {TABS.map(({ key, labelKey }) => {
@@ -407,7 +407,7 @@ export function AccountsPage() {
               )}
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-4">
               <AccountDistributionCard
                 accounts={balanceSheet}
                 loading={loading}

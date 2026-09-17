@@ -45,7 +45,7 @@ export function InvestmentsSummaryCard({ accounts, loading, onView }: Props) {
   }, [accounts]);
 
   return (
-    <Card className="border-border bg-surface shadow-card">
+    <Card className="min-w-0 border-border bg-surface shadow-card">
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 p-5 pb-3">
         <CardTitle className="text-base font-semibold">{t('accounts.investments.title')}</CardTitle>
         {!loading && rows.length > 0 && (

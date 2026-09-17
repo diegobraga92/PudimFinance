@@ -62,11 +62,8 @@ export function CashFlowCard({ data, loading, range, onRangeChange, onPointSelec
 
   return (
     <Card className="flex h-full flex-col border-border bg-surface shadow-card">
-      <CardHeader className="flex-row items-start justify-between gap-4 space-y-0 p-5 pb-3">
-        <div className="min-w-0">
-          <CardTitle className="text-lg font-semibold">{t('dashboard.cashFlow')}</CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.cashFlowSubtitle')}</p>
-        </div>
+      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0 p-5 pb-3">
+        <CardTitle className="min-w-0 text-lg font-semibold">{t('dashboard.cashFlow')}</CardTitle>
         <div className="flex shrink-0 gap-0.5 rounded-md bg-muted p-1">
           {([1, 3, 6, 12] as const).map((months) => (
             <button
@@ -130,14 +127,8 @@ export function CashFlowCard({ data, loading, range, onRangeChange, onPointSelec
                   tick={{ fontSize: 11, fill: 'rgb(var(--dim))' }}
                   tickLine={false}
                   axisLine={false}
-                  width={68}
+                  width={52}
                   tickFormatter={(value: number) => axisValue(value, intl)}
-                  label={{
-                    value: 'R$',
-                    angle: -90,
-                    position: 'insideLeft',
-                    style: { fontSize: 11, fill: 'rgb(var(--dim))' },
-                  }}
                 />
                 <YAxis
                   yAxisId="right"

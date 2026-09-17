@@ -17,7 +17,7 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/utils';
 import type { BudgetSummaryItem } from '@/lib/api';
 import { rowInteractiveClass, rowKeyboardProps, tapClass } from '@/lib/interactive';
-import { budgetsCategoriesLink } from '@/lib/links';
+import { monthDateRange, transactionsLink } from '@/lib/links';
 
 interface BudgetsCardProps {
   items: BudgetSummaryItem[];
@@ -48,6 +48,14 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
     .filter((item) => item.budget.category_id !== null && item.budget.category_id !== undefined)
     .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage))
     .slice(0, MAX_BUDGETS);
+  const { startDate, endDate } = monthDateRange(year, month);
+  const rowHref = (item: BudgetSummaryItem) => transactionsLink({
+    categoryId: item.budget.category_id ?? undefined,
+    type: 'expense',
+    startDate,
+    endDate,
+    includeSubcategories: true,
+  });
 
   return (
     <Card className="flex h-full min-w-0 flex-col border-border bg-surface shadow-card">
@@ -86,11 +94,10 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
               {rows.map((item) => {
                 const pct = Math.round(parseFloat(item.percentage));
                 const over = pct >= 100;
-                const categoryName = item.budget.category_name ?? t('common.uncategorised');
                 return (
                   <li key={item.budget.id} className="py-3 first:pt-0 last:pb-0">
                     <Link
-                      to={budgetsCategoriesLink({ year, month, categoryName })}
+                      to={rowHref(item)}
                       className={cn('block rounded-sm', rowInteractiveClass, tapClass)}
                     >
                     <div className="flex min-w-0 items-center justify-between gap-3">
@@ -151,12 +158,11 @@ export function BudgetsCard({ items, loading, month, year, viewAllLink }: Budget
                   {rows.map((item) => {
                     const pct = Math.round(parseFloat(item.percentage));
                     const over = pct >= 100;
-                    const categoryName = item.budget.category_name ?? t('common.uncategorised');
                     return (
                       <TableRow
                         key={item.budget.id}
-                        onClick={() => navigate(budgetsCategoriesLink({ year, month, categoryName }))}
-                        {...rowKeyboardProps(() => navigate(budgetsCategoriesLink({ year, month, categoryName })))}
+                        onClick={() => navigate(rowHref(item))}
+                        {...rowKeyboardProps(() => navigate(rowHref(item)))}
                         className={cn(rowInteractiveClass, tapClass)}
                       >
                         <TableCell className="py-3">

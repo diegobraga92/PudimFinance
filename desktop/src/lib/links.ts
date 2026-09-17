@@ -4,6 +4,7 @@ export interface TransactionLinkOptions {
   startDate?: string;
   endDate?: string;
   accountId?: string;
+  includeSubcategories?: boolean;
 }
 
 function withParams(path: string, entries: Array<[string, string | undefined]>): string {
@@ -22,6 +23,7 @@ export function transactionsLink(options: TransactionLinkOptions = {}): string {
     ['start_date', options.startDate],
     ['end_date', options.endDate],
     ['account_id', options.accountId],
+    ['include_subcategories', options.includeSubcategories ? 'true' : undefined],
   ]);
 }
 

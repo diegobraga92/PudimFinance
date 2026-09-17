@@ -2,18 +2,21 @@ import { useNavigate } from 'react-router-dom';
 import { useI18n } from '@/app/i18n';
 import { CategoryDonut } from '@/components/CategoryDonut';
 import type { CategorySummary } from '@/lib/api';
-import { budgetsCategoriesLink } from '@/lib/links';
+import { monthDateRange, transactionsLink } from '@/lib/links';
 
 interface Props {
   items: CategorySummary[];
   total: number;
   loading: boolean;
+  year: number;
+  month: number;
 }
 
 /** Budgets sidebar: how this month's spending is distributed. */
-export function BudgetOverviewCard({ items, total, loading }: Props) {
+export function BudgetOverviewCard({ items, total, loading, year, month }: Props) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { startDate, endDate } = monthDateRange(year, month);
 
   return (
     <CategoryDonut
@@ -32,7 +35,14 @@ export function BudgetOverviewCard({ items, total, loading }: Props) {
       emptyHint={t('budgets.overview.emptyHint')}
       onSelect={(key) => {
         const item = items.find((candidate) => (candidate.category_id ?? 'uncategorised') === key);
-        if (item?.category_name) navigate(budgetsCategoriesLink({ categoryName: item.category_name }));
+        if (item?.category_id) {
+          navigate(transactionsLink({
+            categoryId: item.category_id,
+            type: 'expense',
+            startDate,
+            endDate,
+          }));
+        }
       }}
     />
   );

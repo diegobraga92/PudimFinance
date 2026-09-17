@@ -2927,6 +2927,8 @@ export interface components {
              * @description Filter by end date (inclusive, ISO `YYYY-MM-DD`).
              */
             end_date: string;
+            /** @description Include the selected category's descendants in the category filter. */
+            include_subcategories?: boolean;
             /** @description Sort direction (`asc` or `desc`). */
             order?: string | null;
             /**
@@ -5152,6 +5154,8 @@ export interface operations {
                 page_size?: number;
                 /** @description Page offset (default 0) */
                 page?: number;
+                /** @description Include descendants of category_id */
+                include_subcategories?: boolean;
                 /** @description Filter by category UUID */
                 category_id?: string;
                 /** @description Filter by 'income' or 'expense' */

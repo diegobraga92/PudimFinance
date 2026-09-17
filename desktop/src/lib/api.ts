@@ -2,7 +2,7 @@ import type { components } from './api-types';
 import { request, ApiError, isNetworkError } from './request';
 import { isOnline, markServerUnavailable, uuid } from '@/offline/net';
 import { queueLocalMutation } from '@/offline/sync-engine';
-import { filterAndSortLocalTransactions } from '@/offline/filters';
+import { expandLocalCategoryIds, filterAndSortLocalTransactions } from '@/offline/filters';
 import { notifyTransactionsChanged } from '@/lib/transaction-events';
 import {
   deleteLocalAccount,
@@ -373,6 +373,7 @@ export interface TransactionFilters {
   page?: number;
   page_size?: number;
   category_id?: string;
+  include_subcategories?: boolean;
   type?: string;
   start_date?: string;
   end_date?: string;
@@ -387,7 +388,16 @@ export async function fetchTransactions(
   // Offline, serve the local mirror (sorted newest-first by the store).
   if (!(await isOnline())) {
     const items = await getLocalTransactions();
-    const local = filterAndSortLocalTransactions(items, params);
+    const categoryId = params?.category_id;
+    const localCategories = params?.include_subcategories && categoryId
+      ? await getLocalCategories()
+      : [];
+    const local = filterAndSortLocalTransactions(items, {
+      ...params,
+      category_ids: localCategories.length > 0
+        ? expandLocalCategoryIds(localCategories, categoryId ?? '')
+        : undefined,
+    });
     const mapped = local.items.map(localTxToTransaction);
     const start = params?.page ?? 0;
     const pageSize = Math.min(200, Math.max(1, params?.page_size ?? 50));

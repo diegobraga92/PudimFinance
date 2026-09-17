@@ -46,7 +46,7 @@ function RecentTransactionRow({
   account?: AccountWithBalance;
   onSelect: () => void;
 }) {
-  const { t, formatMoney, formatDate } = useI18n();
+  const { formatMoney, formatDate } = useI18n();
   const isIncome = transaction.type === 'income';
 
   return (
@@ -83,11 +83,6 @@ function RecentTransactionRow({
             )}
             <span className="shrink-0">{formatDate(transaction.date)}</span>
           </span>
-          {transaction.card_due_date && transaction.card_due_date !== transaction.date && (
-            <span className="block truncate text-[11px] text-dim">
-              {t('transactions.billDue', { date: formatDate(transaction.card_due_date) })}
-            </span>
-          )}
         </span>
 
         <span

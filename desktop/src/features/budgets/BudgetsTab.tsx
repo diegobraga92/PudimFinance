@@ -282,6 +282,8 @@ export function BudgetsTab({
             items={summaryQuery.data?.by_category ?? []}
             total={Number.parseFloat(summaryQuery.data?.expense_total ?? '0') || 0}
             loading={summaryQuery.isLoading}
+            year={year}
+            month={month}
           />
           <BudgetAlertsCard
             alerts={alerts}
