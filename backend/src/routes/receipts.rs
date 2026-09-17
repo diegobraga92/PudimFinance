@@ -241,20 +241,13 @@ pub async fn scan(
 
     Ok(Json(json!({
         "access_key": parsed.access_key,
-        "total": parsed.total.to_string(),
-        "icms": parsed.icms.to_string(),
+        "total": parsed.total.map(|total| total.to_string()),
         "date": parsed.date,
         "cnpj": parsed.cnpj,
         "store_name": parsed.store_name,
         "version": parsed.version,
-        "items": parsed.items.iter().map(|i| {
-            json!({
-                "description": i.description,
-                "quantity": i.quantity.map(|q| q.to_string()),
-                "unit_price": i.unit_price.map(|p| p.to_string()),
-                "total_price": i.total_price.map(|p| p.to_string()),
-            })
-        }).collect::<Vec<_>>(),
+        "environment": parsed.environment,
+        "items": [],
     })))
 }
 

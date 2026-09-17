@@ -37,7 +37,7 @@ function setCameraEnvironment(isSecureContext: boolean, available: boolean): voi
 }
 
 const qrValue =
-  'https://www.fazenda.gov.br/nfce/qrcode?v=2&p=35240912345678000199550010000000011000000010|2|0.00|42.90|2024-09-15|12345678000199|Market';
+  'https://www.nfce.fazenda.sp.gov.br/qrcode?p=35260901735029000265650010000183261099751411%7C3%7C1';
 
 setCameraEnvironment(true, true);
 check('secure camera environment is supported', cameraScanSupported());

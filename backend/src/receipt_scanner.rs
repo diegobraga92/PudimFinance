@@ -1,58 +1,46 @@
 //! NFC-e QR code parsing (Brazilian electronic invoice).
 //!
-//! NFC-e receipts encode their data in the QR code as a URL with a URL-encoded,
-//! pipe-delimited `p` parameter. This module parses that payload into a
-//! structured receipt, with no OCR needed.
+//! NFC-e receipts encode their data in a URL with a URL-encoded `p` parameter.
+//! The payload shape depends on the QR Code version and on whether the invoice
+//! was issued online or in offline contingency mode:
+//!
+//! ```text
+//! v1/v2 online : <access_key>|<version>|<tpAmb>|<cscId>|<hash>
+//! v1/v2 offline: <access_key>|<version>|<tpAmb>|<day>|<total>|<digVal>|<cscId>|<hash>
+//! v3 online    : <access_key>|3|<tpAmb>
+//! v3 offline   : <access_key>|3|<tpAmb>|<day>|<total>|<tp_idDest>|<cDest>|<signature>
+//! ```
+//!
+//! The access key contains the emitter CNPJ and the emission year/month. The
+//! QR code does not contain line items, store name, or a total/date for online
+//! invoices, so those values are only returned when an offline payload carries
+//! them explicitly.
 
 use anyhow::{anyhow, Result};
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use std::collections::HashMap;
-
-/// A single line item parsed from an NFC-e QR code (best-effort).
-///
-/// The official NFC-e spec does not guarantee item data in the QR code. It is
-/// a store/state-specific extension. When present, item fields follow the
-/// header as repeating groups.
-#[derive(Debug, Clone, Deserialize)]
-pub struct NfceItem {
-    /// Item/product description.
-    pub description: String,
-    /// Quantity purchased.
-    pub quantity: Option<Decimal>,
-    /// Unit price.
-    pub unit_price: Option<Decimal>,
-    /// Total price for this line.
-    pub total_price: Option<Decimal>,
-}
 
 /// A parsed NFC-e QR payload.
 #[derive(Debug, Clone, Deserialize)]
 pub struct NfcePayload {
     /// Access key (44 digits).
     pub access_key: String,
-    /// Total purchase amount.
-    pub total: Decimal,
-    /// Tax (ICMS) amount.
-    pub icms: Decimal,
-    /// Purchase date (YYYY-MM-DD or raw).
-    pub date: String,
-    /// Store cnpj if present.
-    pub cnpj: Option<String>,
-    /// Store corporate name if present.
-    pub store_name: Option<String>,
-    /// 2-character version field.
+    /// QR Code version, such as `1`, `2`, or `3`.
     pub version: String,
-    /// Line items, if the QR code embedded any (may be empty).
-    pub items: Vec<NfceItem>,
+    /// Tax environment (`1` for production or `2` for homologation).
+    pub environment: Option<String>,
+    /// Invoice total, present in offline-contingency payloads.
+    pub total: Option<Decimal>,
+    /// Emission date (`YYYY-MM-DD`), when it can be derived from an offline payload.
+    pub date: Option<String>,
+    /// Emitter CNPJ derived from the access key.
+    pub cnpj: Option<String>,
+    /// Store corporate name is not included in the QR payload.
+    pub store_name: Option<String>,
 }
 
 /// Parses a raw NFC-e QR code string into structured data.
-///
-/// The QR code is a URL such as
-/// `http://www.fazenda.gov.br/nfce/qrcode?v=2&p=...`,
-/// where `p` is URL-encoded and contains pipe-delimited fields
-/// `[accessKey]|[version]|[icmsValue]|[totalValue]|[date]|[cnpj]|[store]`.
 pub fn parse_qr(qr: &str) -> Result<NfcePayload> {
     // Parse the URL query string (works even if it's not a full URL).
     let raw = qr.trim();
@@ -61,131 +49,97 @@ pub fn parse_qr(qr: &str) -> Result<NfcePayload> {
         None => raw,
     };
 
-    let params: HashMap<String, String> = query_part
+    let p = query_part
         .split('&')
-        .filter_map(|pair| {
-            let mut parts = pair.splitn(2, '=');
-            let k = parts.next()?.to_string();
-            let v = parts
-                .next()
-                .unwrap_or("")
-                .replace("%3A", ":")
-                .replace("%7C", "|")
-                .replace("%20", " ");
-            Some((k, v))
+        .find_map(|pair| {
+            let (key, value) = pair.split_once('=')?;
+            (key.trim() == "p").then_some(value)
         })
-        .collect();
-
-    let p = params
-        .get("p")
+        .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| anyhow!("NFC-e QR payload missing 'p' parameter"))?;
 
-    // The `p` value is URL-encoded, so decode common characters.
+    // The `p` value is URL-encoded. Do not translate `+` to a space: v3
+    // offline signatures are base64 and may legitimately contain `+`.
     let decoded = url_decode(p);
-    let fields: Vec<&str> = decoded.split('|').collect();
+    let fields: Vec<&str> = decoded.split('|').map(str::trim).collect();
 
-    if fields.len() < 4 {
-        return Err(anyhow!(
-            "Invalid NFC-e payload: expected at least 4 pipe-separated fields, got {}",
-            fields.len()
-        ));
-    }
+    let access_key = fields
+        .first()
+        .copied()
+        .filter(|key| key.len() == 44 && key.bytes().all(|byte| byte.is_ascii_digit()))
+        .ok_or_else(|| {
+            anyhow!("Invalid NFC-e payload: expected a 44-digit access key as the first field")
+        })?;
 
-    let access_key = fields[0].to_string();
     let version = fields
         .get(1)
-        .cloned()
-        .unwrap_or("")
-        .to_string()
-        .chars()
-        .filter(|c| c.is_ascii_digit())
-        .take(2)
-        .collect::<String>();
-
-    // ICMS is field[2] (may be decimal).
-    let icms = fields
-        .get(2)
-        .and_then(|s| Decimal::from_str_exact(s).ok())
+        .map(|field| {
+            field
+                .chars()
+                .filter(|character| character.is_ascii_digit())
+                .take(2)
+                .collect::<String>()
+        })
         .unwrap_or_default();
 
-    // Total is field[3].
-    let total = fields
-        .get(3)
-        .and_then(|s| Decimal::from_str_exact(s).ok())
-        .ok_or_else(|| anyhow!("Invalid NFC-e total value"))?;
+    let environment = fields
+        .get(2)
+        .filter(|environment| matches!(**environment, "1" | "2"))
+        .map(|environment| (*environment).to_string());
 
-    // Optional fields are date[4], cnpj[5], and store[6]
-    let date = fields.get(4).cloned().unwrap_or_default().to_string();
-    let cnpj = fields
-        .get(5)
-        .map(|s| s.to_string())
-        .filter(|s| !s.is_empty());
-    let store_name = fields
-        .get(6)
-        .map(|s| s.to_string())
-        .filter(|s| !s.is_empty());
-
-    // Best-effort item extraction from any fields beyond the standard header.
-    // Two supported shapes follow.
-    //   1. A leading item count followed by N groups of 4,
-    //        [count, desc1, qty1, unit1, total1, desc2, qty2, ...]
-    //   2. Plain repeating groups of 4 with no count,
-    //        [desc1, qty1, unit1, total1, desc2, qty2, ...]
-    let items = parse_items(&fields[7.min(fields.len())..]);
+    let (total, date) = parse_offline_fields(access_key, &fields);
 
     Ok(NfcePayload {
-        access_key,
-        total,
-        icms,
-        date,
-        cnpj,
-        store_name,
+        access_key: access_key.to_string(),
         version,
-        items,
+        environment,
+        total,
+        date,
+        cnpj: Some(format_cnpj(&access_key[6..20])),
+        store_name: None,
     })
 }
 
-/// Parses item groups from the fields that follow the standard NFC-e header.
-fn parse_items(rest: &[&str]) -> Vec<NfceItem> {
-    let rest: Vec<&str> = rest
-        .iter()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .collect();
-    if rest.is_empty() {
-        return Vec::new();
+/// Returns total/date only for a valid offline-contingency payload.
+fn parse_offline_fields(access_key: &str, fields: &[&str]) -> (Option<Decimal>, Option<String>) {
+    // tpEmis is the 35th digit of the access key (zero-based index 34). The
+    // offline QR layouts carry their extra fields only when it is `9`.
+    if access_key.as_bytes().get(34) != Some(&b'9') || fields.len() < 8 {
+        return (None, None);
     }
 
-    // Shape 1, an optional leading item count.
-    let (start, count_hint) = match rest.first().and_then(|s| s.parse::<usize>().ok()) {
-        Some(n) if n > 0 && rest.len() == 1 + n * 4 => (1usize, Some(n)),
-        Some(n) if n > 0 && rest.len() > 1 + n * 4 => (1usize, Some(n)),
-        _ => (0usize, None),
-    };
+    let day = fields
+        .get(3)
+        .and_then(|field| field.parse::<u32>().ok())
+        .filter(|day| (1..=31).contains(day));
+    let total = fields
+        .get(4)
+        .and_then(|field| Decimal::from_str_exact(field).ok());
 
-    let mut items = Vec::new();
-    let groups: &[[&str; 4]] = if let Some(n) = count_hint {
-        rest[start..start + n * 4].as_chunks::<4>().0
-    } else if rest.len().is_multiple_of(4) {
-        rest.as_chunks::<4>().0
-    } else {
-        return Vec::new();
-    };
-
-    for group in groups {
-        let description = group[0].to_string();
-        if description.is_empty() {
-            continue;
+    let date = match (day, total.is_some()) {
+        (Some(day), true) => {
+            let year = access_key[2..4].parse::<i32>().ok().map(|year| 2000 + year);
+            let month = access_key[4..6].parse::<u32>().ok();
+            year.zip(month)
+                .and_then(|(year, month)| NaiveDate::from_ymd_opt(year, month, day))
+                .map(|date| date.format("%Y-%m-%d").to_string())
         }
-        items.push(NfceItem {
-            description,
-            quantity: group.get(1).and_then(|s| Decimal::from_str_exact(s).ok()),
-            unit_price: group.get(2).and_then(|s| Decimal::from_str_exact(s).ok()),
-            total_price: group.get(3).and_then(|s| Decimal::from_str_exact(s).ok()),
-        });
-    }
+        _ => None,
+    };
 
-    items
+    (total, date)
+}
+
+/// Formats the 14-digit CNPJ stored at positions 7–20 of the access key.
+fn format_cnpj(digits: &str) -> String {
+    format!(
+        "{}.{}.{}/{}-{}",
+        &digits[0..2],
+        &digits[2..5],
+        &digits[5..8],
+        &digits[8..12],
+        &digits[12..14]
+    )
 }
 
 /// Minimal URL decoder for `%XX` sequences used in NFC-e QR values.
@@ -195,9 +149,8 @@ fn url_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            let hex = &s[i + 1..i + 3];
-            if let Ok(byte) = u8::from_str_radix(hex, 16) {
-                out.push(byte);
+            if let (Some(high), Some(low)) = (hex_digit(bytes[i + 1]), hex_digit(bytes[i + 2])) {
+                out.push((high << 4) | low);
                 i += 3;
                 continue;
             }
@@ -206,4 +159,132 @@ fn url_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).to_string()
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_qr;
+    use rust_decimal::Decimal;
+
+    const ONLINE_KEY: &str = "35260901735029000265650010000183261099751411";
+    const OFFLINE_KEY: &str = "35240618089420122026650010000000099123456780";
+
+    #[test]
+    fn parses_real_v3_online_payload_with_three_fields() {
+        let qr = format!("https://www.nfce.fazenda.sp.gov.br/qrcode?p={ONLINE_KEY}|3|1");
+        let parsed = parse_qr(&qr).expect("valid NFC-e QR payload");
+
+        assert_eq!(parsed.access_key, ONLINE_KEY);
+        assert_eq!(parsed.version, "3");
+        assert_eq!(parsed.environment.as_deref(), Some("1"));
+        assert_eq!(parsed.cnpj.as_deref(), Some("01.735.029/0002-65"));
+        assert_eq!(parsed.total, None);
+        assert_eq!(parsed.date, None);
+        assert_eq!(parsed.store_name, None);
+    }
+
+    #[test]
+    fn parses_percent_encoded_pipe_separators() {
+        let qr = format!("https://www.nfce.fazenda.sp.gov.br/qrcode?p={ONLINE_KEY}%7C3%7C1");
+        let parsed = parse_qr(&qr).expect("valid NFC-e QR payload");
+
+        assert_eq!(parsed.version, "3");
+        assert_eq!(parsed.environment.as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn accepts_v2_online_payload_without_treating_csc_fields_as_receipt_data() {
+        let qr = format!("https://example.test/qrcode?p={ONLINE_KEY}|2|2|12345|HASH");
+        let parsed = parse_qr(&qr).expect("valid NFC-e QR payload");
+
+        assert_eq!(parsed.version, "2");
+        assert_eq!(parsed.environment.as_deref(), Some("2"));
+        assert_eq!(parsed.total, None);
+        assert_eq!(parsed.date, None);
+    }
+
+    #[test]
+    fn does_not_parse_extra_online_fields_as_total_or_date() {
+        let qr = format!(
+            "https://example.test/qrcode?p={ONLINE_KEY}|3|1|15|42.90|1|12345678901|signature"
+        );
+        let parsed = parse_qr(&qr).expect("valid online NFC-e QR payload");
+
+        assert_eq!(parsed.total, None);
+        assert_eq!(parsed.date, None);
+    }
+
+    #[test]
+    fn accepts_short_v2_payloads_instead_of_requiring_four_fields() {
+        let qr = format!("?p={ONLINE_KEY}|2|1|HASH");
+        let parsed = parse_qr(&qr).expect("valid NFC-e QR payload");
+
+        assert_eq!(parsed.access_key, ONLINE_KEY);
+        assert_eq!(parsed.version, "2");
+        assert_eq!(parsed.total, None);
+        assert_eq!(parsed.date, None);
+    }
+
+    #[test]
+    fn parses_v2_offline_total_and_date() {
+        let qr =
+            format!("https://example.test/qrcode?p={OFFLINE_KEY}|2|1|15|42.90|deadbeef|12345|HASH");
+        let parsed = parse_qr(&qr).expect("valid NFC-e QR payload");
+
+        assert_eq!(parsed.version, "2");
+        assert_eq!(parsed.total, Some(Decimal::new(4290, 2)));
+        assert_eq!(parsed.date.as_deref(), Some("2024-06-15"));
+    }
+
+    #[test]
+    fn parses_v3_offline_payload_without_corrupting_base64_signature() {
+        let qr = format!("https://example.test/qrcode?p={OFFLINE_KEY}|3|2|15|42.90||cDest|abc+/==");
+        let parsed = parse_qr(&qr).expect("valid NFC-e QR payload");
+
+        assert_eq!(parsed.version, "3");
+        assert_eq!(parsed.environment.as_deref(), Some("2"));
+        assert_eq!(parsed.total, Some(Decimal::new(4290, 2)));
+        assert_eq!(parsed.date.as_deref(), Some("2024-06-15"));
+    }
+
+    #[test]
+    fn accepts_bare_query_strings_and_rejects_missing_or_invalid_keys() {
+        assert!(parse_qr(&format!("p={ONLINE_KEY}|3|1")).is_ok());
+        assert!(parse_qr("https://example.test/qrcode?v=3").is_err());
+        assert!(parse_qr("https://example.test/qrcode?p=123").is_err());
+        assert!(parse_qr(
+            "https://example.test/qrcode?p=3526090173502900026565001000018326109975141A|3|1"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn invalid_offline_date_does_not_create_a_date() {
+        let qr =
+            format!("https://example.test/qrcode?p={OFFLINE_KEY}|3|1|31|42.90||cDest|signature");
+        let parsed = parse_qr(&qr).expect("payload key and shape are valid");
+
+        // June has no 31st day. The amount is still a valid explicit offline
+        // field, but the date must not be fabricated.
+        assert_eq!(parsed.total, Some(Decimal::new(4290, 2)));
+        assert_eq!(parsed.date, None);
+    }
+
+    #[test]
+    fn invalid_percent_sequences_do_not_panic() {
+        let qr = format!("https://example.test/qrcode?p={ONLINE_KEY}|3|1|%€|%zz");
+        let parsed = parse_qr(&qr).expect("invalid percent sequences should be ignored");
+
+        assert_eq!(parsed.version, "3");
+        assert_eq!(parsed.environment.as_deref(), Some("1"));
+    }
 }

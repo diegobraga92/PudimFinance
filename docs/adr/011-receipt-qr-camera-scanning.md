@@ -41,6 +41,14 @@ Use shared web capture flows in the receipt scanner:
 - Header and overview shortcuts choose the camera-first path when available;
   unsupported contexts open the corresponding picture picker instead.
 
+The `/api/receipts/scan` parser follows the official NFC-e QR payload shapes:
+online codes contain the access key, QR version, and tax environment, while
+offline-contingency codes additionally contain the emission day and invoice
+total. The emitter CNPJ and year/month are derived from the access key. QR codes
+do not contain the store name or line items, and online codes do not contain a
+receipt total or date, so those fields remain unavailable until the user fills
+them in during review.
+
 ## Consequences
 
 ### Positive
