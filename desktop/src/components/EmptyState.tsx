@@ -12,11 +12,7 @@ interface EmptyStateProps {
   className?: string;
 }
 
-/**
- * Dashed-border empty state: a circular icon badge, a short title/description
- * and an optional call to action. Shared by the dashboard and the transactions
- * list so "nothing here yet" always looks intentional.
- */
+/** Empty state with an optional action. */
 export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
   return (
     <div

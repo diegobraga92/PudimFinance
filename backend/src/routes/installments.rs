@@ -1,7 +1,4 @@
-//! Installment plan (Parcela) endpoints.
-//!
-//! Splits a purchase into N monthly payments. Transactions are created
-//! lazily via the generate endpoint (or per-installment via pay).
+//! Installment plans that split a purchase into monthly payments.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -20,7 +17,7 @@ use crate::models::{
 };
 use crate::state::AppState;
 
-/// Returns a sub-router with all installment routes mounted under `/api/installments`.
+/// Routes for installment operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(

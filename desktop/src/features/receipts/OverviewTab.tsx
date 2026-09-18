@@ -94,11 +94,7 @@ function SummaryCard({
 }
 
 
-/**
- * Overview: the headline numbers, the scanner, price tracking, the latest
- * receipts and where the money was spent. Everything here is an aggregate the
- * backend computes; no screen lists raw receipts just to count them.
- */
+/** Receipt overview: aggregate statistics and recent activity. */
 export function OverviewTab({
   scanner,
   onOpenScan,

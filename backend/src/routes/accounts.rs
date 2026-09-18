@@ -1,7 +1,4 @@
-//! Account CRUD endpoints.
-//!
-//! Manages the chart of accounts. Balances are computed on the fly from the
-//! immutable `ledger_entries` table.
+//! Chart-of-accounts endpoints.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -20,7 +17,7 @@ use crate::models::{
 use crate::state::AppState;
 use rust_decimal::Decimal;
 
-/// Returns a sub-router with all account routes mounted under `/api/accounts`.
+/// Routes for chart-of-accounts operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/accounts", get(list_accounts).post(create_account))
@@ -31,7 +28,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/accounts/{id}/adjust", post(adjust_account))
 }
 
-/// Lists all accounts with their computed balances.
+/// Lists accounts with computed balances.
 #[utoipa::path(
     get,
     path = "/api/accounts",
@@ -74,7 +71,7 @@ pub async fn list_accounts(
     Ok(Json(accounts))
 }
 
-/// Fetches a single account with its computed balance.
+/// Fetches an account with its computed balance.
 #[utoipa::path(
     get,
     path = "/api/accounts/{id}",
@@ -156,9 +153,7 @@ async fn validate_parent(
     Ok(())
 }
 
-/// Validates card-specific fields (`closing_day`, `due_day`, `credit_limit`).
-///
-/// These are only meaningful for `liability` (credit card) accounts.
+/// Validates credit-card fields for liability accounts.
 fn validate_card_fields(
     ttype: &str,
     closing_day: Option<i16>,
@@ -196,9 +191,7 @@ fn validate_card_fields(
     Ok(())
 }
 
-/// Resolves the user-facing kind and accounting type for an account payload.
-/// The kind is validated first. When present, the accounting type is derived
-/// from it (the explicitly provided type is kept only for `other`).
+/// Resolves and validates an account kind and accounting type.
 fn resolve_kind_and_type(
     kind: Option<&str>,
     ttype: &str,
@@ -226,10 +219,7 @@ fn resolve_kind_and_type(
     Ok((kind, ttype))
 }
 
-/// Creates a new account.
-///
-/// Returns `400` if the payload is invalid (missing name, invalid type,
-/// non-existent parent).
+/// Creates an account.
 #[utoipa::path(
     post,
     path = "/api/accounts",
@@ -338,9 +328,7 @@ pub async fn create_account(
     Ok((StatusCode::CREATED, Json(account)))
 }
 
-/// Updates an existing account.
-///
-/// Returns `404` if the account does not exist, `400` for invalid payloads.
+/// Updates an account.
 #[utoipa::path(
     put,
     path = "/api/accounts/{id}",
@@ -578,9 +566,6 @@ async fn post_balance_adjustment_in_tx(
 }
 
 /// Deletes an account.
-///
-/// Returns `409` if ledger entries or sub-accounts reference it,
-/// `404` if the account does not exist.
 #[utoipa::path(
     delete,
     path = "/api/accounts/{id}",

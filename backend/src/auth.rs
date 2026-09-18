@@ -82,7 +82,7 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
         .is_ok())
 }
 
-/// Seconds until the claim expires (reserved for expiry warnings, currently unused).
+/// Returns the non-negative seconds remaining before expiry.
 #[allow(dead_code)]
 pub fn claims_remaining_secs(claims: &Claims) -> i64 {
     let exp = claims.exp as i64;

@@ -4,13 +4,7 @@ import { useI18n } from '@/app/i18n';
 import { MOBILE_TABS } from '@/app/navigation';
 import { cn } from '@/lib/utils';
 
-/**
- * Bottom navigation for phone-sized screens.
- *
- * Five destinations only (Home, Transactions, Accounts, Budgets, More); it sits
- * above the Android navigation bar via the safe-area inset, and the active tab
- * gets a filled pill so the current screen reads at a glance.
- */
+/** Bottom navigation for phone-sized screens. */
 export function MobileTabBar() {
   const { t } = useI18n();
 

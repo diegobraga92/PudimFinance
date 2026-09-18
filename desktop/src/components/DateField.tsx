@@ -28,15 +28,7 @@ interface DateFieldProps {
   disabled?: boolean;
 }
 
-/**
- * Date input that never opens the WebView's native picker.
- *
- * Native `<input type="date">` popups cannot be dismissed by clicking away (and
- * swallow typing) inside a modal on some WebViews — notably WebKitGTK, which
- * Tauri uses on Linux. This field keeps a plain, typeable input and renders its
- * own calendar, so Enter commits, clicking outside closes the calendar, and
- * Escape closes only the calendar instead of the whole dialog.
- */
+/** Date input with a custom calendar to avoid WebView native-picker behavior. */
 export function DateField({
   id,
   value,
@@ -64,13 +56,11 @@ export function DateField({
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Follow the external value (form reset, "today" shortcut, edit target).
   React.useEffect(() => {
     setText(displayDate(parseIsoDate(value), intl));
     setInvalid(false);
   }, [value, intl]);
 
-  // Clicking anywhere outside the field closes the calendar.
   React.useEffect(() => {
     if (!open) return;
     const handlePointerDown = (event: PointerEvent) => {
@@ -80,9 +70,7 @@ export function DateField({
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [open]);
 
-  // Escape closes only the calendar, not the surrounding dialog. Radix listens
-  // for Escape on `document` in the capture phase, so handling it on `window`
-  // (one step higher) and marking it prevented makes the dialog bail out.
+  // Handle Escape before Radix's document-level dialog listener.
   React.useEffect(() => {
     if (!open) return;
     const handleEscape = (event: KeyboardEvent) => {

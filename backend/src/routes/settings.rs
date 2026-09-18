@@ -1,12 +1,4 @@
-//! Application settings.
-//!
-//! A single row (`app_settings`) holds preferences that change how money is
-//! *reported* without touching the ledger. Currently that is
-//! `card_expense_dating`: whether a credit-card purchase counts in the month it
-//! was made or in the month its bill ("fatura") is due.
-//!
-//! `card_expense_dating()` is the read helper every aggregate uses, and
-//! `effective_transaction_date(...)` in the SQL layer applies it per row.
+//! Application settings used by reporting queries.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -27,7 +19,7 @@ pub const DATING_PURCHASE: &str = "purchase_date";
 /// `due_date`: a card purchase counts in the month its bill is due.
 pub const DATING_DUE: &str = "due_date";
 
-/// Returns a sub-router with the settings routes mounted under `/api/settings`.
+/// Routes for application settings.
 pub fn router() -> Router<AppState> {
     Router::new().route("/api/settings", get(get_settings).put(update_settings))
 }

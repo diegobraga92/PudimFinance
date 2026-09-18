@@ -1,4 +1,4 @@
-//! Report endpoints for Layer 2 insights.
+//! Reporting endpoints.
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -18,7 +18,7 @@ use crate::models::{
 use crate::routes::settings;
 use crate::state::AppState;
 
-/// Query parameters for the monthly report.
+/// Monthly-report filters.
 #[derive(Debug, Default, Deserialize)]
 pub struct MonthlyParams {
     /// Start year (defaults to 6 months ago).
@@ -33,7 +33,7 @@ pub struct MonthlyParams {
     pub account_id: Option<Uuid>,
 }
 
-/// Query parameters for the dashboard cash-flow chart.
+/// Cash-flow chart filters.
 #[derive(Debug, Deserialize)]
 pub struct CashFlowParams {
     /// Start date (inclusive).
@@ -44,7 +44,7 @@ pub struct CashFlowParams {
     pub granularity: Option<String>,
 }
 
-/// Query parameters for the category breakdown report.
+/// Category-breakdown filters.
 #[derive(Debug, Default, Deserialize)]
 pub struct BreakdownParams {
     /// Start date (ISO `YYYY-MM-DD`). Defaults to the first day of the current month.
@@ -53,14 +53,14 @@ pub struct BreakdownParams {
     pub end_date: Option<NaiveDate>,
 }
 
-/// Query parameters for the trends report.
+/// Trends-report filters.
 #[derive(Debug, Deserialize)]
 pub struct TrendsParams {
     /// Number of months to include (default 6, max 12).
     pub months: Option<i32>,
 }
 
-/// Returns a sub-router with all report routes mounted under `/api/reports`.
+/// Routes for reporting operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/reports/monthly", get(monthly_report))

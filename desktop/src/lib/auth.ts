@@ -1,18 +1,4 @@
-/**
- * Auth session persistence for the desktop app.
- *
- * Secrets live in the OS keyring (via the `auth_store_*` Tauri commands) when
- * available, with two safety nets.
- *
- *  1. An in-memory cache so the request hot path never awaits the OS keyring
- *     more than once per session.
- *  2. A localStorage fallback when the keyring is unavailable (headless /
- *     LAN-server sessions) or when migrating an existing session created by
- *     an earlier build.
- *
- * The rest of the app imports only from here, so this module is the single
- * seam between the webview and native storage.
- */
+/** Persists auth tokens in the native keyring with webview fallbacks. */
 
 import { invoke } from '@tauri-apps/api/core';
 
@@ -65,16 +51,7 @@ export async function storeGet(key: string): Promise<string | null> {
   }
 }
 
-/**
- * Writes a secret.
- *
- * The keyring is the primary store, but the value is **also** mirrored into
- * localStorage. That is deliberate: on Linux the Secret Service can accept a
- * write into a collection that does not survive the session (or the daemon is
- * absent), which silently loses the session on the next launch — the "why do I
- * have to log in again?" symptom. Reading still prefers the keyring, and
- * deleting clears both copies.
- */
+/** Writes to both the keyring and localStorage for session recovery. */
 export async function storeSet(key: string, value: string): Promise<void> {
   if (isTauri()) {
     try {

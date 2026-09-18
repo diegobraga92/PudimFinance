@@ -1,12 +1,7 @@
 import type { components } from './api-types';
 import { request } from './request';
 
-/**
- * Raw transport for the offline sync endpoints.
- *
- * Extracted from `api.ts` so the sync engine (`offline/sync-engine.ts`) never
- * imports the app API layer, which keeps the dependency graph acyclic.
- */
+/** Transport helpers for the offline sync endpoints. */
 
 export type SyncPullRequest = components['schemas']['SyncPullRequest'];
 export type SyncPullResponse = components['schemas']['SyncPullResponse'];

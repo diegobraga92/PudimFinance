@@ -647,12 +647,7 @@ export async function fetchSettings(): Promise<AppSettings> {
   return request<AppSettings>('/api/settings');
 }
 
-/**
- * Updates the application preferences.
- *
- * Server-side setting: it changes how every report dates card expenses, so it
- * requires a reachable server (no offline queue).
- */
+/** Updates application preferences (server-side only). */
 export async function updateSettings(payload: UpdateAppSettingsRequest): Promise<AppSettings> {
   return request<AppSettings>('/api/settings', {
     method: 'PUT',

@@ -1,10 +1,4 @@
-/**
- * Offline sync engine (desktop port of the React Native app's engine).
- *
- * Coordinates pushing queued mutations to the server and pulling changes made
- * elsewhere. Uses the typed API layer for transport and the IndexedDB mirror
- * for local storage.
- */
+/** Coordinates queued mutations, server pulls, and the local mirror. */
 
 import { syncPull, syncPush, type SyncPushOperation } from '@/lib/sync-api';
 import {
@@ -122,10 +116,6 @@ export async function syncSilently(): Promise<SyncResult> {
   return performSyncWithLock();
 }
 
-/**
- * Sends queued mutations to the server in order, then updates the local
- * mirror with the server-assigned IDs.
- */
 const MAX_PUSH_ATTEMPTS = 3;
 
 interface PushResult {
@@ -311,11 +301,7 @@ async function pullChanges(): Promise<{
   };
 }
 
-
-/**
- * Queues a local mutation for later push and immediately updates the local
- * mirror (optimistic write).
- */
+/** Queues a mutation and immediately updates the local mirror. */
 export async function queueLocalMutation(
   operationType: 'create' | 'update' | 'delete',
   entityType: 'transaction' | 'category' | 'account',

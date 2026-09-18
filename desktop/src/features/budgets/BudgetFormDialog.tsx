@@ -41,10 +41,7 @@ interface Props {
   onSaved: () => void;
 }
 
-/**
- * Create or edit a monthly limit through `POST /api/budgets` (an upsert, so the
- * same call covers both). The period comes from the page's month selector.
- */
+/** Creates or updates a monthly budget. */
 export function BudgetFormDialog({
   open,
   onOpenChange,

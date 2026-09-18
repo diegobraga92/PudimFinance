@@ -20,7 +20,7 @@
         "tags": [
           "Accounts"
         ],
-        "summary": "Lists all accounts with their computed balances.",
+        "summary": "Lists accounts with computed balances.",
         "operationId": "list_accounts",
         "responses": {
           "200": {
@@ -42,8 +42,7 @@
         "tags": [
           "Accounts"
         ],
-        "summary": "Creates a new account.",
-        "description": "Returns `400` if the payload is invalid (missing name, invalid type,\nnon-existent parent).",
+        "summary": "Creates an account.",
         "operationId": "create_account",
         "requestBody": {
           "content": {
@@ -77,7 +76,7 @@
         "tags": [
           "Accounts"
         ],
-        "summary": "Fetches a single account with its computed balance.",
+        "summary": "Fetches an account with its computed balance.",
         "operationId": "get_account",
         "parameters": [
           {
@@ -111,8 +110,7 @@
         "tags": [
           "Accounts"
         ],
-        "summary": "Updates an existing account.",
-        "description": "Returns `404` if the account does not exist, `400` for invalid payloads.",
+        "summary": "Updates an account.",
         "operationId": "update_account",
         "parameters": [
           {
@@ -160,7 +158,6 @@
           "Accounts"
         ],
         "summary": "Deletes an account.",
-        "description": "Returns `409` if ledger entries or sub-accounts reference it,\n`404` if the account does not exist.",
         "operationId": "delete_account",
         "parameters": [
           {
@@ -228,7 +225,7 @@
         "tags": [
           "Audit"
         ],
-        "summary": "Lists audit events with optional filters (admin-only).",
+        "summary": "Lists audit events for administrators.",
         "operationId": "list_audit_events",
         "responses": {
           "200": {
@@ -396,7 +393,7 @@
         "tags": [
           "Budgets"
         ],
-        "summary": "Lists budgets for a given month/year, joined with category display info.",
+        "summary": "Lists budgets for a month with category details.",
         "operationId": "list_budgets",
         "parameters": [
           {
@@ -440,7 +437,7 @@
         "tags": [
           "Budgets"
         ],
-        "summary": "Creates or updates a budget (upsert on (category_id, month, year)).",
+        "summary": "Creates or updates a budget.",
         "operationId": "create_budget",
         "requestBody": {
           "content": {
@@ -687,7 +684,6 @@
           "Categories"
         ],
         "summary": "Lists categories, optionally filtered by type.",
-        "description": "Returns `400` if an invalid `type` filter is provided.",
         "operationId": "list_categories",
         "parameters": [
           {
@@ -723,8 +719,7 @@
         "tags": [
           "Categories"
         ],
-        "summary": "Creates a new category.",
-        "description": "Returns `400` if the payload is invalid (missing name, invalid type,\nnon-existent parent category).",
+        "summary": "Creates a category.",
         "operationId": "create_category",
         "requestBody": {
           "content": {
@@ -792,8 +787,7 @@
         "tags": [
           "Categories"
         ],
-        "summary": "Updates an existing category.",
-        "description": "Returns `404` if the category does not exist, `400` for invalid payloads.",
+        "summary": "Updates a category.",
         "operationId": "update_category",
         "parameters": [
           {
@@ -841,7 +835,6 @@
           "Categories"
         ],
         "summary": "Deletes a category.",
-        "description": "Returns `409` if the category is referenced by transactions or subcategories,\n`404` if the category does not exist.",
         "operationId": "delete_category",
         "parameters": [
           {
@@ -1403,8 +1396,7 @@
         "tags": [
           "Products"
         ],
-        "summary": "Lists normalized products with their price statistics.",
-        "description": "Products without a recorded price are omitted: they have nothing to show in\na price-tracking screen.",
+        "summary": "Lists products with price statistics.",
         "operationId": "list_products",
         "parameters": [
           {
@@ -1512,8 +1504,7 @@
         "tags": [
           "Receipts"
         ],
-        "summary": "Lists saved receipts with optional filters.",
-        "description": "Every filter is bound as text and cast in SQL, so the same builder serves\nnames, dates, amounts, ids and pagination.",
+        "summary": "Lists saved receipts with filters.",
         "operationId": "list_receipts",
         "parameters": [
           {
@@ -1647,8 +1638,7 @@
         "tags": [
           "Receipts"
         ],
-        "summary": "Parses raw OCR text from a receipt photo into structured data.",
-        "description": "The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web).\nThis endpoint turns the resulting text into the same structured shape the\nQR scan returns, so the save/review flow is identical for both sources.",
+        "summary": "Parses client-produced OCR text into receipt data.",
         "operationId": "ocr",
         "requestBody": {
           "content": {
@@ -1743,8 +1733,7 @@
         "tags": [
           "Receipts"
         ],
-        "summary": "Headline numbers for the Overview tab.",
-        "description": "One query with scalar subqueries: cheap enough to call on every visit, and\nit never loads receipt rows just to count them.",
+        "summary": "Returns receipt and price-tracking statistics.",
         "operationId": "receipt_stats",
         "parameters": [
           {
@@ -1810,7 +1799,7 @@
         "tags": [
           "Receipts"
         ],
-        "summary": "Deletes a receipt and everything that only existed because of it.",
+        "summary": "Deletes a receipt and its dependent data.",
         "operationId": "delete_receipt",
         "parameters": [
           {
@@ -2399,7 +2388,7 @@
         "tags": [
           "Summary"
         ],
-        "summary": "Returns income, expense, and balance totals for a given month,\nwith a per-category breakdown.",
+        "summary": "Returns monthly totals with a category breakdown.",
         "operationId": "get_summary",
         "parameters": [
           {
@@ -2508,7 +2497,7 @@
         "tags": [
           "Transactions"
         ],
-        "summary": "Lists transactions, with optional filters (category, type, date range) and pagination.",
+        "summary": "Lists filtered and paginated transactions.",
         "operationId": "list_transactions",
         "parameters": [
           {
@@ -3727,7 +3716,7 @@
       },
       "CategoryListParams": {
         "type": "object",
-        "description": "Query parameters for filtering the category list.",
+        "description": "Category-list filters.",
         "properties": {
           "type": {
             "type": [
@@ -4178,7 +4167,7 @@
       },
       "GoogleAuthRequest": {
         "type": "object",
-        "description": "Request body for completing a Google sign-in.\n\nDesktop uses the authorization-code fields. Android uses an ID token from\nCredential Manager and the nonce that was bound to that token.",
+        "description": "Google sign-in payload for desktop and Android flows.",
         "properties": {
           "client_id": {
             "type": [
@@ -4617,7 +4606,7 @@
       },
       "LoginRequest": {
         "type": "object",
-        "description": "Request body for logging in.",
+        "description": "Login payload.",
         "required": [
           "email",
           "password"
@@ -4635,7 +4624,7 @@
       },
       "MergeProductsRequest": {
         "type": "object",
-        "description": "Request payload for merging two normalized products.",
+        "description": "Product-merge payload.",
         "required": [
           "target_id",
           "source_id"
@@ -4772,7 +4761,7 @@
       },
       "OcrRequest": {
         "type": "object",
-        "description": "Request payload for parsing raw OCR text from a receipt photo.",
+        "description": "OCR parsing payload.",
         "required": [
           "raw_text"
         ],
@@ -4856,7 +4845,7 @@
       },
       "PriceHistoryParams": {
         "type": "object",
-        "description": "Query params for price history.",
+        "description": "Price-history filters.",
         "required": [
           "product_id"
         ],
@@ -5290,7 +5279,7 @@
       },
       "ReceiptListParams": {
         "type": "object",
-        "description": "Query params for the receipt list.",
+        "description": "Receipt-list filters.",
         "properties": {
           "from": {
             "type": [
@@ -5480,7 +5469,7 @@
       },
       "ReceiptStatsParams": {
         "type": "object",
-        "description": "Query params for the overview statistics.",
+        "description": "Receipt-statistics filters.",
         "properties": {
           "month": {
             "type": [
@@ -5680,7 +5669,7 @@
       },
       "RefreshRequest": {
         "type": "object",
-        "description": "Request body for refreshing an access token.",
+        "description": "Token-refresh payload.",
         "required": [
           "refresh_token"
         ],
@@ -5693,7 +5682,7 @@
       },
       "RegisterRequest": {
         "type": "object",
-        "description": "Request body for registering a new user.",
+        "description": "Registration payload.",
         "required": [
           "email",
           "password"
@@ -5765,7 +5754,7 @@
       },
       "ScanRequest": {
         "type": "object",
-        "description": "Request payload for scanning a raw NFC-e QR code.",
+        "description": "NFC-e QR scan payload.",
         "required": [
           "qr_data"
         ],
@@ -5910,7 +5899,7 @@
       },
       "StoreListParams": {
         "type": "object",
-        "description": "Query params for the store list.",
+        "description": "Store-list filters.",
         "properties": {
           "page": {
             "type": [
@@ -6112,7 +6101,7 @@
       },
       "SummaryParams": {
         "type": "object",
-        "description": "Query parameters for the summary endpoint.",
+        "description": "Summary filters.",
         "properties": {
           "month": {
             "type": [

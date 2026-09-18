@@ -7,10 +7,7 @@ interface SwitchProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   onCheckedChange: (checked: boolean) => void;
 }
 
-/**
- * Minimal accessible switch (role="switch"), styled to match the design system.
- * No Radix dependency needed for a single-toggle control.
- */
+/** Accessible switch matching the design system. */
 const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
   ({ className, checked, onCheckedChange, disabled, ...props }, ref) => (
     <button

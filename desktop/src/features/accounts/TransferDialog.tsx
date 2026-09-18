@@ -24,15 +24,7 @@ interface Props {
   onSaved: () => void;
 }
 
-/**
- * Transfers money between two accounts through the double-entry ledger
- * (`POST /api/ledger/transactions`, the same endpoint the Ledger screen uses).
- *
- * The destination is debited and the source credited — the convention this
- * chart of accounts uses (assets grow on debit, liabilities shrink on debit),
- * which is also how card-bill payments are posted. Transfers are deliberately
- * *not* expenses, so they never change income/expense totals.
- */
+/** Transfers money between balance-sheet accounts without affecting totals. */
 export function TransferDialog({ open, onOpenChange, accounts, onSaved }: Props) {
   const { t } = useI18n();
 

@@ -13,10 +13,8 @@ FAIL="${RED}❌${NC}"
 DOCKER_RUN="docker run --rm -v $ROOT_DIR/backend:/app -w /app rust:slim-bookworm"
 DEPS_CMD="apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev curl > /dev/null 2>&1"
 
-# Desktop Rust crates (Tauri core and Android plugin) need GTK/WebKit headers that
-# the host may not have. Build a derived image with those packages baked in, then
-# run Clippy in it as the host user with the host's rustup/cargo mounted, so the
-# toolchain and build cache are shared (and no root-owned files land in the repo).
+# Build a derived image with the GTK/WebKit headers Tauri needs, then run Clippy
+# as the host user with the host toolchain mounted.
 DESKTOP_RUST_IMAGE="pudimfinance-ci-desktop-rust:latest"
 TAURI_DEPS="build-essential curl file git pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev javascriptcoregtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libxdo-dev"
 DESKTOP_RUST_RUN="docker run --rm --user $(id -u):$(id -g) -e CARGO_HOME=/cargo -e RUSTUP_HOME=/rustup -e HOME=/tmp -v $HOME/.cargo:/cargo -v $HOME/.rustup:/rustup -v $ROOT_DIR/desktop/src-tauri:/app -w /app $DESKTOP_RUST_IMAGE"
@@ -33,9 +31,6 @@ ok()     { echo -e "  ${PASS} $1"; }
 fail()   { echo -e "  ${FAIL} $1"; exit 1; }
 skip()   { echo -e "  ${YELLOW}⏭️  $1${NC}"; }
 
-# ──────────────────────────────────────────────
-# Backend checks run via Docker (cargo is not on the host)
-# ──────────────────────────────────────────────
 check_backend() {
     step "Backend: cargo fmt --check"
     $DOCKER_RUN \
@@ -72,9 +67,6 @@ check_backend() {
     fi
 }
 
-# ──────────────────────────────────────────────
-# Desktop client checks (npm available locally)
-# ──────────────────────────────────────────────
 check_desktop() {
     step "Desktop: npm install (if needed)"
     cd "$ROOT_DIR/desktop"
@@ -101,9 +93,6 @@ check_desktop() {
     fi
 }
 
-# ──────────────────────────────────────────────
-# Desktop smoke tests
-# ──────────────────────────────────────────────
 check_desktop_tests() {
     cd "$ROOT_DIR/desktop"
 
@@ -167,9 +156,6 @@ check_desktop_offline() {
         || fail "Offline sync smoke failed"
 }
 
-# ──────────────────────────────────────────────
-# OpenAPI checks
-# ──────────────────────────────────────────────
 check_openapi() {
     step "OpenAPI: spec validation"
     if npx --yes @redocly/cli lint "$ROOT_DIR/api/openapi/openapi.json" > /dev/null 2>&1; then
@@ -180,9 +166,6 @@ check_openapi() {
     fi
 }
 
-# ──────────────────────────────────────────────
-# Desktop Rust checks (Tauri core and Android plugin)
-# ──────────────────────────────────────────────
 check_desktop_rust() {
     step "Desktop Rust: prepare CI image"
     build_desktop_rust_image \

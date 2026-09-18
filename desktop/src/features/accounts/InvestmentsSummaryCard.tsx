@@ -15,10 +15,7 @@ interface Props {
   onView?: (account: AccountWithBalance) => void;
 }
 
-/**
- * Investments sidebar card: each investment account as a row (name, value,
- * share of the portfolio and a bar for that share), biggest first.
- */
+/** Investment accounts with their share of the portfolio. */
 export function InvestmentsSummaryCard({ accounts, loading, onView }: Props) {
   const { t, formatMoney } = useI18n();
 

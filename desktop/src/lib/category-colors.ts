@@ -22,14 +22,7 @@ export interface ColoredItem {
   color?: string | null;
 }
 
-/**
- * Resolves one stable color per category key.
- *
- * Stored colors win only once. If old data contains duplicate stored colors,
- * the category with the lexicographically first key keeps it and the remaining
- * categories receive the first unused palette color. Sorting the assignment
- * order by key prevents chart sorting from changing a category's color.
- */
+/** Resolves one stable color per category, deduplicating stored values. */
 export function resolveCategoryColors(items: ColoredItem[]): Map<string, string> {
   const result = new Map<string, string>();
   const used = new Set<string>();

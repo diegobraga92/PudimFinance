@@ -55,10 +55,7 @@ function Stat({
   );
 }
 
-/**
- * Price history of one normalized product: statistics, a chart of the prices
- * actually paid, the individual purchases and where it is cheapest.
- */
+/** Price history and purchases for one normalized product. */
 export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Props) {
   const { t, formatMoney, formatDate } = useI18n();
   const [range, setRange] = React.useState<PriceRange>('6m');

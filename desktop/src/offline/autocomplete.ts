@@ -1,10 +1,4 @@
-/**
- * Description-based auto-complete for the add-transaction form.
- *
- * Looks up the on-device mirror for a previous transaction whose description
- * matches what the user is typing, so the form can pre-fill the amount, type
- * and category from history.
- */
+/** Description-based auto-complete backed by the local transaction mirror. */
 
 import { getLocalTransactions, type LocalTransaction } from './database';
 
@@ -27,11 +21,7 @@ export function normalizeDescription(description: string): string {
     .trim();
 }
 
-/**
- * Finds the most recent previous transaction that matches the given
- * description. Exact normalized matches always win, then a prefix match, then
- * a substring match (for inputs of at least 3 characters).
- */
+/** Finds the latest transaction matching the description. */
 export async function findPreviousTransaction(
   description: string,
 ): Promise<PreviousTransaction | null> {

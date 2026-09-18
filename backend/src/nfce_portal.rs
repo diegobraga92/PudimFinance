@@ -1,9 +1,4 @@
-//! Best-effort enrichment from the public NFC-e consultation page.
-//!
-//! An NFC-e QR code normally contains only the access key, QR version, and tax
-//! environment. Some state portals expose the complete DANFE NFC-e at the URL
-//! encoded in that QR code; this module fetches and parses that page without
-//! making the QR scan depend on the portal being available.
+//! Best-effort enrichment from public NFC-e consultation pages.
 
 use anyhow::{anyhow, Context, Result};
 use chrono::NaiveDate;

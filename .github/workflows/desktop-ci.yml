@@ -168,28 +168,17 @@ jobs:
         working-directory: desktop
         run: npm run build
 
-      # GitHub-hosted runners ship the Android SDK and NDK (ANDROID_HOME set).
-      # tauri-cli resolves the NDK under $ANDROID_HOME/ndk automatically.
+      # GitHub-hosted runners provide the Android SDK and NDK.
       - name: Initialize Android project
         working-directory: desktop
         run: npm run tauri android init
 
-      # `android init` seeds the generated project with Tauri's default launcher
-      # art. The manifest keeps the desktop artwork unchanged while providing an
-      # inset adaptive foreground for Android's masked launcher safe area.
+      # Generate the Android-specific launcher artwork.
       - name: Generate Android launcher icons
         working-directory: desktop
         run: npm run icons
 
-      # gen/ is gitignored and re-created by `android init` above, so the release
-      # config (keystore.properties + app/build.gradle.kts) has to be injected on
-      # every run — see https://v2.tauri.app/distribute/sign/android/.
-      # With the keystore secrets set the APK is signed with the upload key;
-      # without them the script falls back to the debug keystore (with a warning)
-      # so the workflow still publishes an installable APK instead of an unsigned
-      # one. It also allows cleartext HTTP, without which Android blocks the
-      # `http://<lan-ip>:3000` servers the client targets ("Could not reach the
-      # server"); set PUDIM_ALLOW_CLEARTEXT=false to keep Android's safe default.
+      # Inject release signing and the optional LAN HTTP policy into generated files.
       - name: Prepare the Android release build (signing + cleartext HTTP + Credential Manager)
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 || secrets.ANDROID_KEY_BASE64 || secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -198,8 +187,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.RELEASE_KEY_PASSWORD || secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: python3 scripts/android-release-setup.py
 
-      # `--apk` skips the (unused) AAB bundle; add `--aab` back if the app ever
-      # goes to the Play Store.
+      # Build the APK without the unused AAB bundle.
       - name: Build Android app (aarch64)
         working-directory: desktop
         run: npm run tauri android build -- --target aarch64 --apk
@@ -208,12 +196,7 @@ jobs:
         working-directory: desktop/src-tauri/gen/android
         run: ./gradlew :pudim-native:testDebugUnitTest --no-daemon
 
-      # Pull requests still build the APK for validation, but only main pushes
-      # and manual runs publish a downloadable artifact. Only the release output
-      # directory is uploaded (never a debug APK).
-      # Fails loudly if the APK is not signed, and records the signing key in the
-      # job summary so every run states which key produced the artifact
-      # (upload key vs. the debug fallback used when no secret is configured).
+      # Pull requests validate the APK, main/manual runs publish the release artifact.
       - name: Verify the release APK is signed
         run: |
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)

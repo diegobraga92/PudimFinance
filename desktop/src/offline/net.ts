@@ -1,19 +1,9 @@
-/**
- * Connectivity helper for the desktop app.
- *
- * "Online" means the API server is actually reachable, not just that the OS
- * has a network link. When the server is unreachable (server down, wrong
- * address, LAN host not reachable) we treat the app as offline so mutations
- * queue and reads fall back to the local mirror instead of hanging.
- */
+/** Treats the app as online only when the API server is reachable. */
 
 import { getApiBaseUrl } from '@/lib/serverConfig';
 
-/** The API server is treated as unreachable for this long after a failed probe. */
 const SERVER_UNAVAILABLE_MS = 15_000;
-/** A successful probe is reused within this window instead of re-probing. */
 const ONLINE_CACHE_MS = 10_000;
-/** Health-probe timeout. */
 const PROBE_TIMEOUT_MS = 3_000;
 
 let serverUnavailableUntil = 0;

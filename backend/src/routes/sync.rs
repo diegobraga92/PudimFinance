@@ -1,8 +1,4 @@
-//! Offline sync endpoints for the mobile app.
-//!
-//! `POST /api/sync/pull` returns entities changed since the client's last sync.
-//! `POST /api/sync/push` applies a batch of client mutations (create/update/
-//! delete) idempotently using client-generated UUIDs as idempotency keys.
+//! Offline synchronization endpoints.
 
 use axum::extract::State;
 use axum::http::StatusCode;

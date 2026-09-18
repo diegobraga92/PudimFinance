@@ -1,8 +1,4 @@
-//! PudimFinance Rust core, shared by the desktop binary and the Android app.
-//!
-//! The webview (React/Vite) is the entire UI. This crate provides native
-//! capabilities, namely keyring-backed token storage and the Android
-//! notification capture plugin.
+//! Native Tauri commands and plugins for the desktop and Android clients.
 
 mod auth_store;
 mod oauth_loopback;

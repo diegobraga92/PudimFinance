@@ -19,7 +19,7 @@ use axum::Router;
 
 use crate::state::AppState;
 
-/// Builds the `/api` sub-router
+/// Builds the `/api` router.
 pub fn api_router() -> Router<AppState> {
     Router::new()
         .merge(categories::router())

@@ -3,13 +3,7 @@ import { Plus } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 
-/**
- * Floating "add transaction" button for phones.
- *
- * Sits above the bottom tab bar (and the Android navigation inset) and reuses
- * the same `?add=1` deep link as the desktop Quick Add button, so the form opens
- * on the transaction screen.
- */
+/** Floating add-transaction button for phones. */
 export function QuickAddFab() {
   const { t } = useI18n();
   const navigate = useNavigate();

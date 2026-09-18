@@ -20,7 +20,7 @@ use crate::state::AppState;
 use crate::transaction_ledger;
 use sqlx::PgPool;
 
-/// Returns a sub-router with all transaction routes mounted under `/api/transactions`.
+/// Routes for transaction operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -35,7 +35,7 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-/// Lists transactions, with optional filters (category, type, date range) and pagination.
+/// Lists filtered and paginated transactions.
 #[utoipa::path(
     get,
     path = "/api/transactions",
@@ -378,7 +378,7 @@ pub async fn create_transaction(
         )
     })?;
 
-    // Post a balanced ledger pair (single source of truth for balances).
+    // Post the balanced ledger pair.
     transaction_ledger::post_entries(
         &mut *db,
         transaction.id,

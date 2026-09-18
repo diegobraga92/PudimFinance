@@ -14,13 +14,7 @@ interface Props {
   className?: string;
 }
 
-/**
- * Page heading.
- *
- * Desktop keeps the full title + subtitle + actions block. Phones get a compact
- * row: the mobile app bar already names the screen, so only the actions (and an
- * optional lead line such as the dashboard greeting) are rendered.
- */
+/** Responsive page heading with title, subtitle, and actions. */
 export function PageHeader({ titleKey, subtitleKey, mobileLead, actions, className }: Props) {
   const { t } = useI18n();
 

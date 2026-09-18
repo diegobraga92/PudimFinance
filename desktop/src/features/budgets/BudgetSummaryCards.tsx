@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { HEALTH_BAR, budgetHealth } from './budget-health';
 
-/** Numbers the four headline cards are built from (computed by the page). */
+/** Values displayed by the budget summary cards. */
 export interface BudgetTotals {
   /** `true` when the user set an overall monthly limit. */
   hasOverall: boolean;
@@ -48,7 +48,6 @@ interface CardShellProps {
   children: React.ReactNode;
 }
 
-/** Icon + label header shared by the four cards (keeps the values aligned). */
 function CardShell({ icon, tone, label, children }: CardShellProps) {
   return (
     <Card className="border-border bg-surface shadow-card">
@@ -206,12 +205,7 @@ function MobileBudgetSummary({ loading, totals, monthLabel, onSetOverall }: Prop
   );
 }
 
-/**
- * Budget, spent, remaining and alerts for the selected month.
- *
- * The total falls back to the sum of the category budgets when no overall limit
- * is set, and says so — nothing is invented.
- */
+/** Displays budget totals, spending, remaining amount, and alerts. */
 export function BudgetSummaryCards({ loading, totals, monthLabel, onSetOverall }: Props) {
   const { t, formatMoney } = useI18n();
 

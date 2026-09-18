@@ -1,10 +1,4 @@
-/**
- * Shared PudimFinance i18n module.
- *
- * Both the Vite web app and the Expo mobile app import from this single
- * source of truth. The `en` dictionary defines the canonical key set, and `pt-BR`
- * is type-checked to have exactly the same keys.
- */
+/** Shared translations and locale helpers. */
 
 import { en } from './en';
 import { ptBR } from './pt-BR';
@@ -17,10 +11,7 @@ export type Translation = Record<string, string>;
 /** Union of every valid key, derived from the English dictionary. */
 export type TranslationKey = keyof typeof en;
 
-/**
- * Compile-time guards ensure `pt-BR` defines exactly the same keys as `en`.
- * If a key is missing (or extra) in pt-BR, this module fails to compile.
- */
+/** Compile-time check that the Portuguese dictionary matches the English keys. */
 type _MissingKeys = Exclude<TranslationKey, keyof typeof ptBR>;
 type _ExtraKeys = Exclude<keyof typeof ptBR, TranslationKey>;
 export const _assertPtBRKeys: [never] extends [_MissingKeys]
@@ -36,10 +27,7 @@ export function toIntlLocale(locale: Locale): string {
   return locale === 'pt-BR' ? 'pt-BR' : 'en-US';
 }
 
-/**
- * Substitutes `{placeholder}` tokens with the provided parameters.
- * Unknown placeholders are left untouched.
- */
+/** Substitutes known `{placeholder}` tokens and preserves unknown ones. */
 export function interpolate(
   template: string,
   params?: Record<string, string | number>,

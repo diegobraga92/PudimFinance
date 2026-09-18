@@ -1,8 +1,4 @@
-//! Build-time tool that prints the OpenAPI spec to stdout.
-//!
-//! Invoke with `cargo run --bin gen-openapi > ../api/openapi/openapi.json`.
-//!
-//! The spec is derived from utoipa annotations on the backend's handlers and schemas.
+//! Prints the generated OpenAPI specification to stdout.
 
 use serde_json::Value;
 use utoipa::OpenApi;

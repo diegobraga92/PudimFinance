@@ -1,10 +1,4 @@
-/**
- * Shared HTTP request infrastructure for the typed API client.
- *
- * Lives in its own module so the offline sync engine (`offline/sync-engine.ts`
- * and `lib/sync-api.ts`) never imports the app API layer. This keeps the
- * dependency graph acyclic.
- */
+/** HTTP request infrastructure shared by the API client and offline sync. */
 
 import { clearAuthSession, getAccessToken, getRefreshToken, setAuthSession } from './auth';
 import { getApiBaseUrl } from './serverConfig';
@@ -24,13 +18,7 @@ export class ApiError extends Error {
 /** Maximum time a normal API request may wait for a response. */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
 
-/**
- * Fetches with a client-side timeout and converts transport failures into the
- * error type used by the offline fallbacks. A caller signal is forwarded and
- * remains able to cancel the request; caller aborts are intentionally treated
- * as network errors because callers do not currently use request cancellation
- * for an expected application flow.
- */
+/** Fetches with a client-side timeout and maps transport failures to `ApiError`. */
 function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit,

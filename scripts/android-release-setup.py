@@ -54,13 +54,9 @@ GRADLE_FILE = ANDROID_DIR / "app" / "build.gradle.kts"
 ROOT_GRADLE_FILE = ANDROID_DIR / "build.gradle.kts"
 KOTLIN_VERSION = "2.1.20"
 
-# Injected before the `buildTypes {` block (4-space indentation, re-indented to
-# whatever the generated project uses).
+# Injected before the `buildTypes {` block.
 SIGNING_CONFIGS = """\
-    // Injected by scripts/android-release-setup.py (tauri.app/distribute/sign/android).
-    // Signs release builds with the upload keystore CI provides through
-    // keystore.properties, falling back to the debug keystore so a build
-    // without the secret is still installable (Play Protect may warn).
+    // Injected by scripts/android-release-setup.py; falls back to the debug keystore.
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("keystore.properties")

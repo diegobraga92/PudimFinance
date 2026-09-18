@@ -15,7 +15,7 @@ use crate::models::{CategorySummary, SummaryResponse};
 use crate::routes::settings;
 use crate::state::AppState;
 
-/// Query parameters for the summary endpoint.
+/// Summary filters.
 #[derive(Debug, Default, Deserialize, ToSchema)]
 pub struct SummaryParams {
     /// Year to summarise (defaults to current year).
@@ -24,13 +24,12 @@ pub struct SummaryParams {
     pub month: Option<u32>,
 }
 
-/// Returns a sub-router with the summary route mounted under `/api/summary`.
+/// Routes for monthly summaries.
 pub fn router() -> Router<AppState> {
     Router::new().route("/api/summary", get(get_summary))
 }
 
-/// Returns income, expense, and balance totals for a given month,
-/// with a per-category breakdown.
+/// Returns monthly totals with a category breakdown.
 #[utoipa::path(
     get,
     path = "/api/summary",

@@ -44,10 +44,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-/**
- * Scanning, OCR parsing and saving of receipts, shared by the Overview and Scan
- * tabs so both drive one draft instead of keeping two copies of it.
- */
+/** Shares receipt scanning and editing state across receipt tabs. */
 export function useReceiptScanner() {
   const { t } = useI18n();
   const { toast } = useToast();

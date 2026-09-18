@@ -1,13 +1,4 @@
-//! Session token storage.
-//!
-//! Long-lived session secrets (refresh token, user profile) live in a
-//! platform-secure store instead of the webview's localStorage. Desktop uses the
-//! OS keyring (Secret Service on Linux) via the `keyring` crate, and Android uses
-//! the Android Keystore (AES-256/GCM) via the `pudim-android-native` plugin's
-//! `SecureStorage`.
-//!
-//! The JS layer (`src/lib/auth.ts`) caches values in memory and falls back to
-//! localStorage when the native store is unavailable, so auth never hard-fails.
+//! Platform-secure session token storage.
 
 use tauri::{AppHandle, Runtime};
 

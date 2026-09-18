@@ -1,8 +1,4 @@
-//! Normalized-product and price-history endpoints.
-//!
-//! Price history is derived from receipt items: every item with a unit price
-//! and a normalized product is one price record. The backend owns the identity
-//! (normalized product) and the numbers; the UI only formats them.
+//! Normalized products and price history derived from receipt items.
 
 #![allow(clippy::result_large_err)]
 
@@ -101,10 +97,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/products/{id}", axum::routing::get(get_product))
 }
 
-/// Lists normalized products with their price statistics.
-///
-/// Products without a recorded price are omitted: they have nothing to show in
-/// a price-tracking screen.
+/// Lists products with price statistics.
 #[utoipa::path(
     get,
     path = "/api/products",

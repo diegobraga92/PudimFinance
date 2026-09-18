@@ -14,11 +14,7 @@ const MAX_CATEGORIES = 5;
 /** Months offered by the summary's selector (newest first). */
 const MONTH_CHOICES = 12;
 
-/**
- * Right-hand column of the transactions screen: the selected month's totals
- * (income, expenses and a headline net) and the categories eating most of it.
- * Both cards read the same `summary` payload, so switching month refetches once.
- */
+/** Month totals and top spending categories. */
 export function TransactionsSidebar({ onSelectCategory }: { onSelectCategory?: (categoryId: string) => void }) {
   const { t, formatMoney, monthNames } = useI18n();
   const [period, setPeriod] = React.useState(() => {

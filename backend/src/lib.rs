@@ -1,7 +1,4 @@
-//! PudimFinance Backend library crate root.
-//!
-//! This file exists to allow other binaries in the same package (e.g., gen-openapi)
-//! to reference types via `backend::ApiDoc`, `backend::health`, etc.
+//! Backend library crate exposing the API server internals to sibling binaries.
 
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
@@ -24,7 +21,7 @@ pub mod ledger;
 pub mod metrics;
 /// Auth middleware and RBAC helpers.
 pub mod middleware;
-/// Data models across all layers.
+/// API and database models.
 pub mod models;
 /// Best-effort enrichment from public NFC-e consultation pages.
 pub mod nfce_portal;
@@ -42,7 +39,7 @@ pub mod routes;
 pub mod state;
 /// Logging and OpenTelemetry tracing initialization.
 pub mod telemetry;
-/// Transaction to ledger posting service (single source of truth for balances).
+/// Transaction-to-ledger posting service.
 pub mod transaction_ledger;
 
 pub use openapi::ApiDoc;

@@ -20,11 +20,7 @@ const STEPS: OnboardingStep[] = [
   { icon: ShieldCheck, titleKey: 'onboarding.step3Title', descKey: 'onboarding.step3Desc' },
 ];
 
-/**
- * Cross-platform first-run welcome shown once per device (localStorage flag).
- * Replaces the routed content until the user finishes or skips it, then renders
- * `children` (the normal app shell) on every subsequent launch.
- */
+/** First-run welcome shown once per device. */
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   const [ready, setReady] = React.useState(false);

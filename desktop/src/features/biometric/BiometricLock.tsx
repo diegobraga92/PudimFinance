@@ -13,25 +13,10 @@ interface BiometricLockProps {
 
 /** A hung OS biometric dialog must never leave the Unlock button dead. */
 const PROMPT_TIMEOUT_MS = 60_000;
-/**
- * How long the app may stay in the background before it requires the biometric
- * prompt again. Returning sooner (biometric sheet, system settings, app switch)
- * keeps the session open; staying away longer re-locks for safety.
- */
+/** Background duration after which the app requires biometric authentication. */
 const RELOCK_AFTER_MS = 60_000;
 
-/**
- * Locks the app behind the Android biometric prompt.
- *
- * It locks on a restored session (any launch after the first login) and
- * auto-prompts, while a fresh password login stays unlocked for that session.
- * It re-locks and re-prompts after the app has been in the background longer
- * than [RELOCK_AFTER_MS], plus on a restored-session cold start. Brief
- * round-trips (the biometric sheet itself, system settings, app switching) keep
- * the session open instead of wedging behind a second prompt. On desktop the
- * native commands report "unavailable", so children render directly with no
- * lock.
- */
+/** Locks restored sessions behind the native biometric prompt. */
 export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
   const { t } = useI18n();
   const [supported, setSupported] = React.useState(false);
@@ -44,12 +29,7 @@ export function BiometricLock({ children, lockOnMount }: BiometricLockProps) {
   const awaySince = React.useRef<number | null>(null);
   const prevVisible = React.useRef(document.visibilityState);
 
-  /**
-   * Releases the in-flight guard. Android suspends JS while the app is hidden
-   * (and the OS dialog is dismissed with it), so a pending native call can never
-   * resolve then. Without this the Unlock button stayed disabled until the
-   * 60s timeout finally ran.
-   */
+  /** Releases the in-flight guard before Android suspends the webview. */
   const releasePromptGuard = React.useCallback(() => {
     prompting.current = false;
     setPromptBusy(false);

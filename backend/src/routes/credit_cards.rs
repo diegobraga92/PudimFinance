@@ -1,17 +1,4 @@
-//! Credit-card endpoints.
-//!
-//! Cards are `liability` accounts with `closing_day`/`due_day`. This module
-//! manages billing cycles ("faturas"), records purchases (posting balanced
-//! ledger entries), pays bills as transfers (never as expenses), and anticipates
-//! future installments onto the current bill ("antecipar parcelas").
-//!
-//! Monthly expense totals come from each transaction's *reporting* date
-//! (`effective_transaction_date`): by default that is `transactions.date`, so a
-//! card purchase counts in the month it was made. When the app is configured
-//! with `card_expense_dating = 'due_date'` (see migration 012 and the
-//! `/api/settings` endpoint) a card purchase counts in the month its bill is
-//! due instead. Either way, paying a bill creates no transaction — it moves
-//! ledger entries between the card and the paying account.
+//! Credit-card accounts, billing cycles, and payments.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -31,7 +18,7 @@ use crate::models::{
 };
 use crate::state::AppState;
 
-/// Returns a sub-router with all credit-card routes mounted under `/api/credit-cards`.
+/// Routes for credit-card operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/credit-cards", get(list_credit_cards))
@@ -81,14 +68,7 @@ fn date_with_day(year: i32, month: u32, day: u32) -> NaiveDate {
         .expect("clamped day is always valid")
 }
 
-/// Returns `(period_start, period_end, due_date)` for the billing cycle that
-/// contains `d`, given the card's `closing_day` (fatura fecha) and `due_day`
-/// (vencimento).
-///
-/// * `period_end` is the closing date on/after `d`.
-/// * `period_start` is the day after the previous closing.
-/// * `due_date` is the first `due_day` on/after `period_end` (same month when
-///   `due_day > closing_day`, next month otherwise).
+/// Returns the billing cycle and due date containing `d`.
 fn cycle_for_date(
     closing_day: i16,
     due_day: i16,

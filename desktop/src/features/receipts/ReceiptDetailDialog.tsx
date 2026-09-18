@@ -34,12 +34,7 @@ interface Props {
 const ITEM_GRID =
   'grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5.5rem_4.5rem] md:items-center';
 
-/**
- * Receipt detail with inline item editing.
- *
- * Every mutation goes through the API, which recomputes the receipt total, so
- * the dialog always shows the backend's numbers rather than a local guess.
- */
+/** Receipt detail with inline item editing. */
 export function ReceiptDetailDialog({ receiptId, onOpenChange, onOpenProduct }: Props) {
   const { t, formatMoney, formatDate, formatDateTime } = useI18n();
   const { toast } = useToast();

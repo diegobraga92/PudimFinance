@@ -218,11 +218,7 @@ interface SummaryCardProps {
   icon: React.ReactNode;
   iconClassName: string;
   valueClassName?: string;
-  /**
-   * Right-hand column: the month-over-month comparison, or a secondary figure
-   * (the balance card shows the month's net there). Keeping it beside the
-   * value removes the wide dead space the caption used to leave below.
-   */
+  /** Right-hand column: comparison or secondary figure. */
   aside?: React.ReactNode;
   available?: boolean;
   loading?: boolean;

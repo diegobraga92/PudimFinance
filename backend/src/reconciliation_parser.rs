@@ -1,7 +1,4 @@
-//! Bank statement parsing for reconciliation.
-//!
-//! Supports CSV files (with delimiter/column auto-detection) and OFX 1.x/2.x
-//! statement files (SGML/XML). Both produce a uniform `Vec<StatementLine>`.
+//! Parses CSV and OFX bank statements into uniform statement lines.
 
 use anyhow::{anyhow, Result};
 use chrono::NaiveDate;

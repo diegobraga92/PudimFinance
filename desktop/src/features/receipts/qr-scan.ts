@@ -39,13 +39,7 @@ export function captureIntentTarget(
   return null;
 }
 
-/**
- * Keeps only QR values understood by the NFC-e endpoint.
- *
- * NFC-e QR codes contain the invoice payload in a `p` query parameter. Keeping
- * this check on the client prevents an unrelated QR code (such as a product
- * URL) from being submitted as a receipt and gives the user immediate feedback.
- */
+/** Keeps only QR values understood by the NFC-e endpoint. */
 export function normalizeNfceQrValue(raw: string | null | undefined): string | null {
   const value = raw?.trim() ?? '';
   if (!value) return null;

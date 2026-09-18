@@ -1,4 +1,3 @@
-/** Canonical user-facing strings shared by the web and mobile clients. */
 export const en = {
   'app.name': 'PudimFinance',
   'app.footer': 'PudimFinance • Personal finance tracking',

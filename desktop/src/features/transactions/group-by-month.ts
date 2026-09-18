@@ -8,12 +8,7 @@ export interface TransactionMonthGroup {
   items: Transaction[];
 }
 
-/**
- * Groups transactions into month sections for the phone list.
- *
- * Input order is preserved, so the server's newest-first ordering produces
- * newest month first without extra sorting.
- */
+/** Groups transactions into month sections, preserving input order. */
 export function groupTransactionsByMonth(
   transactions: Transaction[],
   monthNames: string[],

@@ -1,11 +1,4 @@
-/**
- * Bridge between the webview and the native notification-capture backend.
- *
- * Android uses the Tauri plugin (`pudim-android-native`), which emits the
- * `notificationCaptured` event with `{ app_name, title, text, post_time }`,
- * reachable through the `plugin:pudim-native|…` command prefix. On desktop
- * capture is unsupported, so everything here degrades to no-ops.
- */
+/** Webview bridge for native notification-capture commands. */
 
 import { addPluginListener, invoke } from '@tauri-apps/api/core';
 import type { CaptureActionKind } from './capture';
@@ -122,10 +115,7 @@ export async function drainNativeNotifications(): Promise<CapturedNotification[]
   }
 }
 
-/**
- * Posts an Android notification with Income / Debit / Credit import actions.
- * No-ops on desktop (no equivalent OS API).
- */
+/** Posts an Android notification with import actions. */
 export async function showCapturePrompt(prompt: CapturePrompt): Promise<void> {
   if (!isTauri()) return;
   try {
@@ -205,10 +195,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
-/**
- * Mirrors the capture settings to the native listener so it can keep prompting
- * for detected transactions while the app process is dead.
- */
+/** Mirrors capture settings to the native listener. */
 export async function syncCaptureSettings(settings: {
   enabled: boolean;
   pushPrompt: boolean;

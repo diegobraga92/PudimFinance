@@ -1,4 +1,4 @@
-//! Data models shared across all layers (API request/response and DB rows).
+//! API and database models.
 
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -235,8 +235,6 @@ pub struct SummaryResponse {
     pub month: u32,
 }
 
-// Layer 2 budgets
-
 /// A monthly budget limit for a category.
 #[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct Budget {
@@ -393,8 +391,6 @@ pub struct AcknowledgeAlertsResponse {
     pub acknowledged: i64,
 }
 
-// Layer 4 installments (Parcelas)
-
 /// Progress summary computed for an installment plan.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct InstallmentProgress {
@@ -512,8 +508,6 @@ pub struct PayInstallmentResponse {
     /// Whether a new transaction was created or an existing one reused.
     pub created: bool,
 }
-
-// Layer 4 credit cards (billing cycles and installment anticipation)
 
 /// A single billing cycle ("fatura") for a credit card.
 #[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
@@ -643,8 +637,6 @@ pub struct AnticipateInstallmentsResponse {
     pub installments_anticipated: i64,
 }
 
-// Layer 2 reports
-
 /// A single month's income/expense totals for the monthly report.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct MonthlyReportItem {
@@ -752,8 +744,6 @@ pub struct TrendsResponse {
     /// Monthly points, chronological order.
     pub trends: Vec<TrendPoint>,
 }
-
-// Layer 3 double-entry ledger
 
 /// A chart-of-accounts account.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -1010,8 +1000,6 @@ pub struct MigrationResponse {
     /// Number that failed during migration.
     pub failed: i64,
 }
-
-// Layer 3 reconciliation
 
 /// A single line item from an uploaded bank statement.
 #[derive(Debug, Deserialize, ToSchema)]

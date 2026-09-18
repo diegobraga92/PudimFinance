@@ -33,13 +33,7 @@ const TAB_LABEL: Record<TabKey, string> = {
   stores: 'receipts.tabStores',
 };
 
-/**
- * Receipts: scanning, receipt history and the price-tracking database built
- * from them.
- *
- * Tabs live in the URL, and the cross-links (receipt → product → store) are
- * handled here so every tab can open every detail dialog.
- */
+/** Receipt scanning, history, price tracking, and store detail. */
 export function ReceiptsPage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();

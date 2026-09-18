@@ -75,10 +75,7 @@ function ReceiptList({
   );
 }
 
-/**
- * Store detail: spend over time, what is bought there, its receipts and the
- * prices recorded at it.
- */
+/** Spend, purchases, receipts, and prices for one store. */
 export function StoreDetailDialog({
   storeId,
   onOpenChange,

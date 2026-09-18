@@ -9,13 +9,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-/**
- * Shell for the Accounting & Data tools.
- *
- * Ledger, Reconciliation and the Audit Log are three views of the same workspace,
- * so they share one header and one tab strip; the tab that is active comes from
- * the route, which keeps every screen directly linkable.
- */
+/** Shared header and tab strip for the accounting tools. */
 export function ToolsWorkspace({ children }: Props) {
   const { t } = useI18n();
 

@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# PostgreSQL backup for PudimFinance.
-# Layer 4 Disaster Recovery. Creates a timestamped pg_dump.
-#
-# Run with ./scripts/backup.sh
+# Creates a timestamped PostgreSQL dump.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

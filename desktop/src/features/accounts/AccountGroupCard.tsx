@@ -32,10 +32,7 @@ function formatBalance(account: AccountWithBalance, formatMoney: (v: number) => 
     : formatMoney(balance);
 }
 
-/**
- * One group of accounts (bank / cards & loans / investments / other) with its
- * collapsible header, group total and account rows.
- */
+/** Displays a collapsible account group and its rows. */
 export function AccountGroupCard({ meta, accounts, onView, onEdit, onDelete, onAdjust }: Props) {
   const { t, formatMoney } = useI18n();
   const [open, setOpen] = React.useState(true);

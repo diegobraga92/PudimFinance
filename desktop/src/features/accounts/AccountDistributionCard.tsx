@@ -25,12 +25,7 @@ interface Slice {
   amount: number;
 }
 
-/**
- * Where the money sits: asset balances grouped by account kind (bank, cash,
- * investments). Assets with a zero or negative balance contribute nothing to
- * the split. The segmented bar keeps the comparison readable even with a
- * narrow accounts sidebar.
- */
+/** Asset balances grouped by account kind. */
 export function AccountDistributionCard({ accounts, loading, onSelect }: Props) {
   const { t, formatMoney } = useI18n();
 

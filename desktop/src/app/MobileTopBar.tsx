@@ -16,13 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-/**
- * Compact Android app bar.
- *
- * Root tabs show the brand lockup; every other screen shows a back arrow and its
- * title, so pages don't need their own desktop-sized heading on a phone. The
- * bell appears only where notification capture exists (Android builds).
- */
+/** Compact app bar for phone-sized screens. */
 export function MobileTopBar({
   titleKey,
   isRoot,

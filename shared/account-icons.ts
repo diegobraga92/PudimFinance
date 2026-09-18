@@ -1,10 +1,4 @@
-/**
- * Shared account icon catalog.
- *
- * Accounts store stable identifiers, not SVGs or brand assets. The desktop
- * client resolves these identifiers to Lucide glyphs or small brand monograms,
- * so the API/offline mirror remains portable.
- */
+/** Shared account icon catalog. */
 import type { TranslationKey } from './i18n';
 
 const LEGACY_ACCOUNT_ICON_NAMES = [
@@ -161,7 +155,6 @@ export function suggestAccountIcon(name?: string | null): AccountIconName | null
   return matches[0]?.option.name ?? null;
 }
 
-/** Generic defaults remain unchanged for kind-based creation. */
 export const DEFAULT_ACCOUNT_ICON: Record<string, AccountIconName> = {
   bank: 'bank', cash: 'money', card: 'card', loan: 'loan', investment: 'trending-up',
   equity: 'scale', income: 'briefcase', expense: 'briefcase', other: 'more-horizontal',

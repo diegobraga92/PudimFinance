@@ -1,7 +1,4 @@
-//! Ledger HTTP routes.
-//!
-//! Exposes double-entry transaction creation, the single-to-double migration
-//! endpoint, and the reconciliation (CSV matching) endpoint.
+//! Double-entry ledger, migration, and reconciliation routes.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -24,7 +21,7 @@ use crate::models::{
 };
 use crate::state::AppState;
 
-/// Returns a sub-router with all ledger routes mounted under `/api/ledger`.
+/// Routes for ledger operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(

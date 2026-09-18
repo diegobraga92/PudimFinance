@@ -1,7 +1,4 @@
-//! Double-entry ledger engine.
-//!
-//! Balanced transaction validation and account mapping. Pure domain logic with
-//! no HTTP concerns.
+//! Double-entry ledger validation and account mapping.
 
 use anyhow::{anyhow, Result};
 use rust_decimal::Decimal;

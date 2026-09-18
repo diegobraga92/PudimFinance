@@ -37,11 +37,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-/**
- * Read-only summary of a single transaction, opened from the dashboard's
- * activity table. The Edit button hands the same transaction to
- * `TransactionForm`, so viewing and changing share one source of truth.
- */
+/** Shows a transaction summary with an optional edit action. */
 export function TransactionDetailsDialog({
   transaction,
   category,

@@ -15,13 +15,7 @@ import {
 } from 'lucide-react';
 import type { TranslationKey } from '@shared/i18n';
 
-/**
- * Navigation model for the app shell.
- *
- * The top bar exposes the surfaces a person uses every day; the accounting and
- * administrative tools live behind the "Tools" menu, grouped so the menu reads
- * like a map of the product rather than a backend module list.
- */
+/** Navigation model for the app shell. */
 export interface NavItem {
   key: string;
   labelKey: TranslationKey;
@@ -46,7 +40,6 @@ export const PRIMARY_NAV: NavItem[] = [
   { key: 'transactions', labelKey: 'nav.transactions', icon: ArrowLeftRight, route: '/transactions' },
   { key: 'accounts', labelKey: 'nav.accounts', icon: Wallet, route: '/accounts' },
   { key: 'budgets', labelKey: 'nav.budgets', icon: Target, route: '/budgets' },
-  // Receipts outgrew "tools": it is a daily surface (scan, history, prices).
   {
     key: 'receipts',
     labelKey: 'nav.receipts',
@@ -125,12 +118,7 @@ export const TOOL_GROUPS: NavGroup[] = [
 /** The screens that make up the Accounting & Data workspace. */
 export const ACCOUNTING_TOOLS: NavItem[] = TOOL_GROUPS[0].items;
 
-/**
- * Bottom navigation for phone-sized screens (Android).
- *
- * Five destinations only: the daily money surfaces plus "More", which is where
- * receipts, the accounting tools and settings live.
- */
+/** Bottom navigation for phone-sized screens. */
 export const MOBILE_TABS: NavItem[] = [
   { key: 'dashboard', labelKey: 'nav.home', icon: House, route: '/dashboard' },
   { key: 'transactions', labelKey: 'nav.transactions', icon: ArrowLeftRight, route: '/transactions' },
@@ -139,11 +127,7 @@ export const MOBILE_TABS: NavItem[] = [
   { key: 'more', labelKey: 'nav.more', icon: Menu, route: '/more' },
 ];
 
-/**
- * Screens reachable from the More tab (and the Tools menu), mapped to the title
- * the mobile app bar shows for them. Ordered longest route first so the lookup
- * prefers the most specific match.
- */
+/** Secondary routes ordered from most to least specific. */
 const SECONDARY_SCREENS: { prefix: string; labelKey: TranslationKey }[] = [
   { prefix: '/receipts', labelKey: 'nav.receipts' },
   { prefix: '/reconciliation', labelKey: 'nav.reconciliation' },

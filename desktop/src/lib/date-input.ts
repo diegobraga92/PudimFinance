@@ -1,11 +1,4 @@
-/**
- * Date helpers for the in-app `<DateField>`.
- *
- * Kept free of React so they can be exercised by the smoke script: the field
- * accepts dates typed in the active locale (`22/11/2026` for pt-BR,
- * `11/22/2026` for en-US), `D-M-Y` variants and ISO `YYYY-MM-DD`, and always
- * hands the API an ISO date.
- */
+/** React-free date parsing and formatting helpers for `DateField`. */
 
 /** Field order of the locale's numeric date (pt-BR `d/m/y`, en-US `m/d/y`). */
 export interface DateOrder {
@@ -60,10 +53,7 @@ export function displayDate(date: Date | null, intl: string): string {
   return date.toLocaleDateString(intl, { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-/**
- * Turn what the user typed into an ISO date, or `null` when it is not a real
- * day. Two-digit years are read as 2000s.
- */
+/** Converts typed input to an ISO date, treating two-digit years as 2000s. */
 export function parseTypedDate(text: string, order: DateOrder): string | null {
   const trimmed = text.trim();
   if (!trimmed) return null;

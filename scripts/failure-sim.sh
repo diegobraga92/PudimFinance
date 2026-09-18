@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Disaster Recovery failure simulations for PudimFinance.
-# Layer 4 chaos and DR testing against the local Docker stack.
-#
+# Failure simulations against the local Docker stack.
 # Run with ./scripts/failure-sim.sh [kill-db|kill-rabbitmq|latency|all]
 set -euo pipefail
 

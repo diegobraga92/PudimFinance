@@ -1,7 +1,4 @@
-//! RabbitMQ event publishing for the ledger.
-//!
-//! Publishes `TransactionRecorded` events to the `finance.ledger.transactions`
-//! fanout exchange via `deadpool-lapin`.
+//! Publishes ledger events to the RabbitMQ fanout exchange.
 
 use anyhow::Result;
 use deadpool_lapin::{Config, Pool, PoolConfig, Runtime};

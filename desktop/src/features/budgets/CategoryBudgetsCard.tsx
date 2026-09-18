@@ -37,15 +37,11 @@ interface Props {
   onViewCategory: (name: string) => void;
 }
 
-/** Desktop column template, mirrored by the header row and every budget row. */
 const ROW_COLUMNS =
   'lg:grid lg:grid-cols-[minmax(0,2fr)_0.9fr_0.9fr_1.5fr_1fr_2.5rem] lg:items-center lg:gap-4';
 
 
-/**
- * The month's category limits: spent vs budget with a health-coloured bar and
- * the remaining amount. Rows reflow into labelled blocks on narrow screens.
- */
+/** Displays category budget rows for the selected month. */
 export function CategoryBudgetsCard({
   items,
   loading,

@@ -1,9 +1,4 @@
-//! PudimFinance Android notification capture plugin.
-//!
-//! Bridges the webview and the native Android `NotificationListenerService`
-//! (which observes other apps' bank notifications once the user grants
-//! "Notification access"). On non-Android targets every command degrades to a
-//! no-op / `false`, so the shared UI shows the "Android only" notice.
+//! Android notification capture and native client capabilities.
 
 use tauri::{
     plugin::{Builder, TauriPlugin},

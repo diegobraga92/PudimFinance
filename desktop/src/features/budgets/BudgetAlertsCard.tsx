@@ -26,12 +26,7 @@ interface Props {
 /** Alerts shown before the list is collapsed behind "View all". */
 export const ALERT_PREVIEW_COUNT = 2;
 
-/**
- * Threshold crossings raised by the backend, coloured by severity.
- *
- * The alert rows link back to the budget that produced them, so the percentage
- * and the over-limit amount come from real data instead of being re-derived.
- */
+/** Displays backend budget-threshold alerts. */
 export function BudgetAlertsCard({
   alerts,
   items,

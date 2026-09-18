@@ -44,10 +44,7 @@ export function LoginPage() {
     })();
   }, []);
 
-  /**
-   * Persists the typed address so the sign-in request hits it. Never throws:
-   * blank input keeps whatever is already configured.
-   */
+  /** Persists the typed server address without replacing it when blank. */
   const saveServer = async () => {
     if (!server.trim()) return;
     try {

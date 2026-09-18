@@ -38,11 +38,7 @@ interface Props {
   onViewCategory: (name: string) => void;
 }
 
-/**
- * Budgets tab: the month's limits, how much is left, what is in trouble and
- * where the money went. All figures come from `GET /api/budgets/summary`,
- * `GET /api/summary` and `GET /api/budgets/alerts`.
- */
+/** Displays monthly limits, spending, and budget alerts. */
 export function BudgetsTab({
   year,
   month,

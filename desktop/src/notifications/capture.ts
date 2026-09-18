@@ -13,10 +13,7 @@ export interface NotificationSettings {
   mode: CaptureMode;
   /** Default category id used when the parser can't guess one. */
   defaultCategoryId: string | null;
-  /**
-   * In `ask` mode, post a system notification (Income / Debit / Credit
-   * actions) instead of only queueing the capture in the review inbox.
-   */
+  /** In `ask` mode, also post a system notification with import actions. */
   pushPrompt: boolean;
   /** Account used when a capture is imported as a debit (checking) expense. */
   debitAccountId: string | null;
@@ -39,10 +36,7 @@ export const DEFAULT_SETTINGS: NotificationSettings = {
   creditAccountId: null,
 };
 
-/**
- * The three import choices offered by the capture-prompt notification.
- * `debit` and `credit` both create an expense, but post to a different account.
- */
+/** Import actions; debit and credit both create expenses. */
 export type CaptureActionKind = 'income' | 'debit' | 'credit';
 
 /** Narrows an untrusted (native) value to a [CaptureActionKind]. */
@@ -65,10 +59,7 @@ export function accountIdForAction(
   return null;
 }
 
-/**
- * Known Brazilian banks/payment apps. The monitor matches against the
- * notification *app name* (e.g. "Nubank").
- */
+/** Bank/payment apps matched by notification app name. */
 export const KNOWN_APPS: { label: string; appName: string }[] = [
   { label: 'Nubank', appName: 'Nubank' },
   { label: 'Itaú', appName: 'Itaú' },
@@ -167,10 +158,7 @@ export function guessCategory(
   return null;
 }
 
-/**
- * Parses a notification body into a transaction when the format matches a
- * bank/payment alert. Returns null for non-financial notifications.
- */
+/** Parses a bank/payment notification into a transaction. */
 export function parseNotification(
   body: string,
   categories: { id: string; name: string; type: string }[],
@@ -252,8 +240,6 @@ export function parseNotification(
     categoryId,
   };
 }
-
-// Pending review inbox (ask mode)
 
 export interface PendingCapture {
   id: string;
@@ -386,10 +372,7 @@ export async function removePendingCapture(id: string): Promise<PendingCapture[]
   return next;
 }
 
-/**
- * Removes every inbox entry matching a de-dup key. Used when a prompt action is
- * applied, to clear an entry the same notification produced under a different id.
- */
+/** Removes inbox entries matching a de-dup key. */
 export async function removePendingCaptureByDedupKey(
   dedupKey: string,
 ): Promise<PendingCapture[]> {
@@ -398,10 +381,7 @@ export async function removePendingCaptureByDedupKey(
   return next;
 }
 
-/**
- * Records that the OS import prompt was posted for a capture, so re-processing
- * the same (drained) notification on a later launch doesn't prompt twice.
- */
+/** Marks a capture so a drained notification does not prompt twice. */
 export async function markCapturePrompted(id: string): Promise<PendingCapture[]> {
   const next = readInbox().map((c) => (c.id === id ? { ...c, prompted: true } : c));
   await writeInbox(next);

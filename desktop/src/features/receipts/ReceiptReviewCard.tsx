@@ -10,20 +10,13 @@ import type { EditableReceiptItem, ReceiptScanner } from './useReceiptScanner';
 
 interface Props {
   scanner: ReceiptScanner;
-  /**
-   * Called once the receipt is stored, so the page can move the user on (the
-   * scan tab returns to the receipt history).
-   */
+  /** Called after the receipt is stored. */
   onSaved?: () => void;
 }
 
 const ITEM_GRID = 'grid grid-cols-[minmax(0,1fr)_5rem_6.5rem_6.5rem_2.25rem] gap-2';
 
-/**
- * Review step: nothing is stored until the parsed data has been looked at.
- * Every field is editable, and the items shown here are what becomes the price
- * history once saved.
- */
+/** Review step for parsed receipt data before saving. */
 export function ReceiptReviewCard({ scanner, onSaved }: Props) {
   const { t, formatMoney } = useI18n();
   const draft = scanner.draft;

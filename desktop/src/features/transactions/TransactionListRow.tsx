@@ -24,10 +24,7 @@ interface Props {
   onDelete: () => void;
 }
 
-/**
- * Phone-sized transaction row: category icon, description, account/date and the
- * signed amount, with edit/delete behind an overflow menu.
- */
+/** Phone-sized transaction row with an overflow menu. */
 export function TransactionListRow({ tx, category, accountName, accountIconName, accountKind, onEdit, onDelete }: Props) {
   const { t, formatMoney, formatDate } = useI18n();
   const isIncome = tx.type === 'income';

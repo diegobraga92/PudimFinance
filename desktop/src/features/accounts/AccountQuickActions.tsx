@@ -17,10 +17,7 @@ interface Props {
   onPayCard: () => void;
 }
 
-/**
- * Shortcuts into real flows: the account form, the ledger-backed transfer
- * dialog, the card-payment workspace and transactions.
- */
+/** Shortcuts to account, transfer, and card-payment flows. */
 export function AccountQuickActions({
   onNewAccount,
   onNewInvestment,

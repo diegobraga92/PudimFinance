@@ -1,7 +1,4 @@
-//! Receipt scanning and price-tracking endpoints.
-//!
-//! Uses the NFC-e QR parser (no OCR) to turn a QR code string into a receipt,
-//! persists receipts and items, and exposes price history and product merging.
+//! Receipt scanning, storage, and price-tracking endpoints.
 
 #![allow(clippy::result_large_err)]
 
@@ -25,7 +22,7 @@ use crate::receipt_ocr;
 use crate::receipt_scanner;
 use crate::state::AppState;
 
-/// Request payload for scanning a raw NFC-e QR code.
+/// NFC-e QR scan payload.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ScanRequest {
     /// Raw QR code content (URL or `p=` payload).
@@ -35,14 +32,14 @@ pub struct ScanRequest {
     pub fetch_details: Option<bool>,
 }
 
-/// Request payload for parsing raw OCR text from a receipt photo.
+/// OCR parsing payload.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct OcrRequest {
     /// Raw text extracted by the OCR engine (ML Kit / tesseract.js).
     pub raw_text: String,
 }
 
-/// Query params for the receipt list.
+/// Receipt-list filters.
 #[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
 pub struct ReceiptListParams {
     /// Matches the store name or any item description.
@@ -65,7 +62,7 @@ pub struct ReceiptListParams {
     pub page_size: Option<u32>,
 }
 
-/// Query params for price history.
+/// Price-history filters.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PriceHistoryParams {
     /// Normalized product ID.
@@ -74,14 +71,14 @@ pub struct PriceHistoryParams {
     pub months: Option<i32>,
 }
 
-/// Query params for the overview statistics.
+/// Receipt-statistics filters.
 #[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
 pub struct ReceiptStatsParams {
     /// Month to report on, `YYYY-MM` (default: the current month).
     pub month: Option<String>,
 }
 
-/// Request payload for merging two normalized products.
+/// Product-merge payload.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MergeProductsRequest {
     /// Product to keep.
@@ -90,7 +87,7 @@ pub struct MergeProductsRequest {
     pub source_id: Uuid,
 }
 
-/// Receipt sub-router.
+/// Routes for receipt operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/receipts/scan", axum::routing::post(scan))
@@ -308,11 +305,7 @@ pub async fn scan(
     })))
 }
 
-/// Parses raw OCR text from a receipt photo into structured data.
-///
-/// The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web).
-/// This endpoint turns the resulting text into the same structured shape the
-/// QR scan returns, so the save/review flow is identical for both sources.
+/// Parses client-produced OCR text into receipt data.
 #[utoipa::path(
     post,
     path = "/api/receipts/ocr",
@@ -485,10 +478,7 @@ pub async fn save_receipt(
     ))
 }
 
-/// Lists saved receipts with optional filters.
-///
-/// Every filter is bound as text and cast in SQL, so the same builder serves
-/// names, dates, amounts, ids and pagination.
+/// Lists saved receipts with filters.
 #[utoipa::path(
     get,
     path = "/api/receipts",
@@ -703,7 +693,7 @@ pub async fn get_receipt(
     ))
 }
 
-/// Deletes a receipt and everything that only existed because of it.
+/// Deletes a receipt and its dependent data.
 #[utoipa::path(
     delete,
     path = "/api/receipts/{id}",
@@ -1108,10 +1098,7 @@ pub async fn delete_receipt_item(
     ))
 }
 
-/// Headline numbers for the Overview tab.
-///
-/// One query with scalar subqueries: cheap enough to call on every visit, and
-/// it never loads receipt rows just to count them.
+/// Returns receipt and price-tracking statistics.
 #[utoipa::path(
     get,
     path = "/api/receipts/stats",

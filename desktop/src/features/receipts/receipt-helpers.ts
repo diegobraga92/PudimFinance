@@ -1,9 +1,4 @@
-/**
- * How a recorded price moved.
- *
- * `null` means there is nothing to compare against: the UI then shows the price
- * (or the record count) rather than a meaningless "0%".
- */
+/** Price direction relative to the previous recorded value. */
 export interface PriceChange {
   direction: 'up' | 'down' | 'flat';
   percentage: number;
@@ -19,10 +14,10 @@ export function priceChange(value: string | number | null | undefined): PriceCha
   return { direction: 'flat', percentage: 0 };
 }
 
-/** Period filter options for the store screens. */
+/** Store-screen period filters. */
 export const STORE_PERIODS: string[] = ['month', 'last_month', '3m', '6m', 'year', 'all'];
 
-/** Label key for each store period option. */
+/** Translation key for each store period. */
 export const PERIOD_LABEL_KEY: Record<string, string> = {
   month: 'receipts.periodMonth',
   last_month: 'receipts.periodLastMonth',

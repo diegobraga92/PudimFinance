@@ -24,11 +24,7 @@ import { cn } from '@/lib/utils';
 import { useNotificationCapture } from '@/notifications/NotificationCaptureProvider';
 import { appLabelFor, type PendingCapture } from '@/notifications/capture';
 
-/**
- * The Pending review screen under Tools. Captured but unconfirmed transactions (ask mode).
- * Each entry can be imported as-is, edited, or skipped. The inbox is durable
- * (localStorage) and grouped by the source bank app.
- */
+/** Review inbox for captured transactions awaiting confirmation. */
 export function PendingCapturesPage() {
   const { t, formatMoney } = useI18n();
   const { pendingItems, approve, approveAll, skip } = useNotificationCapture();

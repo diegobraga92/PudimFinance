@@ -20,12 +20,7 @@ interface Props {
   onSelectRecord?: (record: ProductPriceRecord) => void;
 }
 
-/**
- * Actual recorded prices, oldest to newest.
- *
- * Nothing is interpolated or smoothed: every dot is a price that was paid on a
- * receipt, which is why the tooltip carries the store too.
- */
+/** Chart of actually recorded prices, oldest to newest. */
 export function PriceHistoryChart({ records, loading, onSelectRecord }: Props) {
   const { t, formatMoney, formatDate, shortMonthNames } = useI18n();
   const tooltipTrigger = useChartTooltipTrigger();

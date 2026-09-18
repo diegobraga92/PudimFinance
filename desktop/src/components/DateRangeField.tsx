@@ -54,13 +54,7 @@ function presetRanges(): Preset[] {
   ];
 }
 
-/**
- * The whole date range in one control.
- *
- * Two bare date boxes were ambiguous (which one is "from"?), so this shows the
- * active range as a single labelled box and opens a popover with two labelled
- * fields plus the ranges people actually use.
- */
+/** Date-range input with a labelled calendar popover. */
 export function DateRangeField({
   startDate,
   endDate,

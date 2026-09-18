@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::auth;
 use crate::state::AppState;
 
-/// Request body for registering a new user.
+/// Registration payload.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RegisterRequest {
     /// User email (must be unique).
@@ -24,7 +24,7 @@ pub struct RegisterRequest {
     pub display_name: Option<String>,
 }
 
-/// Request body for logging in.
+/// Login payload.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct LoginRequest {
     /// User email.
@@ -33,17 +33,14 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-/// Request body for refreshing an access token.
+/// Token-refresh payload.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RefreshRequest {
     /// Refresh token issued at login.
     pub refresh_token: String,
 }
 
-/// Request body for completing a Google sign-in.
-///
-/// Desktop uses the authorization-code fields. Android uses an ID token from
-/// Credential Manager and the nonce that was bound to that token.
+/// Google sign-in payload for desktop and Android flows.
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct GoogleAuthRequest {
     /// ID token returned by Android Credential Manager.

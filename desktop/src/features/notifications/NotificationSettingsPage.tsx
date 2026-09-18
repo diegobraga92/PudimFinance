@@ -28,13 +28,7 @@ import {
   syncCaptureSettings,
 } from '@/notifications/native';
 
-/**
- * The Notifications section of Settings. Controls Android push-notification capture
- * (master switch, watched apps, capture mode, fallback category).
- *
- * On desktop the screen renders the same UI but with an "Android only" notice,
- * since no desktop OS API exposes other apps' notifications.
- */
+/** Android notification-capture settings. */
 export function NotificationSettingsPage() {
   const { t } = useI18n();
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });

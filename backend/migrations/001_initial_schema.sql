@@ -6,12 +6,6 @@
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ---------------------------------------------------------------------------
--- Accounts and categories
--- ---------------------------------------------------------------------------
-
--- Chart of accounts. `type` is the accounting classification, `account_kind`
--- the user-facing kind (bank, cash, card, loan, investment, ...).
 CREATE TABLE accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -42,7 +36,6 @@ CREATE TABLE categories (
 CREATE INDEX idx_categories_type ON categories (type);
 CREATE INDEX idx_categories_parent ON categories (parent_id);
 
--- Default chart of accounts.
 INSERT INTO accounts (name, type, account_kind) VALUES
     ('Cash', 'asset', 'cash'),
     ('Bank Account', 'asset', 'bank'),
@@ -67,7 +60,6 @@ INSERT INTO accounts (name, type, account_kind) VALUES
     ('Gifts Given', 'expense', 'expense'),
     ('Miscellaneous', 'expense', 'expense');
 
--- Default categories.
 INSERT INTO categories (name, type, icon, color) VALUES
     ('Salary', 'income', 'briefcase', '#22c55e'),
     ('Freelance', 'income', 'laptop', '#16a34a'),

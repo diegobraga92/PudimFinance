@@ -11,14 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lists all accounts with their computed balances. */
+        /** Lists accounts with computed balances. */
         get: operations["list_accounts"];
         put?: never;
-        /**
-         * Creates a new account.
-         * @description Returns `400` if the payload is invalid (missing name, invalid type,
-         *     non-existent parent).
-         */
+        /** Creates an account. */
         post: operations["create_account"];
         delete?: never;
         options?: never;
@@ -33,19 +29,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fetches a single account with its computed balance. */
+        /** Fetches an account with its computed balance. */
         get: operations["get_account"];
-        /**
-         * Updates an existing account.
-         * @description Returns `404` if the account does not exist, `400` for invalid payloads.
-         */
+        /** Updates an account. */
         put: operations["update_account"];
         post?: never;
-        /**
-         * Deletes an account.
-         * @description Returns `409` if ledger entries or sub-accounts reference it,
-         *     `404` if the account does not exist.
-         */
+        /** Deletes an account. */
         delete: operations["delete_account"];
         options?: never;
         head?: never;
@@ -76,7 +65,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lists audit events with optional filters (admin-only). */
+        /** Lists audit events for administrators. */
         get: operations["list_audit_events"];
         put?: never;
         post?: never;
@@ -195,10 +184,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lists budgets for a given month/year, joined with category display info. */
+        /** Lists budgets for a month with category details. */
         get: operations["list_budgets"];
         put?: never;
-        /** Creates or updates a budget (upsert on (category_id, month, year)). */
+        /** Creates or updates a budget. */
         post: operations["create_budget"];
         delete?: never;
         options?: never;
@@ -298,17 +287,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Lists categories, optionally filtered by type.
-         * @description Returns `400` if an invalid `type` filter is provided.
-         */
+        /** Lists categories, optionally filtered by type. */
         get: operations["list_categories"];
         put?: never;
-        /**
-         * Creates a new category.
-         * @description Returns `400` if the payload is invalid (missing name, invalid type,
-         *     non-existent parent category).
-         */
+        /** Creates a category. */
         post: operations["create_category"];
         delete?: never;
         options?: never;
@@ -325,17 +307,10 @@ export interface paths {
         };
         /** Fetches a single category by id. */
         get: operations["get_category"];
-        /**
-         * Updates an existing category.
-         * @description Returns `404` if the category does not exist, `400` for invalid payloads.
-         */
+        /** Updates a category. */
         put: operations["update_category"];
         post?: never;
-        /**
-         * Deletes a category.
-         * @description Returns `409` if the category is referenced by transactions or subcategories,
-         *     `404` if the category does not exist.
-         */
+        /** Deletes a category. */
         delete: operations["delete_category"];
         options?: never;
         head?: never;
@@ -571,11 +546,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Lists normalized products with their price statistics.
-         * @description Products without a recorded price are omitted: they have nothing to show in
-         *     a price-tracking screen.
-         */
+        /** Lists products with price statistics. */
         get: operations["list_products"];
         put?: never;
         post?: never;
@@ -612,11 +583,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Lists saved receipts with optional filters.
-         * @description Every filter is bound as text and cast in SQL, so the same builder serves
-         *     names, dates, amounts, ids and pagination.
-         */
+        /** Lists saved receipts with filters. */
         get: operations["list_receipts"];
         put?: never;
         /** Saves a reviewed receipt (and upserts its store), creating normalized products. */
@@ -636,12 +603,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Parses raw OCR text from a receipt photo into structured data.
-         * @description The OCR engine runs on the client (ML Kit on mobile, tesseract.js on web).
-         *     This endpoint turns the resulting text into the same structured shape the
-         *     QR scan returns, so the save/review flow is identical for both sources.
-         */
+        /** Parses client-produced OCR text into receipt data. */
         post: operations["ocr"];
         delete?: never;
         options?: never;
@@ -707,11 +669,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Headline numbers for the Overview tab.
-         * @description One query with scalar subqueries: cheap enough to call on every visit, and
-         *     it never loads receipt rows just to count them.
-         */
+        /** Returns receipt and price-tracking statistics. */
         get: operations["receipt_stats"];
         put?: never;
         post?: never;
@@ -732,7 +690,7 @@ export interface paths {
         get: operations["get_receipt"];
         put?: never;
         post?: never;
-        /** Deletes a receipt and everything that only existed because of it. */
+        /** Deletes a receipt and its dependent data. */
         delete: operations["delete_receipt"];
         options?: never;
         head?: never;
@@ -938,10 +896,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Returns income, expense, and balance totals for a given month,
-         *     with a per-category breakdown.
-         */
+        /** Returns monthly totals with a category breakdown. */
         get: operations["get_summary"];
         put?: never;
         post?: never;
@@ -992,7 +947,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lists transactions, with optional filters (category, type, date range) and pagination. */
+        /** Lists filtered and paginated transactions. */
         get: operations["list_transactions"];
         put?: never;
         /** Creates a new transaction. */
@@ -1549,7 +1504,7 @@ export interface components {
              */
             start_date: string;
         };
-        /** @description Query parameters for filtering the category list. */
+        /** @description Category-list filters. */
         CategoryListParams: {
             /** @description Filter by `income` or `expense`. */
             type?: string | null;
@@ -1791,12 +1746,7 @@ export interface components {
              */
             generated: number;
         };
-        /**
-         * @description Request body for completing a Google sign-in.
-         *
-         *     Desktop uses the authorization-code fields. Android uses an ID token from
-         *     Credential Manager and the nonce that was bound to that token.
-         */
+        /** @description Google sign-in payload for desktop and Android flows. */
         GoogleAuthRequest: {
             /** @description Public OAuth client ID used for the desktop authorization request. */
             client_id?: string | null;
@@ -2022,14 +1972,14 @@ export interface components {
              */
             transaction_id: string;
         };
-        /** @description Request body for logging in. */
+        /** @description Login payload. */
         LoginRequest: {
             /** @description User email. */
             email: string;
             /** @description Plaintext password. */
             password: string;
         };
-        /** @description Request payload for merging two normalized products. */
+        /** @description Product-merge payload. */
         MergeProductsRequest: {
             /**
              * Format: uuid
@@ -2100,7 +2050,7 @@ export interface components {
             /** @description Unit price. */
             unit_price?: string | null;
         };
-        /** @description Request payload for parsing raw OCR text from a receipt photo. */
+        /** @description OCR parsing payload. */
         OcrRequest: {
             /** @description Raw text extracted by the OCR engine (ML Kit / tesseract.js). */
             raw_text: string;
@@ -2139,7 +2089,7 @@ export interface components {
             /** @description The linked transaction (created if one didn't exist). */
             transaction: components["schemas"]["Transaction"];
         };
-        /** @description Query params for price history. */
+        /** @description Price-history filters. */
         PriceHistoryParams: {
             /**
              * Format: int32
@@ -2341,7 +2291,7 @@ export interface components {
             /** @description Price for one unit. */
             unit_price?: string | null;
         };
-        /** @description Query params for the receipt list. */
+        /** @description Receipt-list filters. */
         ReceiptListParams: {
             /**
              * Format: date
@@ -2446,7 +2396,7 @@ export interface components {
             /** @description Sum of all receipt totals. */
             total_spent: string;
         };
-        /** @description Query params for the overview statistics. */
+        /** @description Receipt-statistics filters. */
         ReceiptStatsParams: {
             /** @description Month to report on, `YYYY-MM` (default: the current month). */
             month?: string | null;
@@ -2553,12 +2503,12 @@ export interface components {
              */
             unmatched_rows: number;
         };
-        /** @description Request body for refreshing an access token. */
+        /** @description Token-refresh payload. */
         RefreshRequest: {
             /** @description Refresh token issued at login. */
             refresh_token: string;
         };
-        /** @description Request body for registering a new user. */
+        /** @description Registration payload. */
         RegisterRequest: {
             /** @description Optional display name. */
             display_name?: string | null;
@@ -2588,7 +2538,7 @@ export interface components {
              */
             total: string;
         };
-        /** @description Request payload for scanning a raw NFC-e QR code. */
+        /** @description NFC-e QR scan payload. */
         ScanRequest: {
             /**
              * @description Whether to fetch public DANFE details when the QR contains a full URL.
@@ -2649,7 +2599,7 @@ export interface components {
              */
             record_count: number;
         };
-        /** @description Query params for the store list. */
+        /** @description Store-list filters. */
         StoreListParams: {
             /**
              * Format: int32
@@ -2756,7 +2706,7 @@ export interface components {
             /** @description Total spent on it. */
             total: string;
         };
-        /** @description Query parameters for the summary endpoint. */
+        /** @description Summary filters. */
         SummaryParams: {
             /**
              * Format: int32

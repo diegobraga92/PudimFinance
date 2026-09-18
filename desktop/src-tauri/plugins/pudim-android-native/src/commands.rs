@@ -1,8 +1,4 @@
-//! Commands exposed to the webview as `plugin:pudim-native|…`.
-//!
-//! On Android they forward to the Kotlin `PudimNativePlugin` via the stored
-//! [`PluginHandle`]. Everywhere else they return desktop-safe defaults so the
-//! shared UI can render the "Android only" messaging.
+//! Commands exposed to the webview through the native plugin.
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
@@ -34,11 +30,6 @@ pub struct CapturedNotification {
 }
 
 /// A choice made on an import-prompt notification action button.
-///
-/// `action` is `income`, `debit`, or `credit`; `capture_id` links back to the
-/// [`CapturedNotification`] (and its pending-review inbox entry) it belongs to.
-/// The raw notification fields are only present when the listener posted the
-/// prompt (app was dead), so the choice stays importable on the next launch.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct CaptureAction {
@@ -254,12 +245,7 @@ pub fn drain_pending<R: Runtime>(app: AppHandle<R>) -> Result<Vec<CapturedNotifi
     }
 }
 
-/// Posts an Android notification asking how to import a captured transaction.
-///
-/// The notification carries three action buttons (income/debit/credit) plus a
-/// content intent that opens the app on the pending-review screen. Tapping an
-/// action is delivered back through [`drain_capture_actions`] and the
-/// `captureAction` plugin event.
+/// Posts an Android notification with transaction import actions.
 #[tauri::command]
 pub fn show_capture_prompt<R: Runtime>(
     app: AppHandle<R>,
@@ -560,9 +546,7 @@ pub fn clear_sync_outbox<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     }
 }
 
-// Keystore-backed token storage (Android). The `keyring` crate has no reliable
-// Android backend, so these forward to the Kotlin `SecureStorage` (Android
-// Keystore and AES/GCM). On desktop the app's auth_store commands use keyring.
+// Android Keystore-backed token storage; desktop uses the OS keyring instead.
 
 #[tauri::command]
 pub fn secure_get<R: Runtime>(app: AppHandle<R>, key: String) -> Result<Option<String>, String> {
@@ -631,8 +615,7 @@ pub fn secure_delete<R: Runtime>(app: AppHandle<R>, key: String) -> Result<(), S
     }
 }
 
-// Biometric lock and home-screen Quick Add widget (Android). On desktop these
-// commands degrade to defaults so the shared UI never hard-fails.
+// Biometric lock and widget commands; desktop returns safe defaults.
 #[tauri::command]
 pub fn biometric_available<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
     let state = app.state::<CaptureHandle<R>>();

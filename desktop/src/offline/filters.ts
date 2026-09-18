@@ -13,14 +13,7 @@ export interface LocalTransactionFilters {
   order?: 'asc' | 'desc';
 }
 
-/**
- * Applies the transaction-list filters to the local mirror.
- *
- * The server can account for credit-card effective dates; the local mirror
- * only has the transaction date, so date filtering intentionally uses `date`
- * while offline. This keeps the result useful and deterministic until the
- * next server sync.
- */
+/** Applies transaction-list filters to the local mirror. */
 export function filterAndSortLocalTransactions(
   rows: LocalTransaction[],
   filters: LocalTransactionFilters = {},

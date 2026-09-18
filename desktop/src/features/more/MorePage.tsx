@@ -29,12 +29,7 @@ interface Row {
   badge?: string;
 }
 
-/**
- * "More" tab: everything that is not a daily money surface.
- *
- * Receipts, the accounting tools and settings live here so the bottom bar can
- * stay at five destinations, and each row says what it does.
- */
+/** Tab for receipts, accounting tools, and settings. */
 export function MorePage() {
   const { t, locale, setLocale } = useI18n();
   const { theme, setTheme } = useTheme();

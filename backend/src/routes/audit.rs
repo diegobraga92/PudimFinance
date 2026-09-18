@@ -1,7 +1,4 @@
-//! Audit event search endpoint (admin-only).
-//!
-//! Queries the immutable `events` table to provide an audit trail of
-//! domain events (e.g., `TransactionRecorded`), with filtering and pagination.
+//! Admin-only search over the immutable audit event log.
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -14,7 +11,7 @@ use tracing::error;
 
 use crate::state::AppState;
 
-/// Query parameters for filtering audit events.
+/// Audit-event filters.
 #[derive(Default, Deserialize)]
 pub struct AuditQuery {
     /// Event type filter (e.g., `TransactionRecorded`).
@@ -31,7 +28,7 @@ pub struct AuditQuery {
     pub page_size: Option<u32>,
 }
 
-/// A single audit event row.
+/// An audit event row.
 #[derive(Debug, serde::Serialize, sqlx::FromRow)]
 pub struct AuditEvent {
     /// Sequence ID.
@@ -48,16 +45,12 @@ pub struct AuditEvent {
     pub occurred_at: DateTime<Utc>,
 }
 
-/// Audit sub-router.
-///
-/// Admin authorization is enforced inside the handler by decoding the Bearer
-/// token (the auth middleware already verified it, and we additionally require
-/// the `admin` role here).
+/// Routes for admin audit-event searches.
 pub fn router() -> Router<AppState> {
     Router::new().route("/api/audit/events", axum::routing::get(list_audit_events))
 }
 
-/// Lists audit events with optional filters (admin-only).
+/// Lists audit events for administrators.
 #[utoipa::path(
     get,
     path = "/api/audit/events",
@@ -96,7 +89,6 @@ pub async fn list_audit_events(
     let page = params.page.unwrap_or(0);
     let offset = page.saturating_mul(page_size);
 
-    // Base query with optional filters applied in Rust after fetch.
     let events: Vec<AuditEvent> = sqlx::query_as(
         "SELECT id, aggregate_id, aggregate_type, event_type, payload, occurred_at
          FROM events
@@ -115,7 +107,7 @@ pub async fn list_audit_events(
         )
     })?;
 
-    // Apply in-memory filters (sufficient for moderate event volumes).
+    // Filters are applied after the bounded query.
     let filtered: Vec<AuditEvent> = events
         .into_iter()
         .filter(|e| {

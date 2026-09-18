@@ -30,10 +30,7 @@ export function normalizeServerUrl(raw: string): string {
   return url;
 }
 
-/**
- * Returns the current API base URL. The first call reads localStorage, and later
- * calls use the in-memory cache. Never throws, and falls back to the default.
- */
+/** Returns the cached API base URL, falling back to the default. */
 export async function getApiBaseUrl(): Promise<string> {
   if (cached) return cached;
   try {
@@ -46,10 +43,7 @@ export async function getApiBaseUrl(): Promise<string> {
   return cached;
 }
 
-/**
- * Persists a new server URL and updates the in-memory cache so subsequent API
- * calls immediately use it. Returns the normalized value.
- */
+/** Persists a server URL and updates the in-memory cache. */
 export async function setApiBaseUrl(raw: string): Promise<string> {
   const normalized = normalizeServerUrl(raw);
   if (!normalized) {

@@ -128,7 +128,6 @@ export function DashboardPage() {
   });
 
   const summary = summaryQuery.data;
-  // Memoized so the derived maps/arrays below keep stable identities.
   const accounts = React.useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
   const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const cashFlowMonths = React.useMemo(() => comparisonQuery.data?.months ?? [], [comparisonQuery.data]);
@@ -151,9 +150,6 @@ export function DashboardPage() {
   const recentLoading =
     recentQuery.isLoading || categoriesQuery.isLoading || accountsQuery.isLoading;
 
-  // Real month-over-month comparisons derived from the monthly report. A missing
-  // previous month (or a zero baseline) yields `null`, and the card then shows
-  // its caption instead of a made-up percentage.
   const previousPeriod = React.useMemo(() => shiftMonth(year, month, -1), [year, month]);
   const deltas: SummaryDeltas = React.useMemo(() => {
     const previous = cashFlowMonths.find(
@@ -176,7 +172,6 @@ export function DashboardPage() {
     };
   }, [cashFlowMonths, previousPeriod, income, expenses, savingsRate]);
 
-  // Format the server-provided period starts for the selected chart resolution.
   const cashFlowSeries: CashFlowPoint[] = React.useMemo(() => {
     const intl = toIntlLocale(locale);
     const points = (cashFlowQuery.data?.points ?? []).map((point) => {

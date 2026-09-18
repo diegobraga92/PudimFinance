@@ -1,9 +1,4 @@
-//! Receipt text parsing for OCR-assisted scanning.
-//!
-//! Turns raw OCR text (ML Kit on mobile, tesseract.js on web) into a structured
-//! receipt with access key, CNPJ, date, total, store name, and best-effort items.
-//! Only fields reliably labeled on Brazilian NFC-e receipts are extracted. The
-//! UI's editable item list remains the safety net.
+//! Parses OCR text into a reviewable receipt.
 
 use regex::Regex;
 use rust_decimal::Decimal;

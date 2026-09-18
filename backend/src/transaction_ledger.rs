@@ -1,12 +1,8 @@
-//! Transaction to ledger posting service.
+//! Posts balanced ledger entries for simple transactions.
 //!
-//! Every "simple" transaction (the `transactions` table) writes a balanced pair
-//! of `ledger_entries` at write time, so account balances, the double-entry
-//! ledger, reconciliation, and the single-entry reporting views all agree.
-//!
-//! By convention `ledger_entries.transaction_id = transactions.id`, and
-//! `transactions.ledger_transaction_id` is set to the same value. Legacy rows
-//! may use a separate UUID, and `delete_entries` handles both forms.
+//! By convention `ledger_entries.transaction_id = transactions.id`. Legacy rows
+//! may use `transactions.ledger_transaction_id` instead, and `delete_entries`
+//! handles both forms.
 
 use anyhow::{anyhow, Result};
 use rust_decimal::Decimal;

@@ -1,7 +1,4 @@
-//! PudimFinance backend binary (HTTP API server).
-//!
-//! Serves the REST API, Swagger UI, and health endpoints.
-//! Configuration is loaded from environment variables (see [`config::Config`]).
+//! HTTP API server binary.
 
 use axum::Router;
 use std::net::SocketAddr;

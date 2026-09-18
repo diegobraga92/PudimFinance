@@ -11,14 +11,7 @@ import { resolveAccountIconId, type AccountIconName } from '@shared/account-icon
 import type { AccountKind } from './AccountForm';
 import type { AccountWithBalance } from '@/lib/api';
 
-/**
- * Accounts-page grouping.
- *
- * The backend chart of accounts (`asset`/`liability`/`equity`/`income`/`expense`)
- * and the user-facing `account_kind` are translated here into the three groups a
- * person actually thinks in — where the money is, what is owed, and what is
- * invested — plus an "Other" bucket so nothing is ever hidden.
- */
+/** Maps accounting accounts to the groups shown on the accounts page. */
 export type AccountGroupKey = 'bank' | 'liabilities' | 'investments' | 'other';
 
 export interface AccountGroupMeta {
@@ -144,11 +137,7 @@ export function accountAppearance(account: AccountWithBalance): {
   };
 }
 
-/**
- * Accounts the page lists: balance-sheet accounts only. Income/expense/equity
- * accounts are posting accounts of the double-entry chart, not money the user
- * holds, and stay out of this screen (they remain visible in the Ledger).
- */
+/** Balance-sheet accounts only; posting accounts stay in the Ledger. */
 export function isBalanceSheet(account: AccountWithBalance): boolean {
   return account.type === 'asset' || account.type === 'liability';
 }

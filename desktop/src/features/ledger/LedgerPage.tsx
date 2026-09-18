@@ -71,12 +71,7 @@ function sides(transaction: LedgerTransaction): { debit?: LedgerEntry; credit?: 
   };
 }
 
-/**
- * Accounting Ledger: the double-entry records behind the money screens.
- *
- * This is an inspection surface for advanced users — the Transactions screen
- * stays the way to manage everyday spending.
- */
+/** Double-entry records behind the money screens. */
 export function LedgerPage() {
   const { t, formatMoney, formatDate } = useI18n();
   const { toast } = useToast();

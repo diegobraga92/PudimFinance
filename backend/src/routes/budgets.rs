@@ -19,7 +19,7 @@ use crate::models::{
 use crate::routes::settings;
 use crate::state::AppState;
 
-/// Query parameters for the budget list and summary.
+/// Budget-list and summary filters.
 #[derive(Debug, Default, Deserialize)]
 pub struct BudgetParams {
     /// Year (defaults to the current year).
@@ -28,7 +28,7 @@ pub struct BudgetParams {
     pub month: Option<i32>,
 }
 
-/// Query parameters for the budget alerts listing.
+/// Budget-alert filters.
 #[derive(Debug, Default, Deserialize)]
 pub struct BudgetAlertParams {
     /// Year (defaults to the current year).
@@ -43,7 +43,7 @@ pub struct BudgetAlertParams {
     pub page_size: Option<u32>,
 }
 
-/// Returns a sub-router with all budget routes mounted under `/api/budgets`.
+/// Routes for budget operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/budgets", get(list_budgets).post(create_budget))
@@ -78,7 +78,7 @@ fn resolve_period(
     Ok((year, month))
 }
 
-/// Lists budgets for a given month/year, joined with category display info.
+/// Lists budgets for a month with category details.
 #[utoipa::path(
     get,
     path = "/api/budgets",
@@ -122,7 +122,7 @@ pub async fn list_budgets(
     Ok(Json(BudgetListResponse { items, month, year }))
 }
 
-/// Creates or updates a budget (upsert on (category_id, month, year)).
+/// Creates or updates a budget.
 #[utoipa::path(
     post,
     path = "/api/budgets",

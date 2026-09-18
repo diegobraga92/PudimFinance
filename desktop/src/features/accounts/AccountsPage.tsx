@@ -96,14 +96,7 @@ function AccountsListSkeleton() {
   );
 }
 
-/**
- * Accounts: where the money sits, what is owed and how it is spread.
- *
- * Balances and account kinds come from `GET /api/accounts` (the backend's
- * computed chart-of-accounts balances), activity from `GET /api/transactions`,
- * and transfers post to the double-entry ledger. Nothing is derived from raw
- * ledger rows here.
- */
+/** Balances, liabilities, and account activity from the API. */
 export function AccountsPage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();

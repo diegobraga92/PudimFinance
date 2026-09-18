@@ -195,12 +195,7 @@ function MobileAccountsSummary({ items, loading }: { items: SummaryItem[]; loadi
   );
 }
 
-/**
- * Headline position: net worth, what is owed, and credit capacity. The assets
- * total remains visible as the net-worth card's secondary figure, while credit
- * usage gives card holders an actionable view that is not duplicated on the
- * dashboard. The same item list drives desktop cards and mobile rows.
- */
+/** Displays net worth, liabilities, and credit capacity. */
 export function AccountsSummary({
   loading,
   available,

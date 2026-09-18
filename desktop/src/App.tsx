@@ -54,7 +54,6 @@ export function App() {
             {/* Categories now live in the Budgets tab switcher. */}
             <Route path="/categories" element={<Navigate to="/budgets?tab=categories" replace />} />
             <Route path="/audit" element={<AuditPage />} />
-            {/* Credit-card workflows now live in the Accounts detail dialog. */}
             <Route path="/credit-cards" element={<Navigate to="/accounts" replace />} />
             <Route path="/notifications" element={<NotificationSettingsPage />} />
             <Route path="/pending-review" element={<PendingCapturesPage />} />

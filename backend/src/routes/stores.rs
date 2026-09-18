@@ -1,7 +1,4 @@
-//! Store endpoints: who issued the receipts and what was bought there.
-//!
-//! Stores are derived from receipts — there is no manual store CRUD. A store
-//! appears once it has a receipt and disappears when its last receipt does.
+//! Stores derived from receipts; there is no manual store CRUD.
 
 #![allow(clippy::result_large_err)]
 
@@ -21,7 +18,7 @@ use crate::models::{
 };
 use crate::state::AppState;
 
-/// Query params for the store list.
+/// Store-list filters.
 #[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
 pub struct StoreListParams {
     /// Case-insensitive substring match on the store name.

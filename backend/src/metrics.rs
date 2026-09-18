@@ -57,8 +57,6 @@ pub fn set_rabbitmq_connected(connected: bool) {
 }
 
 /// Sets the DB pool active-connection gauge.
-///
-/// Kept as a helper for future wiring (would be fed by a periodic PgPool poll).
 #[allow(dead_code)]
 pub fn set_db_pool_active_connections(value: f64) {
     metrics::gauge!(METRIC_DB_POOL).set(value);

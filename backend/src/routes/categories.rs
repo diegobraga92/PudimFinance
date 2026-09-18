@@ -14,14 +14,14 @@ use uuid::Uuid;
 use crate::models::{Category, CreateCategoryRequest, UpdateCategoryRequest};
 use crate::state::AppState;
 
-/// Query parameters for filtering the category list.
+/// Category-list filters.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CategoryListParams {
     /// Filter by `income` or `expense`.
     pub r#type: Option<String>,
 }
 
-/// Returns a sub-router with all category routes mounted under `/api/categories`.
+/// Routes for category operations.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -62,8 +62,6 @@ async fn is_category_descendant(
 }
 
 /// Lists categories, optionally filtered by type.
-///
-/// Returns `400` if an invalid `type` filter is provided.
 #[utoipa::path(
     get,
     path = "/api/categories",
@@ -121,10 +119,7 @@ pub async fn list_categories(
     }
 }
 
-/// Creates a new category.
-///
-/// Returns `400` if the payload is invalid (missing name, invalid type,
-/// non-existent parent category).
+/// Creates a category.
 #[utoipa::path(
     post,
     path = "/api/categories",
@@ -252,9 +247,7 @@ pub async fn get_category(
     }
 }
 
-/// Updates an existing category.
-///
-/// Returns `404` if the category does not exist, `400` for invalid payloads.
+/// Updates a category.
 #[utoipa::path(
     put,
     path = "/api/categories/{id}",
@@ -418,9 +411,6 @@ pub async fn update_category(
 }
 
 /// Deletes a category.
-///
-/// Returns `409` if the category is referenced by transactions or subcategories,
-/// `404` if the category does not exist.
 #[utoipa::path(
     delete,
     path = "/api/categories/{id}",

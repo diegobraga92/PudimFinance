@@ -40,7 +40,6 @@ export const options = {
   },
 };
 
-// Smoke test: exercise every read endpoint once
 export function smoke() {
   const readChecks = [
     ['GET /health', http.get(`${BASE}/health`, { headers: HEADERS })],
@@ -60,9 +59,7 @@ export function smoke() {
   }
 }
 
-// Load test: realistic read-heavy traffic
 export function apiTraffic() {
-  // Read endpoints (bulk of traffic)
   const reads = [
     () => http.get(`${BASE}/api/transactions`, { headers: HEADERS }),
     () => http.get(`${BASE}/api/summary`, { headers: HEADERS }),
@@ -76,7 +73,6 @@ export function apiTraffic() {
 
   sleep(0.1);
 
-  // Occasional write (create a lightweight simple transaction)
   if (Math.random() < 0.1) {
     const payload = {
       description: 'Load test expense',

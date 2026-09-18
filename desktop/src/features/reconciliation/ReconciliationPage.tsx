@@ -81,13 +81,7 @@ function parseCsv(text: string): CsvRow[] {
 const DROP_ZONE =
   'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-border bg-surface-hover/20 px-6 py-8 text-center transition-colors hover:border-primary hover:bg-primary/[0.04]';
 
-/**
- * Reconciliation: import a bank statement and see what matched.
- *
- * The upload flow, the CSV-paste fallback, the auto-create option, the results
- * and the history are the existing behaviour — this screen just makes the
- * workflow (import → match → review) obvious.
- */
+/** Imports bank statements, matches transactions, and shows reconciliation history. */
 export function ReconciliationPage() {
   const { t, formatMoney, formatDate, formatDateTime } = useI18n();
   const { toast } = useToast();
@@ -817,12 +811,7 @@ function ReconRowsTable({
 }
 
 
-/**
- * Phone wizard header: upload → match → review.
- *
- * Steps are tappable so a reconciliador can jump back to the upload form; a step
- * without a result yet cannot be opened.
- */
+/** Phone wizard header: upload, match, review. */
 function ReconStepper({
   step,
   hasResult,

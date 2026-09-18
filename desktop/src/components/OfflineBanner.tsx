@@ -14,11 +14,7 @@ import { cn } from '@/lib/utils';
 
 type BannerState = 'online' | 'offline';
 
-/**
- * Renders the offline/sync status banner under the header. Shows a live
- * pending-change count, lets the user force a sync, and reflects the current
- * connectivity state. Hidden entirely when online with nothing pending.
- */
+/** Displays connectivity and pending-sync status. */
 export function OfflineBanner() {
   const { t } = useI18n();
   const [pendingCount, setPendingCount] = React.useState(0);
