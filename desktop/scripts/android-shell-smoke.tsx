@@ -751,6 +751,42 @@ check('ReceiptsPage (phone capture shortcuts)', <ReceiptsPage />, [
   'Items &amp; Prices',
   'w-fit max-w-full', // tab bar hugs its tabs instead of spanning the page
 ]);
+check('ReceiptsPage (overview containment)', <ReceiptsPage />, [
+  'grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]',
+  'min-w-0 border-border bg-surface shadow-card',
+], (() => {
+  const client = new QueryClient();
+  client.setQueryData(['receipts', 'stats'], {
+    total_receipts: 1,
+    receipts_this_month: 1,
+    total_spent: '0',
+    items_tracked: 0,
+    price_records: 0,
+    store_count: 0,
+  });
+  return client;
+})());
+check(
+  'ReceiptsPage (receipt filters)',
+  <ReceiptsPage />,
+  ['aria-label="Filters"', 'max-md:hidden', 'max-md:h-11'],
+  undefined,
+  '/receipts?tab=receipts',
+);
+check(
+  'ReceiptsPage (items and stores controls)',
+  <ReceiptsPage />,
+  ['overflow-x-auto rounded-md bg-muted'],
+  undefined,
+  '/receipts?tab=items',
+);
+check(
+  'ReceiptsPage (stores filters)',
+  <ReceiptsPage />,
+  ['aria-label="Filters"', 'max-md:hidden', 'max-md:h-11'],
+  undefined,
+  '/receipts?tab=stores',
+);
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,

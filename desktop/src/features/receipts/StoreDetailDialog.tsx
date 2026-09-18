@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Store as StoreIcon } from 'lucide-react';
+import { Eye, Store as StoreIcon } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { fetchReceipts, fetchStore, type ReceiptSummary } from '@/lib/api';
@@ -46,20 +46,27 @@ function ReceiptList({
   return (
     <ul className="divide-y divide-border/60 rounded-md border border-border">
       {receipts.map((receipt) => (
-        <li key={receipt.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-          <span className="w-24 shrink-0 text-muted-foreground">
+        <li key={receipt.id} className="flex min-w-0 items-center gap-2 px-3 py-2 text-sm sm:gap-3">
+          <span className="w-20 shrink-0 text-muted-foreground sm:w-24">
             {receipt.receipt_date ? formatDate(receipt.receipt_date) : '—'}
           </span>
-          <span className="shrink-0 text-xs text-dim">
+          <span className="hidden shrink-0 text-xs text-dim sm:inline">
             {t('receipts.itemsShort', { count: receipt.item_count })}
           </span>
-          <SourceBadge source={receipt.source} />
+          <span className="shrink-0"><SourceBadge source={receipt.source} /></span>
           <span className="min-w-0 flex-1 text-right font-medium tabular-nums">
             {receipt.total_amount ? formatMoney(receipt.total_amount) : '—'}
           </span>
           {onOpenReceipt && (
-            <Button variant="ghost" size="sm" onClick={() => onOpenReceipt(receipt.id)}>
-              {t('receipts.viewReceipt')}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="max-sm:w-9 max-sm:px-0"
+              onClick={() => onOpenReceipt(receipt.id)}
+              aria-label={t('receipts.viewReceipt')}
+            >
+              <Eye className="h-4 w-4 sm:hidden" />
+              <span className="max-sm:hidden">{t('receipts.viewReceipt')}</span>
             </Button>
           )}
         </li>
@@ -113,7 +120,7 @@ export function StoreDetailDialog({
   return (
     <Dialog open={Boolean(storeId)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
+        <DialogHeader className="pr-8">
           <DialogTitle className="flex items-center gap-2">
             <StoreIcon className="h-4 w-4 text-primary" aria-hidden="true" />
             {store?.name ?? t('receipts.storeFallback')}
@@ -140,7 +147,7 @@ export function StoreDetailDialog({
           </p>
         ) : (
           <div className="space-y-4">
-            <div className="flex gap-1 rounded-md bg-muted p-1" role="tablist">
+            <div className="flex w-full gap-1 overflow-x-auto rounded-md bg-muted p-1" role="tablist">
               {sections.map((item) => (
                 <button
                   key={item.key}
@@ -149,7 +156,7 @@ export function StoreDetailDialog({
                   aria-selected={section === item.key}
                   onClick={() => setSection(item.key)}
                   className={cn(
-                    'flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+                    'shrink-0 flex-1 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
                     section === item.key
                       ? 'bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40'
                       : 'text-muted-foreground hover:text-foreground',
@@ -183,7 +190,7 @@ export function StoreDetailDialog({
                       {(storeQuery.data?.top_items ?? []).map((item) => (
                         <li
                           key={`${item.description}-${item.product_id ?? 'none'}`}
-                          className="flex items-center gap-3 px-3 py-2 text-sm"
+                          className="flex min-w-0 items-center gap-3 px-3 py-2 text-sm"
                         >
                           {item.product_id && onOpenProduct ? (
                             <button
@@ -199,7 +206,7 @@ export function StoreDetailDialog({
                           <span className="shrink-0 text-xs text-dim">
                             {t('receipts.purchasesCount', { count: item.purchase_count })}
                           </span>
-                          <span className="w-24 shrink-0 text-right tabular-nums">
+                          <span className="w-20 shrink-0 text-right tabular-nums sm:w-24">
                             {formatMoney(item.total)}
                           </span>
                         </li>
@@ -241,7 +248,7 @@ export function StoreDetailDialog({
                     {(storeQuery.data?.items ?? []).map((item) => (
                       <li
                         key={`${item.description}-${item.normalized_product_id ?? 'none'}`}
-                        className="flex items-center gap-3 px-3 py-2 text-sm"
+                        className="flex min-w-0 items-center gap-3 px-3 py-2 text-sm"
                       >
                         {item.normalized_product_id && onOpenProduct ? (
                           <button
@@ -255,7 +262,7 @@ export function StoreDetailDialog({
                           <span className="min-w-0 flex-1 truncate">{item.description}</span>
                         )}
                         <PriceChangeBadge value={item.change_percentage} />
-                        <span className="w-24 shrink-0 text-right font-semibold tabular-nums">
+                        <span className="w-20 shrink-0 text-right font-semibold tabular-nums sm:w-24">
                           {item.latest_price ? formatMoney(item.latest_price) : '—'}
                         </span>
                       </li>

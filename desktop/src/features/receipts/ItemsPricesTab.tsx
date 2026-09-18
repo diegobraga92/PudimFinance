@@ -33,7 +33,7 @@ type ChangeFilter = NonNullable<ProductListQuery['change']>;
 const ROW_GRID =
   'lg:grid lg:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem_5rem_5rem] lg:items-center lg:gap-3';
 const SELECT_CLASS =
-  'h-9 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm dark:[color-scheme:dark]';
+  'h-9 w-full rounded-md border border-input bg-surface px-3 text-sm shadow-sm dark:[color-scheme:dark] max-md:h-11';
 
 /** Items & Prices: the price-tracking browser. */
 export function ItemsPricesTab() {
@@ -103,12 +103,12 @@ export function ItemsPricesTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">{t('receipts.itemsPageTitle')}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">{t('receipts.itemsBlurb')}</p>
         </div>
-        <Button variant="outline" className="gap-1.5" onClick={() => setMergeOpen(true)}>
+        <Button variant="outline" className="w-full gap-1.5 sm:w-auto" onClick={() => setMergeOpen(true)}>
           <Merge className="h-4 w-4" />
           {t('receipts.mergeTitle')}
         </Button>
@@ -125,7 +125,7 @@ export function ItemsPricesTab() {
             aria-label={t('receipts.searchProducts')}
           />
         </div>
-        <div className="flex flex-wrap gap-1 rounded-md bg-muted p-1" role="tablist">
+        <div className="flex w-full shrink-0 gap-1 overflow-x-auto rounded-md bg-muted p-1 md:w-fit" role="tablist">
           {filters.map((filter) => (
             <button
               key={filter.key}
@@ -134,7 +134,7 @@ export function ItemsPricesTab() {
               aria-selected={change === filter.key}
               onClick={() => setChange(filter.key)}
               className={cn(
-                'rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
+                'shrink-0 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
                 change === filter.key
                   ? 'bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40'
                   : 'text-muted-foreground hover:text-foreground',
@@ -179,7 +179,7 @@ export function ItemsPricesTab() {
           />
         </Card>
       ) : (
-        <Card className="overflow-hidden border-border bg-surface shadow-card">
+        <Card className="min-w-0 overflow-hidden border-border bg-surface shadow-card">
           <div
             className={cn(
               'hidden border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-dim',
@@ -207,7 +207,7 @@ export function ItemsPricesTab() {
       )}
 
       {totalCount > PAGE_SIZE && (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-dim">
             {t('receipts.pageInfo', { page: page + 1, pages: pageCount, count: totalCount })}
           </p>
@@ -283,11 +283,12 @@ export function ItemsPricesTab() {
               <p className="text-xs text-destructive">{t('receipts.pickTwo')}</p>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMergeOpen(false)}>
+          <DialogFooter className="flex-col-reverse sm:flex-row">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setMergeOpen(false)}>
               {t('common.cancel')}
             </Button>
             <Button
+              className="w-full sm:w-auto"
               disabled={
                 !mergeTarget || !mergeSource || mergeTarget === mergeSource || merge.isPending
               }
@@ -316,12 +317,12 @@ function ProductRow({
   const { t, formatDate } = useI18n();
 
   return (
-    <li>
+    <li className="min-w-0">
       <button
         type="button"
         onClick={onOpen}
         className={cn(
-          'grid w-full grid-cols-1 gap-2 px-4 py-3 text-left transition-colors hover:bg-primary/[0.045]',
+          'grid w-full min-w-0 grid-cols-1 gap-2 px-4 py-3 text-left transition-colors hover:bg-primary/[0.045]',
           ROW_GRID,
         )}
       >
@@ -333,23 +334,30 @@ function ProductRow({
             </span>
           )}
         </span>
-        <span className="text-sm font-semibold tabular-nums lg:text-right">
-          {product.latest_price ? formatMoney(product.latest_price) : '—'}
+        <span className="flex items-center justify-between gap-2 text-sm font-semibold tabular-nums lg:block lg:text-right">
+          <span className="text-xs text-dim lg:hidden">{t('receipts.latestPrice')}</span>
+          <span>{product.latest_price ? formatMoney(product.latest_price) : '—'}</span>
         </span>
-        <span className="text-sm tabular-nums text-muted-foreground lg:text-right">
-          {product.previous_price ? formatMoney(product.previous_price) : '—'}
+        <span className="flex items-center justify-between gap-2 text-sm tabular-nums text-muted-foreground lg:block lg:text-right">
+          <span className="text-xs text-dim lg:hidden">{t('receipts.previousPrice')}</span>
+          <span>{product.previous_price ? formatMoney(product.previous_price) : '—'}</span>
         </span>
-        <span className="lg:text-right">
-          <PriceChangeBadge
-            value={product.change_percentage}
-            fallback={t('receipts.singleRecord')}
-          />
+        <span className="flex items-center justify-between gap-2 lg:block lg:text-right">
+          <span className="text-xs text-dim lg:hidden">{t('receipts.changeLabel')}</span>
+          <span>
+            <PriceChangeBadge
+              value={product.change_percentage}
+              fallback={t('receipts.singleRecord')}
+            />
+          </span>
         </span>
-        <span className="text-sm tabular-nums text-muted-foreground lg:text-right">
-          {product.record_count}
+        <span className="flex items-center justify-between gap-2 text-sm tabular-nums text-muted-foreground lg:block lg:text-right">
+          <span className="text-xs text-dim lg:hidden">{t('receipts.recordsLabel')}</span>
+          <span>{product.record_count}</span>
         </span>
-        <span className="text-sm tabular-nums text-muted-foreground lg:text-right">
-          {product.store_count}
+        <span className="flex items-center justify-between gap-2 text-sm tabular-nums text-muted-foreground lg:block lg:text-right">
+          <span className="text-xs text-dim lg:hidden">{t('receipts.storesLabel')}</span>
+          <span>{product.store_count}</span>
         </span>
       </button>
     </li>

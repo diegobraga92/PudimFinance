@@ -6,6 +6,7 @@ import {
   Eye,
   Receipt as ReceiptIcon,
   Search,
+  SlidersHorizontal,
   Trash2,
 } from 'lucide-react';
 
@@ -24,7 +25,7 @@ import { SourceBadge } from './SourceBadge';
 
 const PAGE_SIZE = 20;
 const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-surface px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]';
+  'h-9 rounded-md border border-input bg-surface px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] max-md:h-11 max-md:px-3';
 
 /** Receipt list row grid (labels are shown inline on narrow screens). */
 const ROW_GRID =
@@ -48,6 +49,7 @@ export function ReceiptsTab({ onOpenProduct }: Props) {
   const [minTotal, setMinTotal] = React.useState('');
   const [maxTotal, setMaxTotal] = React.useState('');
   const [source, setSource] = React.useState<'' | 'nfce' | 'ocr'>('');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
   const [page, setPage] = React.useState(0);
   const [viewing, setViewing] = React.useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<ReceiptSummary | null>(null);
@@ -101,90 +103,110 @@ export function ReceiptsTab({ onOpenProduct }: Props) {
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const filtersActive = Boolean(search || storeId || from || to || minTotal || maxTotal || source);
 
+  const clearAll = () => {
+    setSearch('');
+    setStoreId('');
+    setFrom('');
+    setTo('');
+    setMinTotal('');
+    setMaxTotal('');
+    setSource('');
+  };
+
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full min-w-[12rem] sm:w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('receipts.searchPlaceholder')}
-            aria-label={t('receipts.searchPlaceholder')}
-          />
-        </div>
-        <select
-          className={SELECT_CLASS}
-          value={storeId}
-          onChange={(event) => setStoreId(event.target.value)}
-          aria-label={t('receipts.filterStore')}
-        >
-          <option value="">{t('receipts.allStores')}</option>
-          {(storesQuery.data?.items ?? []).map((store) => (
-            <option key={store.id} value={store.id}>
-              {store.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className={SELECT_CLASS}
-          value={source}
-          onChange={(event) => setSource(event.target.value as '' | 'nfce' | 'ocr')}
-          aria-label={t('receipts.filterSource')}
-        >
-          <option value="">{t('receipts.allSources')}</option>
-          <option value="nfce">{t('receipts.sourceNfce')}</option>
-          <option value="ocr">{t('receipts.sourceOcr')}</option>
-        </select>
-        <Input
-          type="date"
-          className="w-[9.5rem]"
-          value={from}
-          onChange={(event) => setFrom(event.target.value)}
-          aria-label={t('receipts.filterFrom')}
-        />
-        <Input
-          type="date"
-          className="w-[9.5rem]"
-          value={to}
-          onChange={(event) => setTo(event.target.value)}
-          aria-label={t('receipts.filterTo')}
-        />
-        <Input
-          className="w-[7rem]"
-          inputMode="decimal"
-          value={minTotal}
-          onChange={(event) => setMinTotal(event.target.value)}
-          placeholder={t('receipts.filterMin')}
-          aria-label={t('receipts.filterMin')}
-        />
-        <Input
-          className="w-[7rem]"
-          inputMode="decimal"
-          value={maxTotal}
-          onChange={(event) => setMaxTotal(event.target.value)}
-          placeholder={t('receipts.filterMax')}
-          aria-label={t('receipts.filterMax')}
-        />
-        {filtersActive && (
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+        <div className="flex items-center gap-2 md:contents">
+          <div className="relative min-w-0 flex-1 sm:w-64 md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('receipts.searchPlaceholder')}
+              aria-label={t('receipts.searchPlaceholder')}
+            />
+          </div>
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSearch('');
-              setStoreId('');
-              setFrom('');
-              setTo('');
-              setMinTotal('');
-              setMaxTotal('');
-              setSource('');
-            }}
+            variant={mobileFiltersOpen ? 'default' : 'outline'}
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileFiltersOpen((open) => !open)}
+            aria-expanded={mobileFiltersOpen}
+            aria-label={t('transactions.filters.title')}
           >
-            {t('receipts.clearFilters')}
+            <SlidersHorizontal className="h-4 w-4" />
           </Button>
-        )}
+        </div>
+
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-2 md:contents',
+            !mobileFiltersOpen && 'max-md:hidden',
+          )}
+        >
+          <select
+            className={`${SELECT_CLASS} max-md:w-full md:max-w-[14rem] md:truncate`}
+            value={storeId}
+            onChange={(event) => setStoreId(event.target.value)}
+            aria-label={t('receipts.filterStore')}
+          >
+            <option value="">{t('receipts.allStores')}</option>
+            {(storesQuery.data?.items ?? []).map((store) => (
+              <option key={store.id} value={store.id}>
+                {store.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={`${SELECT_CLASS} max-md:w-full md:w-auto`}
+            value={source}
+            onChange={(event) => setSource(event.target.value as '' | 'nfce' | 'ocr')}
+            aria-label={t('receipts.filterSource')}
+          >
+            <option value="">{t('receipts.allSources')}</option>
+            <option value="nfce">{t('receipts.sourceNfce')}</option>
+            <option value="ocr">{t('receipts.sourceOcr')}</option>
+          </select>
+          <div className="grid w-full grid-cols-2 gap-2 md:contents">
+            <Input
+              type="date"
+              className="w-full md:w-[9.5rem]"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              aria-label={t('receipts.filterFrom')}
+            />
+            <Input
+              type="date"
+              className="w-full md:w-[9.5rem]"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              aria-label={t('receipts.filterTo')}
+            />
+            <Input
+              className="w-full md:w-[7rem]"
+              inputMode="decimal"
+              value={minTotal}
+              onChange={(event) => setMinTotal(event.target.value)}
+              placeholder={t('receipts.filterMin')}
+              aria-label={t('receipts.filterMin')}
+            />
+            <Input
+              className="w-full md:w-[7rem]"
+              inputMode="decimal"
+              value={maxTotal}
+              onChange={(event) => setMaxTotal(event.target.value)}
+              placeholder={t('receipts.filterMax')}
+              aria-label={t('receipts.filterMax')}
+            />
+          </div>
+          {filtersActive && (
+            <Button variant="ghost" size="sm" className="max-md:w-full" onClick={clearAll}>
+              {t('receipts.clearFilters')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {receiptsQuery.isLoading ? (
@@ -220,7 +242,7 @@ export function ReceiptsTab({ onOpenProduct }: Props) {
           />
         </Card>
       ) : (
-        <Card className="overflow-hidden border-border bg-surface shadow-card">
+        <Card className="min-w-0 overflow-hidden border-border bg-surface shadow-card">
           <div
             className={cn(
               'hidden border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-dim',
@@ -239,26 +261,35 @@ export function ReceiptsTab({ onOpenProduct }: Props) {
               <li
                 key={receipt.id}
                 className={cn(
-                  'grid grid-cols-1 gap-2 px-4 py-3 transition-colors hover:bg-primary/[0.045]',
+                  'grid min-w-0 grid-cols-1 gap-2 px-4 py-3 transition-colors hover:bg-primary/[0.045]',
                   ROW_GRID,
                 )}
               >
-                <span className="text-sm text-muted-foreground">
-                  {receipt.receipt_date ? formatDate(receipt.receipt_date) : '—'}
+                <span className="flex min-w-0 items-center justify-between gap-3 text-sm lg:block lg:text-left">
+                  <span className="text-xs text-dim lg:hidden">{t('receipts.tableDate')}</span>
+                  <span className="text-muted-foreground">
+                    {receipt.receipt_date ? formatDate(receipt.receipt_date) : '—'}
+                  </span>
                 </span>
-                <span className="min-w-0 truncate text-sm font-medium">
-                  {receipt.store_name ?? t('receipts.unknownStore')}
+                <span className="flex min-w-0 items-center justify-between gap-3 lg:block">
+                  <span className="text-xs text-dim lg:hidden">{t('receipts.tableStore')}</span>
+                  <span className="min-w-0 truncate text-sm font-medium lg:block">
+                    {receipt.store_name ?? t('receipts.unknownStore')}
+                  </span>
                 </span>
-                <span className="text-sm tabular-nums lg:text-right">
-                  {t('receipts.itemsShort', { count: receipt.item_count })}
+                <span className="flex items-center justify-between gap-3 text-sm tabular-nums lg:block lg:text-right">
+                  <span className="text-xs text-dim lg:hidden">{t('receipts.tableItems')}</span>
+                  <span>{t('receipts.itemsShort', { count: receipt.item_count })}</span>
                 </span>
-                <span className="text-sm font-semibold tabular-nums lg:text-right">
-                  {receipt.total_amount ? formatMoney(receipt.total_amount) : '—'}
+                <span className="flex items-center justify-between gap-3 text-sm font-semibold tabular-nums lg:block lg:text-right">
+                  <span className="text-xs text-dim lg:hidden">{t('receipts.tableTotal')}</span>
+                  <span>{receipt.total_amount ? formatMoney(receipt.total_amount) : '—'}</span>
                 </span>
-                <span>
-                  <SourceBadge source={receipt.source} />
+                <span className="flex items-center justify-between gap-3 lg:block">
+                  <span className="text-xs text-dim lg:hidden">{t('receipts.tableSource')}</span>
+                  <span><SourceBadge source={receipt.source} /></span>
                 </span>
-                <span className="flex justify-end gap-1">
+                <span className="flex justify-start gap-1 lg:justify-end">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -285,7 +316,7 @@ export function ReceiptsTab({ onOpenProduct }: Props) {
       )}
 
       {totalCount > PAGE_SIZE && (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-dim">
             {t('receipts.pageInfo', { page: page + 1, pages: pageCount, count: totalCount })}
           </p>

@@ -47,7 +47,7 @@ function Stat({
   tone?: string;
 }) {
   return (
-    <div className="rounded-md border border-border bg-surface-hover/40 px-3 py-2.5">
+    <div className="min-w-0 rounded-md border border-border bg-surface-hover/40 px-3 py-2.5">
       <p className="text-xs text-dim">{label}</p>
       <p className={cn('mt-1 text-base font-semibold tabular-nums', tone)}>{value}</p>
       {badge && <div className="mt-1">{badge}</div>}
@@ -103,7 +103,7 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
   return (
     <Dialog open={Boolean(productId)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
+        <DialogHeader className="pr-8">
           <DialogTitle>{product?.name ?? t('receipts.productFallback')}</DialogTitle>
           <DialogDescription>{t('receipts.productPriceBlurb')}</DialogDescription>
         </DialogHeader>
@@ -122,7 +122,7 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Stat
                 label={t('receipts.currentAverage')}
                 value={product?.average_price ? formatMoney(product.average_price) : '—'}
@@ -155,7 +155,7 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">{t('receipts.priceHistoryTitle')}</h3>
-                <div className="flex gap-1 rounded-md bg-muted p-1">
+                <div className="flex max-w-full gap-1 overflow-x-auto rounded-md bg-muted p-1">
                   {(['3m', '6m', '1y', 'all'] as const).map((key) => (
                     <button
                       key={key}
@@ -163,7 +163,7 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
                       onClick={() => setRange(key)}
                       aria-pressed={range === key}
                       className={cn(
-                        'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
+                        'shrink-0 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
                         range === key
                           ? 'bg-primary/15 text-foreground ring-1 ring-inset ring-primary/40'
                           : 'text-muted-foreground hover:text-foreground',
@@ -213,9 +213,9 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
                   {ranged.slice(0, 12).map((record) => (
                     <li
                       key={`${record.receipt_id}-${record.description}`}
-                      className="flex items-center gap-3 px-3 py-2 text-sm"
+                      className="flex min-w-0 items-center gap-3 px-3 py-2 text-sm"
                     >
-                      <span className="w-24 shrink-0 text-muted-foreground">
+                      <span className="w-20 shrink-0 text-muted-foreground sm:w-24">
                         {record.date ? formatDate(record.date) : '—'}
                       </span>
                       <span className="min-w-0 flex-1 truncate">
@@ -224,7 +224,7 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
                       <span className="shrink-0 text-xs text-dim">
                         {t('receipts.quantityShort', { count: String(record.quantity) })}
                       </span>
-                      <span className="w-24 shrink-0 text-right font-medium tabular-nums">
+                      <span className="w-20 shrink-0 text-right font-medium tabular-nums sm:w-24">
                         {record.price ? formatMoney(record.price) : '—'}
                       </span>
                     </li>
@@ -248,7 +248,7 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
                     {byStore.map((store) => (
                       <li
                         key={store.store_id ?? store.store_name ?? 'unknown'}
-                        className="flex items-center gap-3 px-3 py-2 text-sm"
+                        className="flex min-w-0 items-center gap-3 px-3 py-2 text-sm"
                       >
                         {store.store_id && onOpenStore ? (
                           <button
@@ -264,7 +264,7 @@ export function ProductDetailDialog({ productId, onOpenChange, onOpenStore }: Pr
                           </span>
                         )}
                         <PriceChangeBadge value={store.change_percentage} />
-                        <span className="w-24 shrink-0 text-right font-semibold tabular-nums">
+                        <span className="w-20 shrink-0 text-right font-semibold tabular-nums sm:w-24">
                           {store.latest_price ? formatMoney(store.latest_price) : '—'}
                         </span>
                       </li>

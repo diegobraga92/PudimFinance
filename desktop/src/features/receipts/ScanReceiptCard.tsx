@@ -92,7 +92,7 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
   };
 
   return (
-    <Card className="border-border bg-surface shadow-card">
+    <Card className="min-w-0 border-border bg-surface shadow-card">
       <CardContent className="space-y-4 p-5">
         <div>
           <h2 className="text-lg font-semibold">{t('receipts.scanCardTitle')}</h2>

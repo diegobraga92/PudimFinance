@@ -31,7 +31,8 @@ interface Props {
 }
 
 /** Product · qty · unit · total · actions. */
-const ITEM_GRID = 'grid grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5.5rem_4.5rem] items-center gap-2';
+const ITEM_GRID =
+  'grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5.5rem_4.5rem] md:items-center';
 
 /**
  * Receipt detail with inline item editing.
@@ -107,7 +108,7 @@ export function ReceiptDetailDialog({ receiptId, onOpenChange, onOpenProduct }: 
   return (
     <Dialog open={Boolean(receiptId)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
+        <DialogHeader className="pr-8">
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {receipt?.store_name ?? t('receipts.unknownStore')}
             <SourceBadge source={receipt?.source} />
@@ -144,7 +145,7 @@ export function ReceiptDetailDialog({ receiptId, onOpenChange, onOpenProduct }: 
             <div
               className={cn(
                 ITEM_GRID,
-                'px-1 text-[11px] font-semibold uppercase tracking-wide text-dim',
+                'max-md:hidden px-1 text-[11px] font-semibold uppercase tracking-wide text-dim',
               )}
             >
               <span>{t('receipts.product')}</span>
@@ -209,6 +210,7 @@ function ReceiptItemRow({
     return (
       <li className={cn(ITEM_GRID, 'p-2')}>
         <Input
+          className="col-span-2 md:col-span-1"
           value={form.description}
           onChange={(event) => onFormChange({ ...form, description: event.target.value })}
           aria-label={t('receipts.product')}
@@ -225,8 +227,8 @@ function ReceiptItemRow({
           onChange={(event) => onFormChange({ ...form, unit_price: event.target.value })}
           aria-label={t('receipts.unitPrice')}
         />
-        <span className="text-right text-xs text-dim">{t('receipts.itemTotalHint')}</span>
-        <span className="flex justify-end gap-1">
+        <span className="col-span-2 text-right text-xs text-dim md:col-span-1">{t('receipts.itemTotalHint')}</span>
+        <span className="col-span-2 flex justify-end gap-1 md:col-span-1">
           <Button
             variant="ghost"
             size="icon"
@@ -253,7 +255,7 @@ function ReceiptItemRow({
 
   return (
     <li className={cn(ITEM_GRID, 'px-2 py-2.5 text-sm')}>
-      <span className="min-w-0">
+      <span className="col-span-2 min-w-0 md:col-span-1">
         {item.normalized_product_id && onOpenProduct ? (
           <button
             type="button"
@@ -269,14 +271,19 @@ function ReceiptItemRow({
           <span className="block truncate text-xs text-dim">{item.description}</span>
         )}
       </span>
-      <span className="text-right tabular-nums">{String(item.quantity)}</span>
-      <span className="text-right tabular-nums">
-        {item.unit_price ? formatMoney(item.unit_price) : '—'}
+      <span className="flex items-center justify-between gap-2 text-right tabular-nums md:block">
+        <span className="text-xs text-dim md:hidden">{t('receipts.quantity')}</span>
+        <span>{String(item.quantity)}</span>
       </span>
-      <span className="text-right font-medium tabular-nums">
-        {item.total_price ? formatMoney(item.total_price) : '—'}
+      <span className="flex items-center justify-between gap-2 text-right tabular-nums md:block">
+        <span className="text-xs text-dim md:hidden">{t('receipts.unitPrice')}</span>
+        <span>{item.unit_price ? formatMoney(item.unit_price) : '—'}</span>
       </span>
-      <span className="flex justify-end gap-1">
+      <span className="flex items-center justify-between gap-2 text-right font-medium tabular-nums md:block">
+        <span className="text-xs text-dim md:hidden">{t('receipts.total')}</span>
+        <span>{item.total_price ? formatMoney(item.total_price) : '—'}</span>
+      </span>
+      <span className="col-span-2 flex justify-start gap-1 md:col-span-1 md:justify-end">
         <Button
           variant="ghost"
           size="icon"

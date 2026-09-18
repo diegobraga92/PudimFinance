@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Camera,
   ChevronRight,
+  Eye,
   FileText,
   Package,
   QrCode,
@@ -64,7 +65,7 @@ function SummaryCard({
   tone: string;
 }) {
   return (
-    <Card className="border-border bg-surface shadow-card">
+    <Card className="min-w-0 border-border bg-surface shadow-card">
       <CardContent className="p-5">
         <div className="flex items-center gap-3">
           <span
@@ -153,7 +154,7 @@ export function OverviewTab({
   return (
     <div className="space-y-4">
       {/* Headline numbers */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           icon={<ReceiptIcon className="h-5 w-5" />}
           tone="bg-success/15 text-success"
@@ -193,7 +194,7 @@ export function OverviewTab({
       </div>
 
       {/* Phones: the two capture paths as large touch targets */}
-      <div className="grid grid-cols-2 gap-3 md:hidden">
+      <div className="grid min-w-0 grid-cols-2 gap-3 md:hidden">
         <button
           type="button"
           onClick={onStartScan ? () => onStartScan('qr') : onOpenScan}
@@ -217,7 +218,7 @@ export function OverviewTab({
       </div>
 
       {empty ? (
-        <Card className="border-border bg-surface p-7 shadow-card">
+        <Card className="min-w-0 border-border bg-surface p-7 shadow-card">
           <EmptyState
             icon={<Camera className="h-8 w-8" />}
             title={t('receipts.firstReceiptTitle')}
@@ -226,12 +227,12 @@ export function OverviewTab({
           />
         </Card>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
           {/* Main column: scanner + latest receipts */}
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <ScanReceiptCard scanner={scanner} onParsed={onOpenScan} />
 
-            <Card className="border-border bg-surface shadow-card">
+            <Card className="min-w-0 border-border bg-surface shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
                 <div>
                   <h2 className="text-lg font-semibold">{t('receipts.recentReceipts')}</h2>
@@ -259,7 +260,7 @@ export function OverviewTab({
                 ) : (
                   <ul className="divide-y divide-border/60">
                     {recent.map((receipt) => (
-                      <li key={receipt.id} className="flex items-center gap-3 py-2.5">
+                      <li key={receipt.id} className="flex min-w-0 items-center gap-3 py-2.5">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary">
                           <StoreIcon className="h-4 w-4" aria-hidden="true" />
                         </span>
@@ -272,12 +273,21 @@ export function OverviewTab({
                             {t('receipts.itemsShort', { count: receipt.item_count })}
                           </span>
                         </span>
-                        <SourceBadge source={receipt.source} />
-                        <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
+                        <span className="max-md:hidden">
+                          <SourceBadge source={receipt.source} />
+                        </span>
+                        <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums sm:w-24">
                           {receipt.total_amount ? formatMoney(receipt.total_amount) : '—'}
                         </span>
-                        <Button variant="ghost" size="sm" onClick={() => onOpenReceipt(receipt.id)}>
-                          {t('receipts.viewReceipt')}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="max-md:w-11 max-md:px-0"
+                          onClick={() => onOpenReceipt(receipt.id)}
+                          aria-label={t('receipts.viewReceipt')}
+                        >
+                          <Eye className="h-4 w-4 md:hidden" />
+                          <span className="max-md:hidden">{t('receipts.viewReceipt')}</span>
                         </Button>
                       </li>
                     ))}
@@ -288,8 +298,8 @@ export function OverviewTab({
           </div>
 
           {/* Sidebar: price tracking, top stores, shortcuts */}
-          <div className="flex flex-col gap-4">
-            <Card className="border-border bg-surface shadow-card">
+          <div className="flex min-w-0 flex-col gap-4">
+            <Card className="min-w-0 border-border bg-surface shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
                 <div>
                   <h2 className="text-lg font-semibold">{t('receipts.priceTracking')}</h2>
@@ -442,7 +452,7 @@ export function OverviewTab({
                 )}
 
             {/* Top stores by spending, with the period filter */}
-            <Card className="border-border bg-surface shadow-card">
+            <Card className="min-w-0 border-border bg-surface shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
                 <h2 className="text-lg font-semibold">{t('receipts.topStores')}</h2>
                 <select
@@ -512,11 +522,11 @@ export function OverviewTab({
             </Card>
 
             {/* Quick actions */}
-            <Card className="border-border bg-surface shadow-card">
+            <Card className="min-w-0 border-border bg-surface shadow-card">
               <div className="p-5 pb-3">
                 <h2 className="text-lg font-semibold">{t('dashboard.quickActions')}</h2>
               </div>
-              <div className="grid grid-cols-2 gap-2.5 px-5 pb-5 sm:grid-cols-4 lg:grid-cols-2">
+              <div className="grid min-w-0 grid-cols-2 gap-2.5 px-5 pb-5 sm:grid-cols-4 lg:grid-cols-2">
                 {(
                   [
                     {

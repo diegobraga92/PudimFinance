@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Search, Store as StoreIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Store as StoreIcon } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { fetchStores, type StorePeriod } from '@/lib/api';
@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { cn } from '@/lib/utils';
 import { ReceiptDetailDialog } from './ReceiptDetailDialog';
 import { ProductDetailDialog } from './ProductDetailDialog';
 import { PERIOD_LABEL_KEY, STORE_PERIODS } from './receipt-helpers';
@@ -16,7 +17,7 @@ import { StoreDetailDialog } from './StoreDetailDialog';
 
 const PAGE_SIZE = 12;
 const SELECT_CLASS =
-  'h-9 rounded-md border border-input bg-surface px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]';
+  'h-9 rounded-md border border-input bg-surface px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark] max-md:h-11 max-md:px-3';
 
 /** Stores tab: receipt and spending history by store. */
 export function StoresTab() {
@@ -24,6 +25,7 @@ export function StoresTab() {
 
   const [search, setSearch] = React.useState('');
   const [period, setPeriod] = React.useState<StorePeriod>('all');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
   const [page, setPage] = React.useState(0);
   const [storeId, setStoreId] = React.useState<string | null>(null);
   const [receiptId, setReceiptId] = React.useState<string | null>(null);
@@ -50,6 +52,11 @@ export function StoresTab() {
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const filtersActive = Boolean(search.trim()) || period !== 'all';
 
+  const clearAll = () => {
+    setSearch('');
+    setPeriod('all');
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -57,33 +64,58 @@ export function StoresTab() {
         <p className="mt-0.5 text-sm text-muted-foreground">{t('receipts.storesBlurb')}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full min-w-[12rem] sm:w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('receipts.searchStores')}
-            aria-label={t('receipts.searchStores')}
-          />
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+        <div className="flex items-center gap-2 md:contents">
+          <div className="relative min-w-0 flex-1 sm:w-64 md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('receipts.searchStores')}
+              aria-label={t('receipts.searchStores')}
+            />
+          </div>
+          <Button
+            variant={mobileFiltersOpen ? 'default' : 'outline'}
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileFiltersOpen((open) => !open)}
+            aria-expanded={mobileFiltersOpen}
+            aria-label={t('transactions.filters.title')}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </Button>
         </div>
-        <select
-          className={SELECT_CLASS}
-          value={period}
-          onChange={(event) => setPeriod(event.target.value as StorePeriod)}
-          aria-label={t('receipts.periodLabel')}
+
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-2 md:contents',
+            !mobileFiltersOpen && 'max-md:hidden',
+          )}
         >
-          {STORE_PERIODS.map((option) => (
-            <option key={option} value={option}>
-              {t(PERIOD_LABEL_KEY[option] as 'receipts.periodAll')}
-            </option>
-          ))}
-        </select>
+          <select
+            className={`${SELECT_CLASS} max-md:w-full md:w-auto`}
+            value={period}
+            onChange={(event) => setPeriod(event.target.value as StorePeriod)}
+            aria-label={t('receipts.periodLabel')}
+          >
+            {STORE_PERIODS.map((option) => (
+              <option key={option} value={option}>
+                {t(PERIOD_LABEL_KEY[option] as 'receipts.periodAll')}
+              </option>
+            ))}
+          </select>
+          {filtersActive && (
+            <Button variant="ghost" size="sm" className="max-md:w-full" onClick={clearAll}>
+              {t('receipts.clearFilters')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {storesQuery.isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
           {[0, 1, 2, 3].map((row) => (
             <Card key={row} className="space-y-3 p-5">
               <Skeleton className="h-5 w-40" />
@@ -114,10 +146,10 @@ export function StoresTab() {
           />
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
           {rows.map((store) => (
-            <Card key={store.id} className="border-border bg-surface p-5 shadow-card">
-              <div className="flex items-start gap-3">
+            <Card key={store.id} className="min-w-0 border-border bg-surface p-5 shadow-card">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary">
                   <StoreIcon className="h-5 w-5" aria-hidden="true" />
                 </span>
@@ -135,14 +167,14 @@ export function StoresTab() {
                     })}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="flex w-full min-w-0 items-center justify-between gap-3 sm:w-auto sm:shrink-0 sm:justify-end sm:text-right">
                   <p className="text-base font-semibold tabular-nums">
                     {formatMoney(store.total_spent)}
                   </p>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-2"
+                    className="mt-0 sm:mt-2"
                     onClick={() => setStoreId(store.id)}
                   >
                     {t('receipts.viewStore')}
@@ -155,7 +187,7 @@ export function StoresTab() {
       )}
 
       {totalCount > PAGE_SIZE && (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-dim">
             {t('receipts.pageInfo', { page: page + 1, pages: pageCount, count: totalCount })}
           </p>
