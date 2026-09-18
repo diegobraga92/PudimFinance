@@ -28,7 +28,7 @@ import { AccountIcon } from '@/components/AccountIcon';
 /** User-facing account kinds (backend `account_kind`). */
 export type AccountKind = 'bank' | 'cash' | 'card' | 'loan' | 'investment';
 
-export const ACCOUNT_TYPE_FOR_KIND: Record<AccountKind, string> = {
+const ACCOUNT_TYPE_FOR_KIND: Record<AccountKind, string> = {
   bank: 'asset',
   cash: 'asset',
   investment: 'asset',
@@ -36,7 +36,7 @@ export const ACCOUNT_TYPE_FOR_KIND: Record<AccountKind, string> = {
   loan: 'liability',
 };
 
-export const KIND_OPTIONS: {
+const KIND_OPTIONS: {
   key: AccountKind;
   labelKey:
     | 'accounts.kind.bank'

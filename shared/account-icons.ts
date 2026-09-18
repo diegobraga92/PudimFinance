@@ -41,7 +41,6 @@ export interface AccountIconBrand extends AccountIconOption {
 
 export interface AccountIconInstrument extends AccountIconOption {
   kind?: 'instrument';
-  lucide: string;
 }
 
 const GENERIC_ACCOUNT_ICON_OPTIONS: readonly AccountIconOption[] = [
@@ -78,18 +77,18 @@ export const ACCOUNT_BRANDS: readonly AccountIconBrand[] = [
   { name: 'pagbank', group: 'banks', labelKey: 'accounts.icon.pagbank', monogram: 'PB', color: '#00A88A', aliases: ['pagbank', 'pag bank', 'pagseguro'] },
 ];
 
-/** Brazilian savings and investment instruments represented by Lucide glyphs. */
+/** Brazilian savings and investment instruments. */
 export const ACCOUNT_INSTRUMENTS: readonly AccountIconInstrument[] = [
-  { name: 'tesouro', group: 'investments', labelKey: 'accounts.icon.tesouro', lucide: 'landmark', aliases: ['tesouro', 'tesouro direto', 'tesouro selic', 'tesouro ipca'] },
-  { name: 'cdb', group: 'investments', labelKey: 'accounts.icon.cdb', lucide: 'file-text', aliases: ['cdb', 'rdb', 'lci', 'lca'] },
-  { name: 'poupanca', group: 'money', labelKey: 'accounts.icon.poupanca', lucide: 'piggy-bank', aliases: ['poupanca', 'poupança'] },
-  { name: 'fgts', group: 'money', labelKey: 'accounts.icon.fgts', lucide: 'building-2', aliases: ['fgts'] },
-  { name: 'previdencia', group: 'investments', labelKey: 'accounts.icon.previdencia', lucide: 'shield-check', aliases: ['previdencia', 'previdência', 'pgbl', 'vgbl'] },
-  { name: 'acoes', group: 'investments', labelKey: 'accounts.icon.acoes', lucide: 'chart-candlestick', aliases: ['acao', 'ação', 'acoes', 'ações', 'stocks'] },
-  { name: 'fii', group: 'investments', labelKey: 'accounts.icon.fii', lucide: 'building-2', aliases: ['fii', 'fiis', 'fundo imobiliario', 'fundo imobiliário'] },
-  { name: 'fundos', group: 'investments', labelKey: 'accounts.icon.fundos', lucide: 'layers', aliases: ['fundo', 'fundos', 'fundo de investimento', 'fundo de investimentos'] },
-  { name: 'cripto', group: 'investments', labelKey: 'accounts.icon.cripto', lucide: 'bitcoin', aliases: ['cripto', 'criptomoeda', 'criptomoedas', 'bitcoin', 'ethereum'] },
-  { name: 'moedas', group: 'money', labelKey: 'accounts.icon.moedas', lucide: 'circle-dollar-sign', aliases: ['dolar', 'dólar', 'euro', 'moeda estrangeira', 'conta internacional'] },
+  { name: 'tesouro', group: 'investments', labelKey: 'accounts.icon.tesouro', aliases: ['tesouro', 'tesouro direto', 'tesouro selic', 'tesouro ipca'] },
+  { name: 'cdb', group: 'investments', labelKey: 'accounts.icon.cdb', aliases: ['cdb', 'rdb', 'lci', 'lca'] },
+  { name: 'poupanca', group: 'money', labelKey: 'accounts.icon.poupanca', aliases: ['poupanca', 'poupança'] },
+  { name: 'fgts', group: 'money', labelKey: 'accounts.icon.fgts', aliases: ['fgts'] },
+  { name: 'previdencia', group: 'investments', labelKey: 'accounts.icon.previdencia', aliases: ['previdencia', 'previdência', 'pgbl', 'vgbl'] },
+  { name: 'acoes', group: 'investments', labelKey: 'accounts.icon.acoes', aliases: ['acao', 'ação', 'acoes', 'ações', 'stocks'] },
+  { name: 'fii', group: 'investments', labelKey: 'accounts.icon.fii', aliases: ['fii', 'fiis', 'fundo imobiliario', 'fundo imobiliário'] },
+  { name: 'fundos', group: 'investments', labelKey: 'accounts.icon.fundos', aliases: ['fundo', 'fundos', 'fundo de investimento', 'fundo de investimentos'] },
+  { name: 'cripto', group: 'investments', labelKey: 'accounts.icon.cripto', aliases: ['cripto', 'criptomoeda', 'criptomoedas', 'bitcoin', 'ethereum'] },
+  { name: 'moedas', group: 'money', labelKey: 'accounts.icon.moedas', aliases: ['dolar', 'dólar', 'euro', 'moeda estrangeira', 'conta internacional'] },
 ];
 
 /** All picker options grouped in a predictable order for the account form. */
@@ -104,13 +103,6 @@ export const ACCOUNT_ICON_GROUPS: readonly {
   { key: 'other', labelKey: 'accounts.icon.group.other', options: GENERIC_ACCOUNT_ICON_OPTIONS.filter((option) => option.group === 'other') },
 ];
 
-const ACCOUNT_ICON_OPTIONS: readonly AccountIconOption[] = [
-  ...GENERIC_ACCOUNT_ICON_OPTIONS,
-  ...ACCOUNT_BRANDS,
-  ...ACCOUNT_INSTRUMENTS,
-];
-const ACCOUNT_ICON_OPTION_BY_NAME = new Map(ACCOUNT_ICON_OPTIONS.map((option) => [option.name, option]));
-
 /** Return whether a persisted value is one of the known account icon ids. */
 export function isAccountIconName(value?: string | null): value is AccountIconName {
   return typeof value === 'string' && (ACCOUNT_ICON_NAMES as readonly string[]).includes(value);
@@ -121,11 +113,6 @@ export function resolveAccountIconId(name?: string | null, kind?: string | null)
   if (isAccountIconName(name)) return name;
   const fallback = kind ? DEFAULT_ACCOUNT_ICON[kind] : undefined;
   return isAccountIconName(fallback) ? fallback : 'more-horizontal';
-}
-
-/** Look up the metadata for a known icon id. */
-export function accountIconOption(name?: string | null): AccountIconOption | null {
-  return isAccountIconName(name) ? ACCOUNT_ICON_OPTION_BY_NAME.get(name) ?? null : null;
 }
 
 function normalizeAccountName(value: string): string {

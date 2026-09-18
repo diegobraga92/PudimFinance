@@ -42,7 +42,7 @@ const CATEGORY_ICON_COMPONENTS: Record<string, LucideIcon> = {
   'more-horizontal': MoreHorizontal,
 };
 
-export function resolveCategoryIcon(name?: string | null): LucideIcon {
+function resolveCategoryIcon(name?: string | null): LucideIcon {
   return (name && CATEGORY_ICON_COMPONENTS[name]) || Tag;
 }
 

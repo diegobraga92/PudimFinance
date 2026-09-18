@@ -93,6 +93,6 @@ pub async fn health_handler(
         (status = 200, description = "Prometheus metrics in text format", content_type = "text/plain"),
     ),
 )]
-pub async fn metrics_handler_doc() -> &'static str {
+pub fn metrics_handler_doc() -> &'static str {
     ""
 }

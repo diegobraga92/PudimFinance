@@ -12,6 +12,7 @@ use crate::models::{
     account_type_for_kind, AccountWithBalance, Category, SyncOpResult, SyncOperation,
     SyncPullRequest, SyncPullResponse, SyncPushRequest, SyncPushResponse, Transaction,
 };
+use crate::routes::accounts::ensure_account_deletable;
 use crate::state::AppState;
 
 /// Sync sub-router.
@@ -898,52 +899,8 @@ async fn apply_account_delete(
         )
     })?;
 
-    // Refuse to delete while ledger entries or sub-accounts reference it
-    // (mirrors the /api/accounts DELETE route).
-    let entry_count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ledger_entries WHERE account_id = $1")
-            .bind(server_id)
-            .fetch_one(&state.pg_pool)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to check account usage: {e}"),
-                )
-            })?;
-
-    if entry_count.0 > 0 {
-        return Err((
-            StatusCode::CONFLICT,
-            format!(
-                "Account is used by {} ledger entr{}. Reassign or delete them first.",
-                entry_count.0,
-                if entry_count.0 == 1 { "y" } else { "ies" }
-            ),
-        ));
-    }
-
-    let child_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM accounts WHERE parent_id = $1")
-        .bind(server_id)
-        .fetch_one(&state.pg_pool)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to check sub-account references: {e}"),
-            )
-        })?;
-
-    if child_count.0 > 0 {
-        return Err((
-            StatusCode::CONFLICT,
-            format!(
-                "Account has {} sub-account{} that depend on it. Remove them first.",
-                child_count.0,
-                if child_count.0 == 1 { "" } else { "s" }
-            ),
-        ));
-    }
+    // Ledger entries and sub-accounts block deletion, exactly as in the REST route.
+    ensure_account_deletable(&state.pg_pool, server_id).await?;
 
     let result = sqlx::query("DELETE FROM accounts WHERE id = $1")
         .bind(server_id)

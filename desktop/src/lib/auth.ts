@@ -1,6 +1,8 @@
 /** Persists auth tokens in the native keyring with webview fallbacks. */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
+
+import { clearNativeSyncOutbox } from '@/offline/native-outbox';
 
 const TOKEN_KEY = 'pudim_token';
 const REFRESH_TOKEN_KEY = 'pudim_refresh_token';
@@ -23,11 +25,6 @@ interface SessionCache {
 
 let cache: SessionCache = { access: null, refresh: null, user: null };
 let cacheLoaded = false;
-
-/** True when running inside the Tauri webview (not a plain browser tab). */
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
 
 function notify(): void {
   if (typeof window !== 'undefined') {
@@ -114,9 +111,6 @@ export async function reloadSession(): Promise<void> {
 export function getCachedAccessToken(): string | null {
   return cache.access;
 }
-export function getCachedRefreshToken(): string | null {
-  return cache.refresh;
-}
 export function getCachedStoredUser(): AuthUser | null {
   return cache.user;
 }
@@ -129,11 +123,6 @@ export async function getAccessToken(): Promise<string | null> {
 export async function getRefreshToken(): Promise<string | null> {
   await loadSession();
   return cache.refresh;
-}
-
-export async function getStoredUser(): Promise<AuthUser | null> {
-  await loadSession();
-  return cache.user;
 }
 
 export async function setAuthSession(
@@ -158,9 +147,7 @@ export async function clearAuthSession(): Promise<void> {
     storeDelete(TOKEN_KEY),
     storeDelete(REFRESH_TOKEN_KEY),
     storeDelete(USER_KEY),
-    isTauri()
-      ? invoke('plugin:pudim-native|clear_sync_outbox').catch(() => undefined)
-      : Promise.resolve(),
+    clearNativeSyncOutbox(),
   ]);
   notify();
 }

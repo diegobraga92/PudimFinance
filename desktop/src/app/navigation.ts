@@ -154,7 +154,7 @@ export function isMobileRoot(pathname: string): boolean {
 }
 
 /** Return the bottom-tab index for a path, or -1 when it is not a tab screen. */
-export function tabIndexFor(pathname: string): number {
+function tabIndexFor(pathname: string): number {
   return MOBILE_TABS.findIndex(
     (item) => pathname === item.route || pathname.startsWith(`${item.route}/`),
   );

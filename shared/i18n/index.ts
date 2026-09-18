@@ -20,7 +20,7 @@ export const _assertPtBRKeys: [never] extends [_MissingKeys]
     : never
   : never = true;
 
-export const translations: Record<Locale, Translation> = { en, 'pt-BR': ptBR };
+const translations: Record<Locale, Translation> = { en, 'pt-BR': ptBR };
 
 /** Map a locale to the `Intl` locale tag used for dates/numbers. */
 export function toIntlLocale(locale: Locale): string {
@@ -28,7 +28,7 @@ export function toIntlLocale(locale: Locale): string {
 }
 
 /** Substitutes known `{placeholder}` tokens and preserves unknown ones. */
-export function interpolate(
+function interpolate(
   template: string,
   params?: Record<string, string | number>,
 ): string {

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {
+  AUTH_CHANGED_EVENT,
   clearAuthSession,
   getCachedAccessToken,
   getCachedStoredUser,
@@ -83,8 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(getCachedStoredUser());
       if (!getCachedAccessToken()) setIsLoading(false);
     };
-    window.addEventListener('pudim:auth-changed', sync);
-    return () => window.removeEventListener('pudim:auth-changed', sync);
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, sync);
   }, []);
 
   const login = React.useCallback(async (email: string, password: string) => {

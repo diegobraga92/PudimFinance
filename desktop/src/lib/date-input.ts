@@ -6,7 +6,7 @@ export interface DateOrder {
   separator: string;
 }
 
-export const DAYS_PER_WEEK = 7;
+const DAYS_PER_WEEK = 7;
 
 /** Parse the API's `YYYY-MM-DD` into a local-noon Date (DST-safe). */
 export function parseIsoDate(iso: string): Date | null {
@@ -23,7 +23,7 @@ export function toIsoDate(date: Date): string {
 }
 
 /** Build a date only when the numbers form a real calendar day. */
-export function buildDate(year: number, month: number, day: number): Date | null {
+function buildDate(year: number, month: number, day: number): Date | null {
   if (month < 1 || month > 12 || day < 1) return null;
   if (day > new Date(year, month, 0).getDate()) return null;
   return new Date(year, month - 1, day, 12);

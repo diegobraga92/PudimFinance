@@ -24,7 +24,7 @@ interface Props {
 }
 
 /** Alerts shown before the list is collapsed behind "View all". */
-export const ALERT_PREVIEW_COUNT = 2;
+const ALERT_PREVIEW_COUNT = 2;
 
 /** Displays backend budget-threshold alerts. */
 export function BudgetAlertsCard({

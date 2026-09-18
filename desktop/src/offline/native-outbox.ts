@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getApiBaseUrl } from '@/lib/serverConfig';
 import {
   getPendingOperations,
@@ -8,10 +8,6 @@ import {
   recordPendingOperationFailure,
   removePendingOperation,
 } from './database';
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
 
 export interface NativeSyncResult {
   client_id: string;
@@ -54,7 +50,7 @@ export async function putNativeMutation(operation: {
   }
 }
 
-export async function drainNativeSyncResults(): Promise<NativeSyncResult[]> {
+async function drainNativeSyncResults(): Promise<NativeSyncResult[]> {
   if (!isTauri()) return [];
   try {
     return await invoke<NativeSyncResult[]>('plugin:pudim-native|drain_sync_results');

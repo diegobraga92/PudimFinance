@@ -1,6 +1,6 @@
 /** Webview bridge for native notification-capture commands. */
 
-import { addPluginListener, invoke } from '@tauri-apps/api/core';
+import { addPluginListener, invoke, isTauri } from '@tauri-apps/api/core';
 import type { CaptureActionKind } from './capture';
 
 export interface CapturedNotification {
@@ -40,10 +40,6 @@ export interface CaptureAction {
   post_time?: number;
 }
 
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
 let lastNativeError: string | null = null;
 
 function nativeErrorMessage(error: unknown): string {
@@ -67,7 +63,7 @@ export function getLastNativeError(): string | null {
 }
 
 /** Clears the most recent native bridge error after a successful retry. */
-export function clearLastNativeError(): void {
+function clearLastNativeError(): void {
   lastNativeError = null;
 }
 
@@ -279,16 +275,6 @@ export async function takeDeepLink(): Promise<string | null> {
   if (!isTauri()) return null;
   try {
     return await invoke<string | null>('plugin:pudim-native|take_deep_link');
-  } catch {
-    return null;
-  }
-}
-
-/** Returns (and clears) a Google OAuth redirect captured at cold start. */
-export async function takeAuthRedirect(): Promise<string | null> {
-  if (!isTauri()) return null;
-  try {
-    return await invoke<string | null>('plugin:pudim-native|take_auth_redirect');
   } catch {
     return null;
   }

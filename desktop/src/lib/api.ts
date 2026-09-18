@@ -238,10 +238,6 @@ export async function fetchCategories(): Promise<Category[]> {
   return request<Category[]>('/api/categories');
 }
 
-export async function fetchCategory(id: string): Promise<Category> {
-  return request<Category>(`/api/categories/${id}`);
-}
-
 export async function createCategory(payload: CreateCategoryRequest): Promise<Category> {
   const localId = uuid();
   const queueAndStore = async (): Promise<Category> => {
@@ -570,11 +566,6 @@ export async function fetchSummary(params?: { month?: number; year?: number }): 
   return request<SummaryResponse>(`/api/summary${qs(params as Record<string, unknown>)}`);
 }
 
-
-export async function fetchBudgets(): Promise<BudgetWithCategory[]> {
-  return request<BudgetWithCategory[]>('/api/budgets');
-}
-
 export async function createBudget(payload: CreateBudgetRequest): Promise<Budget> {
   return request<Budget>('/api/budgets', {
     method: 'POST',
@@ -660,10 +651,6 @@ export async function fetchAccountsWithBalance(): Promise<AccountWithBalance[]> 
     return (await getLocalAccounts()).map(localAccountToAccount);
   }
   return request<AccountWithBalance[]>('/api/accounts');
-}
-
-export async function fetchAccount(id: string): Promise<AccountWithBalance> {
-  return request<AccountWithBalance>(`/api/accounts/${id}`);
 }
 
 export async function adjustAccount(
@@ -878,31 +865,6 @@ export async function fetchInstallmentPlan(id: string): Promise<InstallmentPlanD
   return request<InstallmentPlanDetail>(`/api/installments/${id}`);
 }
 
-export async function createInstallmentPlan(
-  payload: CreateInstallmentPlanRequest,
-): Promise<InstallmentPlan> {
-  return request<InstallmentPlan>('/api/installments', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function deleteInstallmentPlan(id: string): Promise<void> {
-  return request<void>(`/api/installments/${id}`, { method: 'DELETE' });
-}
-
-export async function generateInstallments(id: string): Promise<GenerateInstallmentsResponse> {
-  return request<GenerateInstallmentsResponse>(`/api/installments/${id}/generate`, {
-    method: 'POST',
-  });
-}
-
-export async function payInstallment(id: string, number: number): Promise<PayInstallmentResponse> {
-  return request<PayInstallmentResponse>(`/api/installments/${id}/installment/${number}/pay`, {
-    method: 'POST',
-  });
-}
-
 export async function fetchLedgerTransactions(): Promise<LedgerTransaction[]> {
   return request<LedgerTransaction[]>('/api/ledger/transactions');
 }
@@ -1079,14 +1041,6 @@ export async function fetchStores(params: StoreListQuery = {}): Promise<StoreLis
 
 export async function fetchStore(id: string): Promise<StoreDetail> {
   return request<StoreDetail>(`/api/stores/${id}`);
-}
-
-export async function fetchPriceHistory(
-  productId: string,
-  months = 6,
-): Promise<{ product_id: string; points: unknown[] }> {
-  const query = qs({ product_id: productId, months });
-  return request<{ product_id: string; points: unknown[] }>(`/api/receipts/price-history${query}`);
 }
 
 export async function mergeProducts(

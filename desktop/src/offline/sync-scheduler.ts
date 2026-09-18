@@ -1,5 +1,5 @@
 import { countPendingOperations, syncAll } from './sync-engine';
-import { isOnline, isServerUnavailable, probeNow } from './net';
+import { isServerUnavailable, probeNow } from './net';
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let running = false;
@@ -47,7 +47,7 @@ export function startSyncScheduler(): () => void {
 }
 
 /** Stops the scheduler and removes its browser listeners. */
-export function stopSyncScheduler(): void {
+function stopSyncScheduler(): void {
   running = false;
   wakeRequested = false;
   if (timer) clearTimeout(timer);
@@ -61,7 +61,3 @@ export function stopSyncScheduler(): void {
 export function requestSync(): void {
   wake();
 }
-
-// Keep `isOnline` in this module's dependency graph intentional: importing the
-// scheduler should not accidentally make a failed health probe unhandled.
-void isOnline;

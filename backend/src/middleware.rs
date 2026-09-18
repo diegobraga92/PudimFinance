@@ -13,7 +13,7 @@ use axum::response::{IntoResponse, Response};
 use serde_json::json;
 use tokio::sync::RwLock;
 
-use crate::auth::{self, Claims};
+use crate::auth;
 use crate::state::AppState;
 
 /// Fixed-window rate limiter state.
@@ -77,12 +77,6 @@ impl RateLimiterState {
     /// Delegates to the underlying limiter.
     pub async fn check(&self, key: &str, limit: u32, window_secs: u64) -> bool {
         self.inner.check(key, limit, window_secs).await
-    }
-
-    /// Borrow the underlying limiter for tests.
-    #[allow(dead_code)]
-    pub fn limiter(&self) -> &RateLimiter {
-        &self.inner
     }
 }
 
@@ -183,26 +177,6 @@ pub async fn rate_limit_middleware(
     next.run(req).await
 }
 
-/// RBAC middleware requiring the `admin` role (unused, reserved for admin routes).
-#[allow(dead_code)]
-pub async fn require_admin(State(_state): State<AppState>, req: Request, next: Next) -> Response {
-    let is_admin = req
-        .extensions()
-        .get::<Claims>()
-        .map(|c| c.role == "admin")
-        .unwrap_or(false);
-
-    if is_admin {
-        next.run(req).await
-    } else {
-        (
-            StatusCode::FORBIDDEN,
-            axum::Json(json!({ "error": "Admin access required" })),
-        )
-            .into_response()
-    }
-}
-
 /// Helper for creating a 401 JSON response.
 fn unauthorized(message: &str) -> Response {
     (
@@ -210,10 +184,4 @@ fn unauthorized(message: &str) -> Response {
         axum::Json(json!({ "error": message })),
     )
         .into_response()
-}
-
-/// Extracts claims from the request extensions in a handler.
-#[allow(dead_code)]
-pub fn extract_claims(req: &Request) -> Option<&Claims> {
-    req.extensions().get::<Claims>()
 }

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import clients from '../../google-oauth-clients.json';
 import { loginWithGoogle, loginWithGoogleIdToken } from '@/lib/api';
 import { storeDelete, storeGet, storeSet } from '@/lib/auth';
@@ -21,10 +21,6 @@ interface PendingOAuth {
   redirectUri: string;
   clientId: string;
   createdAt: number;
-}
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
 function isAndroid(): boolean {
@@ -112,7 +108,7 @@ export async function signInWithGoogle(): Promise<Awaited<ReturnType<typeof logi
 }
 
 /** Extracts a Tauri rejection regardless of whether it crossed as a string or object. */
-export function rejectionText(error: unknown): string | null {
+function rejectionText(error: unknown): string | null {
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
   if (typeof error === 'object' && error !== null && 'message' in error) {

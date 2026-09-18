@@ -81,11 +81,3 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
         .verify_password(password.as_bytes(), &parsed)
         .is_ok())
 }
-
-/// Returns the non-negative seconds remaining before expiry.
-#[allow(dead_code)]
-pub fn claims_remaining_secs(claims: &Claims) -> i64 {
-    let exp = claims.exp as i64;
-    let now = Utc::now().timestamp();
-    (exp - now).max(0)
-}

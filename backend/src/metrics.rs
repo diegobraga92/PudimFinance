@@ -1,7 +1,7 @@
 use axum::{routing::get, Router};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
+
+use crate::state::AppState;
 
 /// Total double-entry ledger transactions created.
 pub const METRIC_LEDGER_TX: &str = "pudim_ledger_transactions_total";
@@ -56,15 +56,8 @@ pub fn set_rabbitmq_connected(connected: bool) {
     metrics::gauge!(METRIC_RABBITMQ).set(if connected { 1.0 } else { 0.0 });
 }
 
-/// Sets the DB pool active-connection gauge.
-#[allow(dead_code)]
-pub fn set_db_pool_active_connections(value: f64) {
-    metrics::gauge!(METRIC_DB_POOL).set(value);
-}
-
 /// Builds an axum router serving Prometheus metrics in text format on `/metrics`.
-#[allow(dead_code)]
-pub fn metrics_handler(recorder: PrometheusHandle) -> Router {
+pub fn metrics_handler(recorder: PrometheusHandle) -> Router<AppState> {
     Router::new().route(
         "/metrics",
         get(move || {
@@ -77,22 +70,4 @@ pub fn metrics_handler(recorder: PrometheusHandle) -> Router {
             }
         }),
     )
-}
-
-/// Starts a dedicated metrics HTTP server on a separate port (e.g. 3001).
-/// This keeps the main API port clean from Prometheus scrapes.
-#[allow(dead_code)]
-pub async fn start_metrics_server(recorder: PrometheusHandle, port: u16) {
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    let router = metrics_handler(recorder);
-
-    tracing::info!("Metrics server starting on {}", addr);
-
-    let listener = TcpListener::bind(addr)
-        .await
-        .expect("Failed to bind metrics server");
-
-    axum::serve(listener, router)
-        .await
-        .expect("Metrics server failed");
 }

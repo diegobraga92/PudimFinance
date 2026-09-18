@@ -31,7 +31,7 @@ import { PriceChangeBadge } from './PriceChangeBadge';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { ScanReceiptCard } from './ScanReceiptCard';
 import { SourceBadge } from './SourceBadge';
-import { PERIOD_LABEL_KEY, STORE_PERIODS } from './receipt-helpers';
+import { PeriodSelect } from './PeriodSelect';
 import type { ReceiptScanner } from './useReceiptScanner';
 
 interface Props {
@@ -451,18 +451,11 @@ export function OverviewTab({
             <Card className="min-w-0 border-border bg-surface shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
                 <h2 className="text-lg font-semibold">{t('receipts.topStores')}</h2>
-                <select
-                  className="h-8 rounded-md border border-input bg-surface px-2 text-xs shadow-sm dark:[color-scheme:dark]"
+                <PeriodSelect
                   value={storePeriod}
-                  onChange={(event) => setStorePeriod(event.target.value as StorePeriod)}
-                  aria-label={t('receipts.periodLabel')}
-                >
-                  {STORE_PERIODS.map((option) => (
-                    <option key={option} value={option}>
-                      {t(PERIOD_LABEL_KEY[option] as 'receipts.periodAll')}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setStorePeriod}
+                  className="h-8 rounded-md border border-input bg-surface px-2 text-xs shadow-sm dark:[color-scheme:dark]"
+                />
               </div>
               <div className="px-5 pb-5">
                 {topStoresQuery.isLoading ? (

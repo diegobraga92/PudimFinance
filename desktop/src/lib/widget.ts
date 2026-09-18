@@ -119,7 +119,7 @@ async function fetchWidgetTransactions(startDate: string, endDate: string): Prom
   );
 }
 
-export async function computeWidgetSpending(locale: Locale, today = new Date()): Promise<WidgetSpendingData> {
+async function computeWidgetSpending(locale: Locale, today = new Date()): Promise<WidgetSpendingData> {
   const todayIso = toIsoDate(today);
   const [offline, transactions] = await Promise.all([
     isOnline().then((online) => !online),

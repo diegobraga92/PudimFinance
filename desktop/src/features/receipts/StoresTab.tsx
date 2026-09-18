@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 import { ReceiptDetailDialog } from './ReceiptDetailDialog';
 import { ProductDetailDialog } from './ProductDetailDialog';
-import { PERIOD_LABEL_KEY, STORE_PERIODS } from './receipt-helpers';
+import { PeriodSelect } from './PeriodSelect';
 import { StoreDetailDialog } from './StoreDetailDialog';
 
 const PAGE_SIZE = 12;
@@ -94,18 +94,11 @@ export function StoresTab() {
             !mobileFiltersOpen && 'max-md:hidden',
           )}
         >
-          <select
-            className={`${SELECT_CLASS} max-md:w-full md:w-auto`}
+          <PeriodSelect
             value={period}
-            onChange={(event) => setPeriod(event.target.value as StorePeriod)}
-            aria-label={t('receipts.periodLabel')}
-          >
-            {STORE_PERIODS.map((option) => (
-              <option key={option} value={option}>
-                {t(PERIOD_LABEL_KEY[option] as 'receipts.periodAll')}
-              </option>
-            ))}
-          </select>
+            onChange={setPeriod}
+            className={`${SELECT_CLASS} max-md:w-full md:w-auto`}
+          />
           {filtersActive && (
             <Button variant="ghost" size="sm" className="max-md:w-full" onClick={clearAll}>
               {t('receipts.clearFilters')}

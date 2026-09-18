@@ -1,3 +1,6 @@
+import type { StorePeriod } from '@/lib/api';
+import type { TranslationKey } from '@shared/i18n';
+
 /** Price direction relative to the previous recorded value. */
 export interface PriceChange {
   direction: 'up' | 'down' | 'flat';
@@ -15,10 +18,10 @@ export function priceChange(value: string | number | null | undefined): PriceCha
 }
 
 /** Store-screen period filters. */
-export const STORE_PERIODS: string[] = ['month', 'last_month', '3m', '6m', 'year', 'all'];
+export const STORE_PERIODS: StorePeriod[] = ['month', 'last_month', '3m', '6m', 'year', 'all'];
 
 /** Translation key for each store period. */
-export const PERIOD_LABEL_KEY: Record<string, string> = {
+export const PERIOD_LABEL_KEY: Record<StorePeriod, TranslationKey> = {
   month: 'receipts.periodMonth',
   last_month: 'receipts.periodLastMonth',
   '3m': 'receipts.period3m',

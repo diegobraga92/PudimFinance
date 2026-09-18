@@ -56,7 +56,7 @@ const ACCOUNT_INSTRUMENT_COMPONENTS: Record<string, LucideIcon> = {
 };
 
 /** Resolve a generic/instrument icon to its Lucide component. */
-export function resolveAccountIcon(name?: string | null, kind?: string | null): LucideIcon {
+function resolveAccountIcon(name?: string | null, kind?: string | null): LucideIcon {
   const identifier = resolveAccountIconId(name, kind);
   return ACCOUNT_ICON_COMPONENTS[identifier] ?? ACCOUNT_INSTRUMENT_COMPONENTS[identifier] ?? MoreHorizontal;
 }

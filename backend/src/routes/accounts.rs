@@ -16,6 +16,7 @@ use crate::models::{
 };
 use crate::state::AppState;
 use rust_decimal::Decimal;
+use sqlx::PgPool;
 
 /// Routes for chart-of-accounts operations.
 pub fn router() -> Router<AppState> {
@@ -565,6 +566,64 @@ async fn post_balance_adjustment_in_tx(
     Ok(())
 }
 
+/// Rejects deleting an account that still has ledger entries or sub-accounts.
+///
+/// Shared by the REST route and the offline sync push so both paths enforce the
+/// same rule. Returns the HTTP status and user-facing message for the caller.
+pub(crate) async fn ensure_account_deletable(
+    pool: &PgPool,
+    id: Uuid,
+) -> Result<(), (StatusCode, String)> {
+    let entry_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM ledger_entries WHERE account_id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| {
+                error!("Failed to check ledger references: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Failed to check account usage".to_string(),
+                )
+            })?;
+
+    if entry_count.0 > 0 {
+        return Err((
+            StatusCode::CONFLICT,
+            format!(
+                "Account is used by {} ledger entr{}. Reassign or delete them first.",
+                entry_count.0,
+                if entry_count.0 == 1 { "y" } else { "ies" }
+            ),
+        ));
+    }
+
+    let child_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM accounts WHERE parent_id = $1")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to check sub-account references: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to check account usage".to_string(),
+            )
+        })?;
+
+    if child_count.0 > 0 {
+        return Err((
+            StatusCode::CONFLICT,
+            format!(
+                "Account has {} sub-account{} that depend on it. Remove them first.",
+                child_count.0,
+                if child_count.0 == 1 { "" } else { "s" }
+            ),
+        ));
+    }
+
+    Ok(())
+}
+
 /// Deletes an account.
 #[utoipa::path(
     delete,
@@ -583,56 +642,9 @@ pub async fn delete_account(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let entry_count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ledger_entries WHERE account_id = $1")
-            .bind(id)
-            .fetch_one(&state.pg_pool)
-            .await
-            .map_err(|e| {
-                error!("Failed to check ledger references: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "Failed to check account usage" })),
-                )
-            })?;
-
-    if entry_count.0 > 0 {
-        return Err((
-            StatusCode::CONFLICT,
-            Json(json!({
-                "error": format!(
-                    "Account is used by {} ledger entr{}. Reassign or delete them first.",
-                    entry_count.0,
-                    if entry_count.0 == 1 { "y" } else { "ies" }
-                )
-            })),
-        ));
-    }
-
-    let child_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM accounts WHERE parent_id = $1")
-        .bind(id)
-        .fetch_one(&state.pg_pool)
+    ensure_account_deletable(&state.pg_pool, id)
         .await
-        .map_err(|e| {
-            error!("Failed to check sub-account references: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": "Failed to check account usage" })),
-            )
-        })?;
-
-    if child_count.0 > 0 {
-        return Err((
-            StatusCode::CONFLICT,
-            Json(json!({
-                "error": format!(
-                    "Account has {} sub-account{} that depend on it. Remove them first.",
-                    child_count.0,
-                    if child_count.0 == 1 { "" } else { "s" }
-                )
-            })),
-        ));
-    }
+        .map_err(|(status, message)| (status, Json(json!({ "error": message }))))?;
 
     let result = sqlx::query("DELETE FROM accounts WHERE id = $1")
         .bind(id)

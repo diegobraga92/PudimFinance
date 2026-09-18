@@ -170,16 +170,12 @@ function clearAll(storeName: string): Promise<void> {
   return tx(storeName, 'readwrite', (store) => store.clear()).then(() => undefined);
 }
 
-export function isOfflineSupported(): boolean {
-  return typeof indexedDB !== 'undefined';
-}
-
 export async function getLocalTransactions(): Promise<LocalTransaction[]> {
   const rows = await getAll<LocalTransaction>('local_transactions');
   return rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
-export async function getLocalTransactionById(id: string): Promise<LocalTransaction | null> {
+async function getLocalTransactionById(id: string): Promise<LocalTransaction | null> {
   const all = await getLocalTransactions();
   return all.find((t) => t.id === id || t.server_id === id) ?? null;
 }
@@ -295,10 +291,6 @@ export async function resetPendingOperationFailures(): Promise<void> {
       store.put({ ...operation, attempts: 0, last_error: null } as PendingOperation),
     );
   }
-}
-
-export async function clearPendingOperations(): Promise<void> {
-  await clearAll('pending_operations');
 }
 
 export async function countPendingOperations(): Promise<number> {

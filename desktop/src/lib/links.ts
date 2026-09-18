@@ -27,19 +27,6 @@ export function transactionsLink(options: TransactionLinkOptions = {}): string {
   ]);
 }
 
-export function budgetsCategoriesLink(options: {
-  year?: number;
-  month?: number;
-  categoryName?: string;
-} = {}): string {
-  return withParams('/budgets', [
-    ['year', options.year === undefined ? undefined : String(options.year)],
-    ['month', options.month === undefined ? undefined : String(options.month)],
-    ['tab', 'categories'],
-    ['category', options.categoryName],
-  ]);
-}
-
 export function monthDateRange(year: number, month: number): { startDate: string; endDate: string } {
   const lastDay = new Date(year, month, 0).getDate();
   const prefix = `${year}-${String(month).padStart(2, '0')}`;

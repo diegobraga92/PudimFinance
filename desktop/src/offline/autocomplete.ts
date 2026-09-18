@@ -12,7 +12,7 @@ export interface PreviousTransaction {
 const MIN_FUZZY_LENGTH = 3;
 
 /** Normalizes a description for matching by lowercasing, stripping accents, and trimming. */
-export function normalizeDescription(description: string): string {
+function normalizeDescription(description: string): string {
   return description
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

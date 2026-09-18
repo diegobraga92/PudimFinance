@@ -56,22 +56,9 @@ async fn main() -> anyhow::Result<()> {
         google,
     };
 
-    let recorder = metrics_recorder.clone();
     let app = Router::new()
         .route("/health", axum::routing::get(health_handler))
-        // Prometheus metrics (served on the main port for scraping convenience)
-        .route(
-            "/metrics",
-            axum::routing::get(move || {
-                let recorder = recorder.clone();
-                async move {
-                    axum::response::Response::builder()
-                        .header("Content-Type", "text/plain; charset=utf-8")
-                        .body(axum::body::Body::from(recorder.render()))
-                        .unwrap()
-                }
-            }),
-        )
+        .merge(backend::metrics::metrics_handler(metrics_recorder))
         .merge(api_router())
         .route_layer(axum::middleware::from_fn_with_state(
             app_state.clone(),

@@ -26,7 +26,7 @@ const INBOX_KEY = 'pudim_pending_captures';
 const IMPORTED_DEDUP_KEY = 'pudim_imported_capture_dedup';
 const MAX_IMPORTED_DEDUP = 200;
 
-export const DEFAULT_SETTINGS: NotificationSettings = {
+const DEFAULT_SETTINGS: NotificationSettings = {
   enabled: false,
   monitoredApps: [],
   mode: 'ask',
@@ -130,7 +130,7 @@ const INCOME_KEYWORDS = [
 ];
 
 /** Maps a guessed merchant word to an existing category by fuzzy matching. */
-export function guessCategory(
+function guessCategory(
   description: string,
   categories: { id: string; name: string; type: string }[],
 ): string | null {
