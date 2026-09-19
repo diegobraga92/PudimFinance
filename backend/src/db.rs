@@ -20,14 +20,22 @@ pub async fn init_pool(
 
     info!("PostgreSQL connection pool established");
 
-    sqlx::migrate!("./migrations")
-        .run(&pool)
+    run_migrations(&pool)
         .await
         .expect("Failed to run database migrations");
 
     info!("Database migrations applied successfully");
 
     pool
+}
+
+/// Applies every pending migration in `./migrations` to `pool`.
+///
+/// Shared by [`init_pool`] and the database-backed unit tests so both bring a
+/// database to the same schema.
+pub async fn run_migrations(pool: &PgPool) -> anyhow::Result<()> {
+    sqlx::migrate!("./migrations").run(pool).await?;
+    Ok(())
 }
 
 /// Checks database liveness by executing a trivial `SELECT 1` query.

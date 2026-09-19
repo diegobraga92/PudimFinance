@@ -367,9 +367,17 @@ mod tests {
 
     /// Opens the configured database, or `None` when the suite runs without one
     /// (the unit tests above must stay runnable without `DATABASE_URL`).
+    ///
+    /// CI provides an empty database, so the schema is migrated the same way the
+    /// server does on startup (`crate::db::init_pool`) before the tests below
+    /// query `categories` and `accounts`.
     async fn test_pool() -> Option<PgPool> {
         let url = std::env::var("DATABASE_URL").ok()?;
-        PgPool::connect(&url).await.ok()
+        let pool = PgPool::connect(&url).await.ok()?;
+        crate::db::run_migrations(&pool)
+            .await
+            .expect("failed to migrate the test database");
+        Some(pool)
     }
 
     /// A category id this database does not have must downgrade the write to
