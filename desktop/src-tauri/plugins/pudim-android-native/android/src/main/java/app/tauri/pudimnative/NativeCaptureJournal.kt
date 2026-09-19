@@ -3,7 +3,19 @@ package app.tauri.pudimnative
 import android.content.Context
 import org.json.JSONArray
 
-/** Encrypted bounded journal preventing native closed-app capture duplicates. */
+/** A capture that was already imported natively while the app was closed. */
+internal data class NativeCaptureImport(
+    /** Encrypted sync-outbox client id used for this capture. */
+    val clientId: String,
+    /** Transaction fields that were enqueued. */
+    val plan: CaptureImportPlan,
+)
+
+/**
+ * Encrypted bounded journal preventing native closed-app captures from being
+ * imported twice, for example when Android re-delivers a notification (or a
+ * prompt action) after the listener reconnects.
+ */
 internal object NativeCaptureJournal {
     private const val KEY = "pudim_native_capture_imports"
     private const val MAX_ITEMS = 300

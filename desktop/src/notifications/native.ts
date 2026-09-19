@@ -26,18 +26,44 @@ export interface CapturePrompt {
   body: string;
   /** Human-readable source app label, shown as the sub-text. */
   appLabel: string;
+  /** Source app package, so a tap can be imported natively. */
+  appName?: string;
+  /** Parsed merchant description, so a tap can be imported natively. */
+  description?: string;
+  /** Parsed decimal amount, so a tap can be imported natively. */
+  amount?: string;
+  /** Parsed ISO date, so a drained tap rebuilds the same capture. */
+  date?: string;
+  /** Category, so a drained tap rebuilds the same capture. */
+  categoryId?: string | null;
 }
 
-/** A tap on one of the capture-prompt action buttons. */
+/**
+ * A prompt action tap, or a transaction the native side imported while the
+ * WebView was asleep and handed back for the app to mirror locally.
+ */
 export interface CaptureAction {
   capture_id: string;
-  action: CaptureActionKind;
+  /** Absent on native-import entries, which carry `native_import` instead. */
+  action?: CaptureActionKind;
   /** Source app id/label and raw notification, present for listener-posted prompts. */
   app_name?: string;
   app_label?: string;
   title?: string;
   text?: string;
   post_time?: number;
+  /** Sync-outbox client id of a completed native import. */
+  client_id?: string;
+  /** True when the native side already imported this capture. */
+  native_import?: boolean;
+  /** Parsed transaction fields of a native import. */
+  description?: string;
+  amount?: string;
+  type?: 'income' | 'expense';
+  date?: string;
+  category_id?: string | null;
+  account_id?: string | null;
+  notes?: string | null;
 }
 
 let lastNativeError: string | null = null;
@@ -120,6 +146,13 @@ export async function showCapturePrompt(prompt: CapturePrompt): Promise<void> {
       title: prompt.title,
       body: prompt.body,
       appLabel: prompt.appLabel,
+      // Parsed capture fields travel with the prompt so tapping an action while
+      // the WebView is asleep can still import the transaction natively.
+      appName: prompt.appName ?? null,
+      description: prompt.description ?? null,
+      amount: prompt.amount ?? null,
+      date: prompt.date ?? null,
+      categoryId: prompt.categoryId ?? null,
     });
   } catch {
     // The capture remains available in the review inbox.

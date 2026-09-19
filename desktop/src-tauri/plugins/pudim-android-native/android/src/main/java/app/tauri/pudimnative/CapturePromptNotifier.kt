@@ -147,6 +147,20 @@ internal object CapturePromptNotifier {
                 (fields["text"] as? String)?.let {
                     putExtra(CaptureActionReceiver.EXTRA_TEXT, it)
                 }
+                // Parsed fields, sent for in-app prompts whose action intent
+                // carries no raw notification text.
+                (fields["description"] as? String)?.let {
+                    putExtra(CaptureActionReceiver.EXTRA_DESCRIPTION, it)
+                }
+                (fields["amount"] as? String)?.let {
+                    putExtra(CaptureActionReceiver.EXTRA_AMOUNT, it)
+                }
+                (fields["date"] as? String)?.let {
+                    putExtra(CaptureActionReceiver.EXTRA_DATE, it)
+                }
+                (fields["category_id"] as? String)?.let {
+                    putExtra(CaptureActionReceiver.EXTRA_CATEGORY_ID, it)
+                }
                 (fields["post_time"] as? Long)?.let {
                     putExtra(CaptureActionReceiver.EXTRA_POST_TIME, it)
                 }

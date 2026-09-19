@@ -74,9 +74,11 @@ import { groupTransactionsByMonth } from '../src/features/transactions/group-by-
 import { clearAuthSession, setAuthSession } from '../src/lib/auth';
 import {
   accountIdForAction,
+  captureFromAction,
   categoryIdForCapture,
   hasImportedCapture,
   markCaptureImported,
+  nativeImportTransaction,
   parseNotification,
 } from '../src/notifications/capture';
 import { expandLocalCategoryIds, filterAndSortLocalTransactions } from '../src/offline/filters';
@@ -614,6 +616,86 @@ for (const [label, ok] of actionSettingsChecks) {
 }
 if (actionSettingsChecks.every(([, ok]) => ok)) {
   console.log(`PASS: capture action settings (${actionSettingsChecks.length} cases)`);
+}
+
+const actionRecoveryChecks: [string, boolean][] = [
+  (() => {
+    // A listener-posted tap carries the raw notification, so it is re-parsed.
+    const rebuilt = captureFromAction(
+      { action: 'credit', title: 'Nubank', text: 'Compra aprovada de R$ 23,50 em PADARIA DO ZE' },
+      { defaultCategoryId: 'default-expense-category' },
+    );
+    return [
+      'action rebuilds the capture from the raw notification',
+      rebuilt?.parsed.type === 'expense' &&
+        rebuilt.parsed.amount === '23.50' &&
+        rebuilt.parsed.description === 'PADARIA DO ZE',
+    ];
+  })(),
+  (() => {
+    // An in-app prompt has its localized body as `text`; the parsed fields
+    // carried by the action must win so the rebuilt dedup key matches the inbox.
+    const rebuilt = captureFromAction(
+      {
+        action: 'income',
+        amount: '50,00',
+        description: 'JOÃO SILVA',
+        date: '2026-09-16',
+        categoryId: 'cat-income',
+        title: 'Nubank transaction detected',
+        text: 'Compra aprovada de R$ 99,90 em LOJA X',
+        app_label: 'Nubank',
+      },
+      { defaultCategoryId: 'default-expense-category' },
+    );
+    return [
+      'parsed fields win over the prompt body',
+      rebuilt?.parsed.type === 'income' &&
+        rebuilt.parsed.amount === '50.00' &&
+        rebuilt.parsed.description === 'JOÃO SILVA' &&
+        rebuilt.parsed.date === '2026-09-16' &&
+        rebuilt.parsed.categoryId === 'cat-income' &&
+        rebuilt.appName === 'Nubank',
+    ];
+  })(),
+  [
+    'action without a usable amount cannot be rebuilt',
+    captureFromAction({ action: 'credit' }, { defaultCategoryId: null }) === null,
+  ],
+  (() => {
+    const native = nativeImportTransaction({
+      type: 'expense',
+      amount: '11,77',
+      description: 'DEEPSEERWEA',
+      date: '2026-09-16',
+      category_id: 'cat-1',
+    });
+    return [
+      'native import mirrors the uploaded transaction',
+      native?.type === 'expense' &&
+        native.amount === '11.77' &&
+        native.description === 'DEEPSEERWEA' &&
+        native.date === '2026-09-16' &&
+        native.categoryId === 'cat-1',
+    ];
+  })(),
+  [
+    'native import without a positive amount is ignored',
+    nativeImportTransaction({ type: 'income', amount: '0', description: 'x' }) === null,
+  ],
+  (() => {
+    const native = nativeImportTransaction({ type: 'income', amount: '50.00', description: '' });
+    return ['native import falls back to a generic description', native?.description === 'Notificação bancária'];
+  })(),
+];
+for (const [label, ok] of actionRecoveryChecks) {
+  if (!ok) {
+    console.error(`FAIL: capture action recovery — ${label}`);
+    failures += 1;
+  }
+}
+if (actionRecoveryChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: capture action recovery (${actionRecoveryChecks.length} cases)`);
 }
 
 const persistedDedupKey = 'expense|12.50|merchant|2026-09-16';

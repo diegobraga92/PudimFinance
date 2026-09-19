@@ -6,14 +6,18 @@ import {
   addPendingCapture,
   accountIdForAction,
   appLabelFor,
+  captureFromAction,
   categoryIdForCapture,
   dedupKeyOf,
+  FALLBACK_CAPTURE_DESCRIPTION,
   getNotificationSettings,
   getPendingCaptures,
   hasImportedCapture,
   isCaptureActionKind,
+  isoDateOrToday,
   markCapturePrompted,
   markCaptureImported,
+  nativeImportTransaction,
   parseNotification,
   removePendingCapture,
   removePendingCaptureByDedupKey,
@@ -37,6 +41,7 @@ import {
 } from './native';
 import { isOnline } from '@/offline/net';
 import { requestSync } from '@/offline/sync-scheduler';
+import { adoptNativeTransaction, reconcileNativeSyncResults } from '@/offline/native-outbox';
 
 /** How long a "just imported" capture stays suppressed to avoid double-imports. */
 const DEDUP_WINDOW_MS = 30_000;
@@ -107,6 +112,11 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     await showCapturePrompt({
       id: item.id,
       appLabel,
+      appName: item.appName,
+      description: item.description,
+      amount: item.amount,
+      date: item.date,
+      categoryId: item.categoryId,
       title: tRef.current('notifications.promptTitle', { app: appLabel }),
       body: tRef.current('notifications.promptBody', {
         description: item.description,
@@ -173,41 +183,114 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const handleParsedRef = React.useRef(handleParsed);
   handleParsedRef.current = handleParsed;
 
+  /**
+   * Mirrors a transaction the native side imported while the app was asleep.
+   *
+   * The capture never reached this inbox: it was imported into the encrypted
+   * outbox and dropped from the native queue, so the local row has to be built
+   * from the event and settled with the worker's result.
+   */
+  const adoptNativeImport = React.useCallback(async (action: CaptureAction): Promise<PendingCapture[]> => {
+    if (!action.client_id) return getPendingCaptures();
+    const parsed = nativeImportTransaction(action);
+    // Skip the local row when the same capture was already imported through the
+    // WebView (dedup journal hit); mirroring it again would show two rows.
+    if (parsed && !hasImportedCapture(dedupKeyOf(parsed))) {
+      await adoptNativeTransaction({
+        client_id: action.client_id,
+        type: action.type,
+        amount: action.amount,
+        description: action.description,
+        date: action.date,
+        category_id: action.category_id,
+        account_id: action.account_id,
+        notes: action.notes,
+      });
+    }
+    let next = await getPendingCaptures();
+    if (parsed) {
+      const dedupKey = dedupKeyOf(parsed);
+      await markCaptureImported(dedupKey);
+      next = await removePendingCaptureByDedupKey(dedupKey);
+    }
+    if (action.capture_id) next = await removePendingCapture(action.capture_id);
+    // The worker may already have settled it; draining now avoids a local row
+    // that keeps looking unsynced for a transaction the server accepted.
+    await reconcileNativeSyncResults();
+    return next;
+  }, []);
+
   /** Imports a queued capture from a prompt action (income/debit/credit). */
   const importFromAction = React.useCallback(async (action: CaptureAction) => {
-    if (!isCaptureActionKind(action.action)) return;
     // Settings may change while this provider remains mounted. Reload them so
     // push actions use the current account and default-category selections.
     const settings = await getNotificationSettings();
     settingsRef.current = settings;
+    if (action.native_import && action.client_id) {
+      setPendingItems(await adoptNativeImport(action));
+      return;
+    }
+    const kind = action.action;
+    if (!isCaptureActionKind(kind)) return;
     let item = (await getPendingCaptures()).find((c) => c.id === action.capture_id);
     if (!item) {
       // The listener posted the prompt while the app was dead, so the inbox
       // entry may not exist yet (or carries a different id). Rebuild it from the
-      // raw notification that travelled with the action.
-      const text = [action.title, action.text].filter(Boolean).join(' ').trim();
-      const parsed = text
-        ? parseNotification(text, [], settings.defaultCategoryId)
-        : null;
-      if (parsed) {
-        item = toPendingCapture(parsed, action.app_label ?? action.app_name ?? '', {
-          id: action.capture_id,
-        });
+      // raw notification text or the parsed fields that travelled with the tap.
+      const rebuilt = captureFromAction(
+        {
+          action: kind,
+          amount: action.amount,
+          description: action.description,
+          date: action.date,
+          categoryId: action.category_id,
+          title: action.title,
+          text: action.text,
+          app_name: action.app_name,
+          app_label: action.app_label,
+        },
+        settings,
+      );
+      if (rebuilt) {
+        item = toPendingCapture(rebuilt.parsed, rebuilt.appName, { id: action.capture_id });
       }
     }
-    if (!item) return;
+    if (!item) {
+      // Never swallow a tap: keep an editable placeholder so the capture still
+      // reaches the review inbox instead of vanishing with the prompt.
+      setPendingItems(
+        await addPendingCapture(
+          toPendingCapture(
+            {
+              type: transactionTypeForAction(kind),
+              amount: '0.00',
+              description: action.description?.trim() || FALLBACK_CAPTURE_DESCRIPTION,
+              date: isoDateOrToday(action.date),
+              categoryId: settings.defaultCategoryId,
+            },
+            action.app_label ?? action.app_name ?? '',
+            { id: action.capture_id },
+          ),
+        ),
+      );
+      toastRef.current({ title: tRef.current('notifications.failedCreate'), variant: 'error' });
+      return;
+    }
     const { dedupKey } = item;
+    // The dedup journal is only written after a successful import, by this path,
+    // by approve(), or by adoptNativeImport(), so a hit here is a genuine
+    // duplicate notification rather than an unimported capture.
     if (hasImportedCapture(dedupKey)) {
       setPendingItems(await removePendingCaptureByDedupKey(dedupKey));
       return;
     }
-    const accountId = accountIdForAction(action.action, settings);
+    const accountId = accountIdForAction(kind, settings);
     const categoryId = categoryIdForCapture(item, settings);
     try {
       await createTransaction({
         description: item.description,
         amount: item.amount,
-        type: transactionTypeForAction(action.action),
+        type: transactionTypeForAction(kind),
         category_id: categoryId,
         date: item.date,
         account_id: accountId,
@@ -231,7 +314,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         variant: 'error',
       });
     }
-  }, []);
+  }, [adoptNativeImport]);
   const importFromActionRef = React.useRef(importFromAction);
   importFromActionRef.current = importFromAction;
 
@@ -310,6 +393,14 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   }, [drainQueuedCaptures, subscribeLive, unsubscribeLive]);
 
   React.useEffect(() => {
+    // Re-registers the live listeners and applies anything the native side
+    // journaled while they were unsubscribed (e.g. a tap on the prompt).
+    const resume = () => {
+      void (async () => {
+        await subscribeLive();
+        await drainQueuedCaptures();
+      })();
+    };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         // A registered Tauri listener remains alive while Android backgrounds
@@ -317,14 +408,11 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         // the next foreground drain instead of sending into a suspended WebView.
         unsubscribeLive();
       } else if (document.visibilityState === 'visible') {
-        void (async () => {
-          await subscribeLive();
-          await drainQueuedCaptures();
-        })();
+        resume();
       }
     };
     const onFocus = () => {
-      if (document.visibilityState === 'visible') void subscribeLive();
+      if (document.visibilityState === 'visible') resume();
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('focus', onFocus);

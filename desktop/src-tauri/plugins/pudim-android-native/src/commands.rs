@@ -29,14 +29,16 @@ pub struct CapturedNotification {
     pub prompted: bool,
 }
 
-/// A choice made on an import-prompt notification action button.
+/// A choice made on an import-prompt notification action button, or a
+/// transaction the native side imported while the WebView was asleep.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct CaptureAction {
     /// Id of the pending capture the notification was posted for.
     pub capture_id: String,
-    /// `income`, `debit`, or `credit`.
-    pub action: String,
+    /// `income`, `debit`, or `credit`. Absent on native-import journal entries.
+    #[serde(default)]
+    pub action: Option<String>,
     /// Android application id of the source app, when known.
     #[serde(default)]
     pub app_name: Option<String>,
@@ -52,6 +54,33 @@ pub struct CaptureAction {
     /// Posting timestamp (epoch millis), when known.
     #[serde(default)]
     pub post_time: Option<i64>,
+    /// Sync-outbox client id when the native side already imported the capture.
+    #[serde(default)]
+    pub client_id: Option<String>,
+    /// True when the entry describes a completed native import.
+    #[serde(default)]
+    pub native_import: bool,
+    /// Parsed merchant description of a native import.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Parsed decimal amount of a native import.
+    #[serde(default)]
+    pub amount: Option<String>,
+    /// Parsed transaction type (`income`/`expense`) of a native import.
+    #[serde(default, rename = "type")]
+    pub transaction_type: Option<String>,
+    /// Parsed ISO date of a native import.
+    #[serde(default)]
+    pub date: Option<String>,
+    /// Category used by a native import.
+    #[serde(default)]
+    pub category_id: Option<String>,
+    /// Payment account used by a native import.
+    #[serde(default)]
+    pub account_id: Option<String>,
+    /// Notes applied by a native import.
+    #[serde(default)]
+    pub notes: Option<String>,
 }
 
 /// Envelope for nullable string results coming back from the Kotlin plugin.
@@ -253,6 +282,11 @@ pub fn show_capture_prompt<R: Runtime>(
     title: String,
     body: String,
     app_label: String,
+    app_name: Option<String>,
+    description: Option<String>,
+    amount: Option<String>,
+    date: Option<String>,
+    category_id: Option<String>,
 ) -> Result<(), String> {
     let state = app.state::<CaptureHandle<R>>();
     #[cfg(mobile)]
@@ -268,6 +302,13 @@ pub fn show_capture_prompt<R: Runtime>(
                     "title": title,
                     "body": body,
                     "appLabel": app_label,
+                    // Parsed capture fields so a tap can still be imported
+                    // natively when the WebView is not alive to handle it.
+                    "appName": app_name,
+                    "description": description,
+                    "amount": amount,
+                    "date": date,
+                    "categoryId": category_id,
                 }),
             )
             .map_err(|e| e.to_string())
@@ -275,6 +316,7 @@ pub fn show_capture_prompt<R: Runtime>(
     #[cfg(not(mobile))]
     {
         let _ = (&state, &id, &title, &body, &app_label);
+        let _ = (&app_name, &description, &amount, &date, &category_id);
         Ok(())
     }
 }

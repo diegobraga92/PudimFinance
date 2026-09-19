@@ -292,6 +292,17 @@ Useful commands:
   $ADB -s $DEVICE_SERIAL shell dumpsys notification --noredact
   $ADB -s $DEVICE_SERIAL shell "cmd notification post -S bigtext -t Nubank test-1 'Compra aprovada de R\$ 23,50 em PADARIA DO ZE'"
 
+Verifying the prompt actions (Income / Debit / Credit):
+  1. post the synthetic notification above and tap Credit on the Pudim prompt
+  2. watch the worker and any crash:
+       $ADB -s $DEVICE_SERIAL logcat -s PudimSyncWorker:I PudimNative:I AndroidRuntime:E
+  3. inspect what the tap journaled (debug builds only):
+       $ADB -s $DEVICE_SERIAL shell run-as $PACKAGE_NAME ls shared_prefs
+       pudim_capture_actions.xml     -> the tap was drained by the app
+       pudim_native_sync_outbox.xml  -> the transaction is queued for upload
+  The tap must always either create the transaction or keep the capture on the
+  Pending review screen; if neither happens, the run is a regression.
+
 The app must be signed in and notification capture enabled before the
 synthetic notification can create a transaction.
 EOF

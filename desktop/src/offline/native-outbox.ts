@@ -1,12 +1,16 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getApiBaseUrl } from '@/lib/serverConfig';
+import { notifyTransactionsChanged } from '@/lib/transaction-events';
+import { nativeImportTransaction } from '@/notifications/capture';
 import {
+  getLocalTransactions,
   getPendingOperations,
   markAccountSynced,
   markCategorySynced,
   markTransactionSynced,
   recordPendingOperationFailure,
   removePendingOperation,
+  upsertLocalTransaction,
 } from './database';
 
 export interface NativeSyncResult {
@@ -77,6 +81,52 @@ export async function removeNativeMutation(clientId: string): Promise<void> {
   }
 }
 
+/**
+ * Transaction fields the native worker uploaded while the WebView was asleep.
+ * Mirrors the payload of a `native_import` capture event.
+ */
+export interface NativeImportEntry {
+  client_id: string;
+  type?: string;
+  amount?: string;
+  description?: string;
+  date?: string;
+  category_id?: string | null;
+  account_id?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * Mirrors a transaction the native worker created for a capture that never
+ * reached the WebView (the app was closed when the prompt was tapped).
+ *
+ * The native outbox already owns the upload, so only the local row is written
+ * here. Reusing the native `client_id` keeps repeated drains idempotent, and
+ * the row stays marked as not-yet-synced until the worker's result arrives.
+ */
+export async function adoptNativeTransaction(entry: NativeImportEntry): Promise<boolean> {
+  const parsed = nativeImportTransaction(entry);
+  if (!parsed) return false;
+  const existing = (await getLocalTransactions()).find((row) => row.id === entry.client_id);
+  if (existing) return true;
+  await upsertLocalTransaction({
+    id: entry.client_id,
+    server_id: null,
+    description: parsed.description,
+    amount: parsed.amount,
+    type: parsed.type,
+    category_id: parsed.categoryId,
+    date: parsed.date,
+    notes: entry.notes ?? null,
+    installment_plan_id: null,
+    account_id: entry.account_id ?? null,
+    synced: 0,
+    updated_at: new Date().toISOString(),
+  });
+  notifyTransactionsChanged();
+  return true;
+}
+
 /** Applies closed-app worker results to the IndexedDB mirror. */
 export async function reconcileNativeSyncResults(): Promise<void> {
   const results = await drainNativeSyncResults();
@@ -85,7 +135,20 @@ export async function reconcileNativeSyncResults(): Promise<void> {
   const byClientId = new Map(pending.map((operation) => [operation.local_id ?? operation.server_id, operation]));
   for (const result of results) {
     const operation = byClientId.get(result.client_id);
-    if (!operation) continue;
+    if (!operation) {
+      // A capture imported natively has no IndexedDB outbox row, so settle its
+      // local mirror directly. Failures keep the row pending (visible and
+      // editable) and are logged instead of dropped silently.
+      if (result.status === 'ok' && result.server_id) {
+        await markTransactionSynced(result.client_id, result.server_id);
+        notifyTransactionsChanged();
+      } else {
+        console.error(
+          `[PudimFinance native] capture import ${result.client_id} failed: ${result.error ?? result.status}`,
+        );
+      }
+      continue;
+    }
     if (result.status === 'ok') {
       if (result.server_id && operation.operation_type === 'create') {
         if (operation.entity_type === 'transaction') {

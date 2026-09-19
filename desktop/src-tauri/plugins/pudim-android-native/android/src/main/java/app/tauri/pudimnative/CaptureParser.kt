@@ -69,7 +69,7 @@ internal object CaptureParser {
             description = "Notificação bancária"
         }
 
-        return ParsedCapture(type, amount, description.ifBlank { "Notificação bancária" }, today(), fallbackCategoryId)
+        return ParsedCapture(type, amount, description.ifBlank { "Notificação bancária" }, todayIso(), fallbackCategoryId)
     }
 
     private fun merchantDescription(text: String): String? {
@@ -79,7 +79,8 @@ internal object CaptureParser {
         return match?.groupValues?.getOrNull(1)?.trim()
     }
 
-    private fun normalizeAmount(raw: String): String {
+    /** Normalizes a Brazilian amount like `R$ 1.234,56` into `1234.56`. */
+    internal fun normalizeAmount(raw: String): String {
         var cleaned = raw.replace(Regex("[^0-9.,]"), "")
         cleaned = if (cleaned.contains(',') && cleaned.contains('.')) {
             cleaned.replace(".", "").replace(',', '.')
@@ -89,7 +90,8 @@ internal object CaptureParser {
         return cleaned
     }
 
-    private fun today(): String {
+    /** Today's local calendar date as `YYYY-MM-DD`. */
+    internal fun todayIso(): String {
         val now = Calendar.getInstance()
         return String.format(
             Locale.US,

@@ -355,7 +355,19 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun showCapturePrompt(invoke: Invoke) {
         val args = invoke.parseArgs(CapturePromptArgs::class.java)
-        CapturePromptNotifier.show(activity, args.id, args.title, args.body, args.appLabel)
+        // The parsed capture travels with the prompt so a tap can still be
+        // imported natively when the WebView is not alive to handle it.
+        val source = mutableMapOf<String, Any?>(
+            "app_label" to args.appLabel,
+            "title" to args.title,
+            "text" to args.body,
+        )
+        args.appName?.let { source["app_name"] = it }
+        args.description?.let { source["description"] = it }
+        args.amount?.let { source["amount"] = it }
+        args.date?.let { source["date"] = it }
+        args.categoryId?.let { source["category_id"] = it }
+        CapturePromptNotifier.show(activity, args.id, args.title, args.body, args.appLabel, source)
         invoke.resolve()
     }
 
@@ -507,6 +519,16 @@ internal class CapturePromptArgs {
     lateinit var title: String
     lateinit var body: String
     lateinit var appLabel: String
+    /** Source app package, used when the tap has to be imported natively. */
+    var appName: String? = null
+    /** Parsed merchant description, so the native fallback needs no raw text. */
+    var description: String? = null
+    /** Parsed decimal amount, so the native fallback needs no raw text. */
+    var amount: String? = null
+    /** Parsed ISO date, so a drained tap rebuilds the same capture. */
+    var date: String? = null
+    /** Category, so a drained tap rebuilds the same capture. */
+    var categoryId: String? = null
 }
 
 @InvokeArg

@@ -6,14 +6,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Durable queue of import choices tapped on a capture-prompt notification while
- * no webview was alive. Drained by the `drainCaptureActions` plugin command on
- * the next app launch.
+ * Durable journal of capture events the WebView has not processed yet: import
+ * choices tapped on a capture-prompt notification, and transactions imported
+ * natively while no WebView was alive. Drained by the `drainCaptureActions`
+ * plugin command on the next launch or foreground resume.
  *
- * The whole action payload is stored (not just the id) so an action can still
- * be applied if the matching inbox entry hasn't been materialized yet.
+ * The whole payload is stored (not just the id) so an event can still be
+ * applied if the matching inbox entry hasn't been materialized yet. Entries
+ * produced by a native import also carry the `client_id` the sync outbox
+ * uploaded, so the WebView mirrors the same transaction instead of duplicating
+ * it.
  *
- * Bounded to [MAX_ITEMS]; only the latest choice per capture id is kept.
+ * Bounded to [MAX_ITEMS]; only the latest event per capture id is kept.
  */
 internal object PendingCaptureActions {
     private const val PREFS_NAME = "pudim_capture_actions"

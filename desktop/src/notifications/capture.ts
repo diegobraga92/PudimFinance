@@ -241,6 +241,82 @@ export function parseNotification(
   };
 }
 
+/** Fallback description when the parser cannot extract a merchant. */
+export const FALLBACK_CAPTURE_DESCRIPTION = 'Notificação bancária';
+
+/** Returns an ISO date, or today when the value is missing/malformed. */
+export function isoDateOrToday(value?: string): string {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : toIsoDate(new Date());
+}
+
+/** Prompt action fields used to rebuild the capture it refers to. */
+export interface ActionCaptureSource {
+  action: CaptureActionKind;
+  /** Parsed fields the native prompt carried (in-app prompts). */
+  amount?: string;
+  description?: string;
+  date?: string;
+  categoryId?: string | null;
+  /** Raw notification (listener-posted prompts). */
+  title?: string;
+  text?: string;
+  app_name?: string;
+  app_label?: string;
+}
+
+/**
+ * Rebuilds the capture a prompt action refers to.
+ *
+ * Parsed fields win over the raw text: an in-app prompt carries its own
+ * localized body as `text`, and using those exact values keeps the dedup key
+ * identical to the review-inbox entry.
+ */
+export function captureFromAction(
+  source: ActionCaptureSource,
+  settings: Pick<NotificationSettings, 'defaultCategoryId'>,
+): { parsed: ParsedTransaction; appName: string } | null {
+  const appName = source.app_label?.trim() || source.app_name?.trim() || '';
+  const amount = source.amount ? normalizeAmount(source.amount) : '';
+  if (Number.parseFloat(amount) > 0) {
+    return {
+      parsed: {
+        type: transactionTypeForAction(source.action),
+        amount,
+        description: source.description?.trim() || FALLBACK_CAPTURE_DESCRIPTION,
+        date: isoDateOrToday(source.date),
+        categoryId: source.categoryId ?? settings.defaultCategoryId,
+      },
+      appName,
+    };
+  }
+
+  const text = [source.title, source.text].filter(Boolean).join(' ').trim();
+  const fromText = text ? parseNotification(text, [], settings.defaultCategoryId) : null;
+  return fromText ? { parsed: fromText, appName } : null;
+}
+
+/**
+ * Transaction fields of a capture the native side already imported, or null
+ * when the entry carries no usable amount.
+ */
+export function nativeImportTransaction(entry: {
+  type?: string;
+  amount?: string;
+  description?: string;
+  date?: string;
+  category_id?: string | null;
+}): ParsedTransaction | null {
+  const amount = entry.amount ? normalizeAmount(entry.amount) : '';
+  if (!(Number.parseFloat(amount) > 0)) return null;
+  return {
+    type: entry.type === 'income' ? 'income' : 'expense',
+    amount,
+    description: entry.description?.trim() || FALLBACK_CAPTURE_DESCRIPTION,
+    date: isoDateOrToday(entry.date),
+    categoryId: entry.category_id ?? null,
+  };
+}
+
 export interface PendingCapture {
   id: string;
   appName: string;
