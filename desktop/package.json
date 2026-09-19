@@ -16,7 +16,8 @@
     "test:widget": "tsx --tsconfig=tsconfig.app.json scripts/widget-smoke.ts",
     "test:qr-scan": "tsx --tsconfig=tsconfig.app.json scripts/qr-scan-smoke.ts",
     "test:android": "tsx --tsconfig=tsconfig.app.json scripts/android-shell-smoke.tsx",
-    "test:request-timeout": "tsx --tsconfig=tsconfig.app.json scripts/request-timeout-smoke.ts"
+    "test:request-timeout": "tsx --tsconfig=tsconfig.app.json scripts/request-timeout-smoke.ts",
+    "test:category-icons": "tsx --tsconfig=tsconfig.app.json scripts/category-icons-smoke.ts"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",

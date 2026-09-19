@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,14 @@ import {
   type Category,
   type CreateCategoryRequest,
 } from '@/lib/api';
-import { CATEGORY_ICON_NAMES } from '@shared/category-icons';
+import {
+  CATEGORY_ICON_GROUPS,
+  CATEGORY_ICON_OPTIONS,
+  DEFAULT_CATEGORY_ICON,
+  categoryIconSearchIndex,
+  normalizeCategoryIconText,
+  suggestCategoryIcon,
+} from '@shared/category-icons';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import {
   Select,
@@ -31,9 +39,6 @@ import {
   CATEGORY_COLORS,
   firstAvailableCategoryColor,
 } from '@/lib/category-colors';
-
-const DEFAULT_EXPENSE_ICON = 'shopping-cart';
-const DEFAULT_INCOME_ICON = 'briefcase';
 
 interface Props {
   open: boolean;
@@ -60,7 +65,9 @@ export function CategoryForm({
 
   const [name, setName] = React.useState('');
   const [type, setType] = React.useState<'income' | 'expense'>(initialType);
-  const [icon, setIcon] = React.useState(DEFAULT_EXPENSE_ICON);
+  const [icon, setIcon] = React.useState<string>(DEFAULT_CATEGORY_ICON.expense);
+  const [iconTouched, setIconTouched] = React.useState(false);
+  const [iconQuery, setIconQuery] = React.useState('');
   const [color, setColor] = React.useState(CATEGORY_COLORS[0]);
   const [parentId, setParentId] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
@@ -68,9 +75,17 @@ export function CategoryForm({
 
   React.useEffect(() => {
     if (!open) return;
+    const nextType = editing?.type === 'income' ? 'income' : initialType;
+    const parent = initialParentId
+      ? categories.find((category) => category.id === initialParentId)
+      : undefined;
     setName(editing?.name ?? '');
-    setType(editing?.type === 'income' ? 'income' : initialType);
-    setIcon(editing?.icon || (editing?.type === 'income' ? DEFAULT_INCOME_ICON : DEFAULT_EXPENSE_ICON));
+    setType(nextType);
+    // Preserve the stored icon; otherwise inherit the parent's icon when adding
+    // a subcategory, falling back to the per-type default.
+    setIcon(editing?.icon || parent?.icon || DEFAULT_CATEGORY_ICON[nextType]);
+    setIconTouched(false);
+    setIconQuery('');
     const sameType = categories.filter((category) => category.type === (editing?.type ?? initialType));
     setColor(editing?.color || firstAvailableCategoryColor(sameType));
     setParentId(editing?.parent_id ?? initialParentId ?? '');
@@ -82,6 +97,25 @@ export function CategoryForm({
   const parentOptions = categories.filter(
     (c) => c.type === type && !c.parent_id && c.id !== editing?.id,
   );
+
+  // Icon groups filtered by the picker search (label + bilingual aliases).
+  const iconGroups = React.useMemo(() => {
+    const needle = normalizeCategoryIconText(iconQuery);
+    return CATEGORY_ICON_GROUPS.map((group) => ({
+      key: group.key,
+      labelKey: group.labelKey,
+      options: needle
+        ? group.options.filter((option) =>
+            categoryIconSearchIndex(option, t(option.labelKey)).includes(needle),
+          )
+        : group.options,
+    })).filter((group) => group.options.length > 0);
+  }, [iconQuery, t]);
+
+  const selectedIconLabel = React.useMemo(() => {
+    const match = CATEGORY_ICON_OPTIONS.find((option) => option.name === icon);
+    return match ? t(match.labelKey) : icon;
+  }, [icon, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +149,7 @@ export function CategoryForm({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? t('categories.form.edit') : t('categories.form.new')}
@@ -138,7 +172,14 @@ export function CategoryForm({
               <Input
                 id="cat-name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  const nextName = e.target.value;
+                  setName(nextName);
+                  // Suggest an icon from the name until the user picks one.
+                  if (!isEditing && !iconTouched) {
+                    setIcon(suggestCategoryIcon(nextName) ?? DEFAULT_CATEGORY_ICON[type]);
+                  }
+                }}
                 placeholder={t('categories.form.namePlaceholder')}
                 autoFocus
               />
@@ -178,30 +219,70 @@ export function CategoryForm({
 
 
           <div className="space-y-1.5">
-            <Label>{t('categories.form.icon')}</Label>
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <Label>{t('categories.form.icon')}</Label>
+              <span className="flex min-w-0 items-center gap-1.5 text-xs text-dim">
+                <CategoryIcon name={icon} className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">
+                  {t('categories.form.iconSelected', { icon: selectedIconLabel })}
+                </span>
+              </span>
+            </div>
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                value={iconQuery}
+                onChange={(event) => setIconQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  // The picker lives inside the category form; Enter should not submit it.
+                  if (event.key === 'Enter') event.preventDefault();
+                }}
+                placeholder={t('categories.form.iconSearch')}
+                aria-label={t('categories.form.iconSearch')}
+                className="pl-9 md:max-w-xs"
+              />
+            </div>
             <div
-              className="grid grid-cols-9 gap-1.5"
+              className="space-y-3 md:max-h-64 md:overflow-y-auto md:overscroll-contain md:pr-1"
               role="radiogroup"
               aria-label={t('categories.form.icon')}
             >
-              {CATEGORY_ICON_NAMES.map((iconName) => (
-                <button
-                  key={iconName}
-                  type="button"
-                  role="radio"
-                  aria-checked={icon === iconName}
-                  aria-label={t('categories.form.iconAria', { icon: iconName })}
-                  onClick={() => setIcon(iconName)}
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-md border text-lg transition-colors',
-                    icon === iconName
-                      ? 'border-primary bg-accent'
-                      : 'border-border bg-surface hover:bg-surface-hover',
-                  )}
-                >
-                  <CategoryIcon name={iconName} className="h-[18px] w-[18px]" />
-                </button>
+              {iconGroups.map((group) => (
+                <div key={group.key} className="space-y-1.5">
+                  <p className="text-xs font-medium text-dim">{t(group.labelKey)}</p>
+                  <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8 md:grid-cols-10">
+                    {group.options.map((option) => (
+                      <button
+                        key={option.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={icon === option.name}
+                        aria-label={t('categories.form.iconAria', { icon: t(option.labelKey) })}
+                        onClick={() => {
+                          setIcon(option.name);
+                          setIconTouched(true);
+                        }}
+                        className={cn(
+                          'mx-auto flex aspect-square w-full max-w-[2.75rem] items-center justify-center rounded-md border transition-colors md:max-w-[2.25rem]',
+                          icon === option.name
+                            ? 'border-primary bg-accent'
+                            : 'border-border bg-surface hover:bg-surface-hover',
+                        )}
+                      >
+                        <CategoryIcon name={option.name} className="h-5 w-5 max-md:h-6 max-md:w-6" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
+              {iconGroups.length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {t('categories.form.iconNoResults')}
+                </p>
+              )}
             </div>
           </div>
 
