@@ -343,6 +343,18 @@
           "markdownDescription": "Denies the cancel_capture_prompt command without any pre-configured scope."
         },
         {
+          "description": "Enables the clear_logs command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-logs",
+          "markdownDescription": "Enables the clear_logs command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_logs command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-logs",
+          "markdownDescription": "Denies the clear_logs command without any pre-configured scope."
+        },
+        {
           "description": "Enables the clear_sync_outbox command without any pre-configured scope.",
           "type": "string",
           "const": "allow-clear-sync-outbox",
@@ -449,6 +461,18 @@
           "type": "string",
           "const": "deny-open-settings",
           "markdownDescription": "Denies the open_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the peek_logs command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-peek-logs",
+          "markdownDescription": "Enables the peek_logs command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the peek_logs command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-peek-logs",
+          "markdownDescription": "Denies the peek_logs command without any pre-configured scope."
         },
         {
           "description": "Enables the register_listener command without any pre-configured scope.",
@@ -631,10 +655,10 @@
           "markdownDescription": "Denies the take_deep_link command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-google-sign-in`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-set-sync-config`\n- `allow-sync-outbox-put`\n- `allow-sync-outbox-remove`\n- `allow-drain-sync-results`\n- `allow-clear-sync-outbox`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spending`\n- `allow-set-widget-theme`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-google-sign-in`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-set-sync-config`\n- `allow-sync-outbox-put`\n- `allow-sync-outbox-remove`\n- `allow-drain-sync-results`\n- `allow-clear-sync-outbox`\n- `allow-peek-logs`\n- `allow-clear-logs`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spending`\n- `allow-set-widget-theme`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-google-sign-in`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-set-sync-config`\n- `allow-sync-outbox-put`\n- `allow-sync-outbox-remove`\n- `allow-drain-sync-results`\n- `allow-clear-sync-outbox`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spending`\n- `allow-set-widget-theme`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "Default permissions for the PudimFinance native plugin (capture, secure storage, biometric, widget)\n#### This default permission set includes:\n\n- `allow-is-supported`\n- `allow-access-granted`\n- `allow-open-settings`\n- `allow-open-external`\n- `allow-google-sign-in`\n- `allow-drain-pending`\n- `allow-show-capture-prompt`\n- `allow-cancel-capture-prompt`\n- `allow-drain-capture-actions`\n- `allow-notification-posting-allowed`\n- `allow-request-notification-permission`\n- `allow-set-capture-settings`\n- `allow-set-sync-config`\n- `allow-sync-outbox-put`\n- `allow-sync-outbox-remove`\n- `allow-drain-sync-results`\n- `allow-clear-sync-outbox`\n- `allow-peek-logs`\n- `allow-clear-logs`\n- `allow-secure-get`\n- `allow-secure-set`\n- `allow-secure-delete`\n- `allow-biometric-available`\n- `allow-biometric-authenticate`\n- `allow-set-widget-spending`\n- `allow-set-widget-theme`\n- `allow-take-deep-link`\n- `allow-take-auth-redirect`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

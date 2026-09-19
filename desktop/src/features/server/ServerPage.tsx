@@ -1,6 +1,7 @@
 import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Info, PlugZap, Save } from 'lucide-react';
+import { Info, PlugZap, Save, Terminal } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
@@ -28,6 +29,7 @@ export function ServerPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [current, setCurrent] = React.useState('');
   const [value, setValue] = React.useState('');
@@ -102,9 +104,15 @@ export function ServerPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('nav.server')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('server.hint')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('nav.server')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('server.hint')}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => navigate('/logs')}>
+          <Terminal className="mr-2 h-4 w-4" />
+          {t('nav.logs')}
+        </Button>
       </div>
 
       <Card>

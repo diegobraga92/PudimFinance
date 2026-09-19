@@ -59,6 +59,7 @@ class NotificationListenerService : NotificationListenerService() {
                 appLabel,
                 source = payload,
             )
+            PudimNativeLogs.info(TAG, "prompt posted for $appLabel (capture=$captureId)")
         }
 
         // In auto mode the WebView is unavailable, so materialize the capture
@@ -68,7 +69,10 @@ class NotificationListenerService : NotificationListenerService() {
                 this,
                 payload + mapOf("capture_id" to captureId, "prompted" to shouldPrompt),
             )
-        ) return
+        ) {
+            PudimNativeLogs.info(TAG, "auto-imported capture=$captureId from $appLabel")
+            return
+        }
 
         // Always persist: the next launch drains it into the review inbox, and
         // `prompted` prevents asking about the same capture twice.
@@ -76,6 +80,11 @@ class NotificationListenerService : NotificationListenerService() {
             this,
             payload + mapOf("capture_id" to captureId, "prompted" to shouldPrompt),
         )
+        PudimNativeLogs.info(TAG, "queued capture=$captureId from $appLabel (prompted=$shouldPrompt)")
+    }
+
+    private companion object {
+        const val TAG = "PudimCapture"
     }
 }
 

@@ -65,7 +65,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lists audit events for administrators. */
+        /**
+         * Lists audit events for any signed-in user.
+         * @description Every authenticated account can read the trail; authentication itself is
+         *     enforced by the auth middleware on the API router.
+         */
         get: operations["list_audit_events"];
         put?: never;
         post?: never;
@@ -3272,8 +3276,8 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Admin access required */
-            403: {
+            /** @description Missing or invalid token */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

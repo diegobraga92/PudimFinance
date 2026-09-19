@@ -22,6 +22,8 @@
     "pudim-native:allow-sync-outbox-remove",
     "pudim-native:allow-drain-sync-results",
     "pudim-native:allow-clear-sync-outbox",
+    "pudim-native:allow-peek-logs",
+    "pudim-native:allow-clear-logs",
     "pudim-native:allow-secure-get",
     "pudim-native:allow-secure-set",
     "pudim-native:allow-secure-delete",

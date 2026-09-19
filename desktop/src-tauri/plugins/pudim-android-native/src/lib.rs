@@ -10,7 +10,7 @@ pub mod commands;
 #[cfg(mobile)]
 mod mobile;
 
-pub use commands::{CaptureAction, CaptureHandle, CapturedNotification};
+pub use commands::{CaptureAction, CaptureHandle, CapturedNotification, NativeLogEntry};
 
 #[cfg(mobile)]
 pub use commands::{mobile_secure_delete, mobile_secure_get, mobile_secure_set};
@@ -36,6 +36,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::sync_outbox_remove,
             commands::drain_sync_results,
             commands::clear_sync_outbox,
+            commands::peek_logs,
+            commands::clear_logs,
             commands::biometric_available,
             commands::biometric_authenticate,
             commands::set_widget_spending,

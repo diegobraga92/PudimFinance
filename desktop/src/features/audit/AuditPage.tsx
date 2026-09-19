@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ChevronDown, Lock, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { useAuth } from '@/app/auth';
@@ -35,12 +35,11 @@ function actorOf(event: AuditEvent): string | null {
 /**
  * Audit Log: the immutable system event trail.
  *
- * Administrative and read-only — non-admins see why they cannot use it instead
- * of an empty list that looks like "no activity".
+ * Read-only: every signed-in user can consult the trail of what the system did.
  */
 export function AuditPage() {
   const { t, formatDateTime } = useI18n();
-  const { token, user } = useAuth();
+  const { token } = useAuth();
 
   const [items, setItems] = React.useState<AuditEvent[]>([]);
   const [eventType, setEventType] = React.useState('');
@@ -55,7 +54,6 @@ export function AuditPage() {
   /** Phone-only: which event card is expanded inline. */
   const [expandedId, setExpandedId] = React.useState<number | null>(null);
 
-  const isAdmin = user?.role === 'admin';
   const filtersActive = Boolean(eventType.trim() || from || to);
 
   const load = React.useCallback(
@@ -84,23 +82,8 @@ export function AuditPage() {
   );
 
   React.useEffect(() => {
-    if (token && isAdmin) void load(0);
-  }, [token, isAdmin, load]);
-
-  // Non-admins get one clear message: no filters, no empty table underneath.
-  if (!isAdmin) {
-    return (
-      <ToolsWorkspace>
-        <Card className="border-border bg-surface p-7 shadow-card">
-          <EmptyState
-            icon={<Lock className="h-8 w-8" />}
-            title={t('audit.adminTitle')}
-            description={t('audit.adminDesc')}
-          />
-        </Card>
-      </ToolsWorkspace>
-    );
-  }
+    if (token) void load(0);
+  }, [token, load]);
 
   return (
     <ToolsWorkspace>

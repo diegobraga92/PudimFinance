@@ -21,6 +21,8 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-sync-outbox-remove`
 - `allow-drain-sync-results`
 - `allow-clear-sync-outbox`
+- `allow-peek-logs`
+- `allow-clear-logs`
 - `allow-secure-get`
 - `allow-secure-set`
 - `allow-secure-delete`
@@ -142,6 +144,32 @@ Enables the cancel_capture_prompt command without any pre-configured scope.
 <td>
 
 Denies the cancel_capture_prompt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-clear-logs`
+
+</td>
+<td>
+
+Enables the clear_logs command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-clear-logs`
+
+</td>
+<td>
+
+Denies the clear_logs command without any pre-configured scope.
 
 </td>
 </tr>
@@ -376,6 +404,32 @@ Enables the open_settings command without any pre-configured scope.
 <td>
 
 Denies the open_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-peek-logs`
+
+</td>
+<td>
+
+Enables the peek_logs command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-peek-logs`
+
+</td>
+<td>
+
+Denies the peek_logs command without any pre-configured scope.
 
 </td>
 </tr>

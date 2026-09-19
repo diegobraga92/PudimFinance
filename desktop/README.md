@@ -123,6 +123,32 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 ```
 
+## Diagnostics (Logs screen)
+
+`/logs` (Settings → Logs, or the shortcut on the Server screen) shows a merged,
+filterable trail of what the app did, which is the only way to debug a **release**
+build on a phone: Android apps cannot read their own logcat, and release
+WebViews do not print `console` output.
+
+- **WebView side** (`src/lib/app-log.ts`): a bounded ring buffer (500 live, 200
+  persisted) fed by a `console` wrapper, `window.onerror`,
+  `unhandledrejection`, and explicit `logEvent()` calls in the request layer
+  (`api`), sync engine (`sync`), native outbox (`native`), capture provider
+  (`capture`) and server probing (`server`). Tokens and passwords are redacted
+  before anything is buffered or stored.
+- **Native side** (`PudimNativeLogs.kt`): capture prompt decisions, closed-app
+  imports, the WorkManager sync pushes and per-operation rejections, read back
+  through the `peek_logs` command (`clear_logs` empties it). Records are still
+  written to logcat, so `adb logcat -s PudimCapture:I PudimSyncWorker:I` keeps
+  working.
+- The screen is mobile-first: filters collapse behind a button on phones, rows
+  expand inline there (dialog on desktop), **Follow** is opt-in, and long
+  payloads wrap inside a scrollable `<pre>` instead of overflowing.
+
+Both commands are part of the plugin's default permission set, together with
+`allow-peek-logs` / `allow-clear-logs` in the app capabilities.
+
+
 ## Source layout
 
 ```text

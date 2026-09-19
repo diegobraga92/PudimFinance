@@ -16,6 +16,8 @@ const COMMANDS: &[&str] = &[
     "sync_outbox_remove",
     "drain_sync_results",
     "clear_sync_outbox",
+    "peek_logs",
+    "clear_logs",
     "secure_get",
     "secure_set",
     "secure_delete",

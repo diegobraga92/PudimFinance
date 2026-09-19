@@ -1,6 +1,7 @@
 /** Webview bridge for native notification-capture commands. */
 
 import { addPluginListener, invoke, isTauri } from '@tauri-apps/api/core';
+import { logError } from '@/lib/app-log';
 import type { CaptureActionKind } from './capture';
 
 export interface CapturedNotification {
@@ -80,7 +81,7 @@ function nativeErrorMessage(error: unknown): string {
 
 function recordNativeError(operation: string, error: unknown): void {
   lastNativeError = `${operation}: ${nativeErrorMessage(error)}`;
-  console.error(`[PudimFinance native] ${lastNativeError}`, error);
+  logError('native', error, operation);
 }
 
 /** Returns the most recent native bridge error for an in-app diagnostic. */
@@ -346,5 +347,41 @@ export async function openNotificationAccessSettings(): Promise<boolean> {
   } catch (error) {
     recordNativeError('open_settings', error);
     return false;
+  }
+}
+
+/** A record from the native (Android) log buffer. */
+export interface NativeLogEntry {
+  id: number;
+  /** Recording timestamp (epoch millis). */
+  at: number;
+  level: 'info' | 'warn' | 'error';
+  /** Emitting component (e.g. `PudimCapture`, `PudimSyncWorker`). */
+  tag: string;
+  message: string;
+}
+
+/**
+ * Native log records newer than `sinceId` (Android only).
+ *
+ * Never records a bridge error: the diagnostics screen calls this on demand and
+ * logging a failure here would feed the screen with its own errors.
+ */
+export async function peekNativeLogs(sinceId: number): Promise<NativeLogEntry[]> {
+  if (!isTauri()) return [];
+  try {
+    return await invoke<NativeLogEntry[]>('plugin:pudim-native|peek_logs', { sinceId });
+  } catch {
+    return [];
+  }
+}
+
+/** Empties the native log buffer (Android only). */
+export async function clearNativeLogs(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await invoke('plugin:pudim-native|clear_logs');
+  } catch {
+    // Diagnostics stay usable on desktop and on older plugin builds.
   }
 }

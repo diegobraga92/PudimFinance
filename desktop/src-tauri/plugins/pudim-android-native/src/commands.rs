@@ -588,6 +588,68 @@ pub fn clear_sync_outbox<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     }
 }
 
+/// A native log record shown by the in-app diagnostics screen.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct NativeLogEntry {
+    /// Monotonic id used as the paging cursor.
+    pub id: i64,
+    /// Recording timestamp (epoch millis).
+    pub at: i64,
+    /// `info`, `warn`, or `error`.
+    pub level: String,
+    /// Emitting component (e.g. `PudimCapture`, `PudimSyncWorker`).
+    pub tag: String,
+    /// Log message.
+    pub message: String,
+}
+
+/// Returns buffered native log records newer than `since_id` (Android only).
+#[tauri::command]
+pub fn peek_logs<R: Runtime>(
+    app: AppHandle<R>,
+    since_id: Option<i64>,
+) -> Result<Vec<NativeLogEntry>, String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(Vec::new());
+        };
+        handle
+            .run_mobile_plugin::<Vec<NativeLogEntry>>(
+                "peekLogs",
+                serde_json::json!({ "sinceId": since_id.unwrap_or(0) }),
+            )
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = (&state, &since_id);
+        Ok(Vec::new())
+    }
+}
+
+/// Empties the native log buffer (Android only).
+#[tauri::command]
+pub fn clear_logs<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(());
+        };
+        handle
+            .run_mobile_plugin::<()>("clearLogs", ())
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = &state;
+        Ok(())
+    }
+}
+
 // Android Keystore-backed token storage; desktop uses the OS keyring instead.
 
 #[tauri::command]

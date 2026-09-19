@@ -20,6 +20,8 @@ permissions = [
   "allow-sync-outbox-remove",
   "allow-drain-sync-results",
   "allow-clear-sync-outbox",
+  "allow-peek-logs",
+  "allow-clear-logs",
   "allow-secure-get",
   "allow-secure-set",
   "allow-secure-delete",

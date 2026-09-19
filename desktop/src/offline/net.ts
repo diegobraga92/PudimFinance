@@ -1,6 +1,7 @@
 /** Treats the app as online only when the API server is reachable. */
 
 import { getApiBaseUrl } from '@/lib/serverConfig';
+import { logError, logEvent } from '@/lib/app-log';
 
 const SERVER_UNAVAILABLE_MS = 15_000;
 const ONLINE_CACHE_MS = 10_000;
@@ -85,13 +86,15 @@ function probeServer(): Promise<boolean> {
             emitConnectivity(true);
             return true;
           }
+          logEvent('warn', 'server', `health check failed: ${res.status} ${res.statusText} (${base})`);
           markServerUnavailable();
           emitConnectivity(false);
           return false;
         } finally {
           clearTimeout(timer);
         }
-      } catch {
+      } catch (err) {
+        logError('server', err, 'health check unreachable');
         markServerUnavailable();
         emitConnectivity(false);
         return false;

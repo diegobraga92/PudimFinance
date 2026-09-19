@@ -461,6 +461,20 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve()
     }
 
+    /** Returns buffered native log entries newer than `sinceId` (diagnostics). */
+    @Command
+    fun peekLogs(invoke: Invoke) {
+        val args = invoke.parseArgs(PeekLogsArgs::class.java)
+        invoke.resolveObject(PudimNativeLogs.peek(args.sinceId))
+    }
+
+    /** Empties the native log buffer (diagnostics). */
+    @Command
+    fun clearLogs(invoke: Invoke) {
+        PudimNativeLogs.clear()
+        invoke.resolve()
+    }
+
     @Command
     fun secureGet(invoke: Invoke) {
         val args = invoke.parseArgs(SecureGetArgs::class.java)
@@ -534,6 +548,12 @@ internal class CapturePromptArgs {
 @InvokeArg
 internal class CaptureIdArgs {
     lateinit var id: String
+}
+
+@InvokeArg
+internal class PeekLogsArgs {
+    /** Highest native log id the caller has already read. */
+    var sinceId: Long = 0L
 }
 
 @InvokeArg

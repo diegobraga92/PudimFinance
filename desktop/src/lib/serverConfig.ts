@@ -1,5 +1,7 @@
 /** Runtime server URL, persisted locally and falling back to the build-time default. */
 
+import { logEvent } from './app-log';
+
 const SERVER_URL_KEY = 'pudim_server_url';
 
 let cached: string | null = null;
@@ -51,6 +53,7 @@ export async function setApiBaseUrl(raw: string): Promise<string> {
   }
   localStorage.setItem(SERVER_URL_KEY, normalized);
   cached = normalized;
+  logEvent('info', 'server', `server address set to ${normalized}`);
   return normalized;
 }
 

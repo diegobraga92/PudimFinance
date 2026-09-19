@@ -1,7 +1,6 @@
 package app.tauri.pudimnative
 
 import android.content.Context
-import android.util.Log
 import org.json.JSONObject
 import java.util.UUID
 
@@ -50,7 +49,10 @@ internal object NativeCaptureImporter {
         val settings = CaptureSettingsStore.read(context)
         val parsed = parsePayload(payload, settings.defaultCategoryId)
         if (parsed == null) {
-            Log.i(TAG, "capture=$captureId not imported: no amount found in the notification or action")
+            PudimNativeLogs.info(
+                TAG,
+                "capture=$captureId not imported: no amount found in the notification or action",
+            )
             return null
         }
         val plan = CaptureImportPlanner.planForAction(
@@ -61,7 +63,7 @@ internal object NativeCaptureImporter {
             settings.creditAccountId,
         )
         if (plan == null) {
-            Log.i(TAG, "capture=$captureId not imported: unknown action '$action'")
+            PudimNativeLogs.info(TAG, "capture=$captureId not imported: unknown action '$action'")
             return null
         }
         val notes = context.getString(R.string.capture_notes)
@@ -69,7 +71,7 @@ internal object NativeCaptureImporter {
         enqueue(context, clientId, plan, notes)
         NativeCaptureJournal.add(context, captureId)
         NotificationCaptureQueue.removeByCaptureId(context, captureId)
-        Log.i(
+        PudimNativeLogs.info(
             TAG,
             "capture=$captureId imported natively: type=${plan.type} amount=${plan.amount} " +
                 "account=${plan.accountId ?: "-"} category=${plan.categoryId ?: "-"}",

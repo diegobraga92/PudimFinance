@@ -33,6 +33,7 @@ import {
 } from './database';
 import { isOnline, uuid } from './net';
 import { putNativeMutation, reconcileNativeSyncResults, removeNativeMutation } from './native-outbox';
+import { logError, logEvent } from '@/lib/app-log';
 
 export interface SyncResult {
   pushed: number;
@@ -87,11 +88,20 @@ async function performSync(): Promise<SyncResult> {
     const pulled = await pullChanges();
     const failedOperations = await getFailedPendingOperations();
     const firstError = push.firstError ?? failedOperations[0]?.last_error ?? undefined;
+    const failed = Math.max(push.failed, failedOperations.length);
+    if (push.pushed > 0 || pulled.transactions.length > 0 || pulled.categories.length > 0 || failed > 0) {
+      logEvent(
+        failed > 0 ? 'warn' : 'info',
+        'sync',
+        `pushed=${push.pushed} pulled=${pulled.transactions.length}tx/${pulled.categories.length}cat failed=${failed}` +
+          (firstError ? ` · ${firstError}` : ''),
+      );
+    }
     return {
       pushed: push.pushed,
       pulledTransactions: pulled.transactions.length,
       pulledCategories: pulled.categories.length,
-      failed: Math.max(push.failed, failedOperations.length),
+      failed,
       firstError,
       ok: push.failed === 0 && failedOperations.length === 0,
     };
@@ -99,6 +109,7 @@ async function performSync(): Promise<SyncResult> {
     // A transport/server failure must not reject the shared sync promise: the
     // queued changes stay put and the caller keeps a countable result.
     const message = err instanceof Error ? err.message : String(err);
+    logError('sync', err, 'sync failed');
     return {
       pushed: 0,
       pulledTransactions: 0,
@@ -373,6 +384,7 @@ export async function discardPendingOperations(ids: number[]): Promise<number> {
     if (op.entity_type === 'transaction') touchedTransactions = true;
   }
   if (touchedTransactions) notifyTransactionsChanged();
+  logEvent('info', 'sync', `discarded ${operations.length} queued change(s)`);
   return operations.length;
 }
 

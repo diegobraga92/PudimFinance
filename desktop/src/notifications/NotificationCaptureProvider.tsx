@@ -42,6 +42,7 @@ import {
 import { isOnline } from '@/offline/net';
 import { requestSync } from '@/offline/sync-scheduler';
 import { adoptNativeTransaction, reconcileNativeSyncResults } from '@/offline/native-outbox';
+import { logError, logEvent } from '@/lib/app-log';
 
 /** How long a "just imported" capture stays suppressed to avoid double-imports. */
 const DEDUP_WINDOW_MS = 30_000;
@@ -165,6 +166,11 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         // with Income / Debit / Credit import actions. Each capture prompts at
         // most once, even if its (drained) notification is re-processed later.
         const appName = sourceLabel(notification);
+        logEvent(
+          'info',
+          'capture',
+          `captured ${parsed.type} ${parsed.amount} "${parsed.description}" from ${appName || 'unknown app'}`,
+        );
         void addPendingCapture(
           toPendingCapture(parsed, appName, {
             id: notification.capture_id,
@@ -193,6 +199,12 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const adoptNativeImport = React.useCallback(async (action: CaptureAction): Promise<PendingCapture[]> => {
     if (!action.client_id) return getPendingCaptures();
     const parsed = nativeImportTransaction(action);
+    logEvent(
+      'info',
+      'capture',
+      `native import ${action.client_id} received` +
+        (parsed ? ` (${parsed.type} ${parsed.amount} "${parsed.description}")` : ''),
+    );
     // Skip the local row when the same capture was already imported through the
     // WebView (dedup journal hit); mirroring it again would show two rows.
     if (parsed && !hasImportedCapture(dedupKeyOf(parsed))) {
@@ -232,6 +244,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     }
     const kind = action.action;
     if (!isCaptureActionKind(kind)) return;
+    logEvent('info', 'capture', `action ${kind} for capture ${action.capture_id}`);
     let item = (await getPendingCaptures()).find((c) => c.id === action.capture_id);
     if (!item) {
       // The listener posted the prompt while the app was dead, so the inbox
@@ -274,6 +287,11 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         ),
       );
       toastRef.current({ title: tRef.current('notifications.failedCreate'), variant: 'error' });
+      logEvent(
+        'warn',
+        'capture',
+        `action ${kind} for capture ${action.capture_id} could not be rebuilt; kept for review`,
+      );
       return;
     }
     const { dedupKey } = item;
@@ -282,6 +300,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     // duplicate notification rather than an unimported capture.
     if (hasImportedCapture(dedupKey)) {
       setPendingItems(await removePendingCaptureByDedupKey(dedupKey));
+      logEvent('info', 'capture', `action ${kind} skipped: ${item.description} was already imported`);
       return;
     }
     const accountId = accountIdForAction(kind, settings);
@@ -302,6 +321,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       setPendingItems(next);
       requestSync();
       const online = await isOnline();
+      logEvent('info', 'capture', `imported ${kind} ${item.amount} "${item.description}"`);
       toastRef.current({
         title: online
           ? tRef.current('notifications.created', { amount: item.amount })
@@ -309,6 +329,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         variant: 'success',
       });
     } catch (err) {
+      logError('capture', err, `action ${kind} for capture ${action.capture_id}`);
       toastRef.current({
         title: err instanceof Error ? err.message : tRef.current('notifications.failedCreate'),
         variant: 'error',
@@ -354,7 +375,11 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     const settings = await getNotificationSettings();
     settingsRef.current = settings;
     if (settings.enabled) {
-      for (const payload of await drainNativeNotifications()) {
+      const queued = await drainNativeNotifications();
+      if (queued.length > 0) {
+        logEvent('info', 'capture', `drained ${queued.length} queued notification(s)`);
+      }
+      for (const payload of queued) {
         const label = sourceLabel(payload);
         if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) continue;
         const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
@@ -363,7 +388,11 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         if (parsed) handleParsedRef.current(parsed, payload);
       }
     }
-    for (const action of await drainCaptureActions()) {
+    const actions = await drainCaptureActions();
+    if (actions.length > 0) {
+      logEvent('info', 'capture', `drained ${actions.length} queued capture action(s)`);
+    }
+    for (const action of actions) {
       await importFromActionRef.current(action);
     }
     setPendingItems(await getPendingCaptures());

@@ -1,4 +1,4 @@
-//! Admin-only search over the immutable audit event log.
+//! Search over the immutable audit event log.
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -45,46 +45,28 @@ pub struct AuditEvent {
     pub occurred_at: DateTime<Utc>,
 }
 
-/// Routes for admin audit-event searches.
+/// Routes for audit-event searches.
 pub fn router() -> Router<AppState> {
     Router::new().route("/api/audit/events", axum::routing::get(list_audit_events))
 }
 
-/// Lists audit events for administrators.
+/// Lists audit events for any signed-in user.
+///
+/// Every authenticated account can read the trail; authentication itself is
+/// enforced by the auth middleware on the API router.
 #[utoipa::path(
     get,
     path = "/api/audit/events",
     tag = "Audit",
     responses(
         (status = 200, description = "List of audit events"),
-        (status = 403, description = "Admin access required"),
+        (status = 401, description = "Missing or invalid token"),
     ),
 )]
 pub async fn list_audit_events(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     Query(params): Query<AuditQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    // Verify the admin role from the Bearer token (the auth middleware already
-    // validated the token, and we additionally require the `admin` role here).
-    let token = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "));
-    let is_admin = token
-        .map(|t| {
-            crate::auth::verify_token(&state.jwt_secret, t)
-                .map(|c| c.role == "admin")
-                .unwrap_or(false)
-        })
-        .unwrap_or(false);
-    if !is_admin {
-        return Err((
-            StatusCode::FORBIDDEN,
-            Json(json!({ "error": "Admin access required" })),
-        ));
-    }
-
     let page_size = params.page_size.unwrap_or(50).clamp(1, 200);
     let page = params.page.unwrap_or(0);
     let offset = page.saturating_mul(page_size);

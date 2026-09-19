@@ -58,6 +58,7 @@ import { BudgetSummaryCards } from '../src/features/budgets/BudgetSummaryCards';
 import { ReconciliationPage } from '../src/features/reconciliation/ReconciliationPage';
 import { LedgerPage } from '../src/features/ledger/LedgerPage';
 import { AuditPage } from '../src/features/audit/AuditPage';
+import { LogsPage } from '../src/features/diagnostics/LogsPage';
 import { ReceiptsPage } from '../src/features/receipts/ReceiptsPage';
 import { CameraCapture } from '../src/features/receipts/CameraCapture';
 import {
@@ -84,6 +85,7 @@ import {
   type NotificationSettings,
 } from '../src/notifications/capture';
 import { isOperationFailed } from '../src/offline/database';
+import { filterLogEntries, formatLogEntries, redactLogText } from '../src/lib/app-log';
 import { expandLocalCategoryIds, filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
 import { normalizeServerUrl } from '../src/lib/serverConfig';
@@ -754,6 +756,62 @@ if (offlineGuardChecks.every(([, ok]) => ok)) {
   console.log(`PASS: offline sync guards (${offlineGuardChecks.length} cases)`);
 }
 
+const logEntries = [
+  {
+    id: 1,
+    at: '2026-09-19T10:00:00.000Z',
+    level: 'info' as const,
+    source: 'sync' as const,
+    message: 'pushed=1 pulled=2tx/0cat failed=0',
+  },
+  {
+    id: 2,
+    at: '2026-09-19T10:00:01.000Z',
+    level: 'error' as const,
+    source: 'capture' as const,
+    message: 'action credit for capture cap-1',
+    detail: 'Failed to resolve posting account',
+  },
+];
+const logHelperChecks: [string, boolean][] = [
+  [
+    'logs mask bearer tokens',
+    redactLogText('Authorization: Bearer abc.def-ghi') === 'Authorization: Bearer ***',
+  ],
+  [
+    'logs mask token fields',
+    redactLogText('{"access_token":"super-secret"}') === '{"access_token":"***"}',
+  ],
+  [
+    'logs filter by level and source',
+    filterLogEntries(logEntries, { level: 'error', source: 'capture' }).length === 1 &&
+      filterLogEntries(logEntries, { level: 'info' }).length === 1,
+  ],
+  [
+    'logs search matches the detail text',
+    filterLogEntries(logEntries, { query: 'posting account' }).length === 1,
+  ],
+  [
+    'logs format includes time, level, source and detail',
+    (() => {
+      const text = formatLogEntries(logEntries);
+      return (
+        text.includes('[ERROR] capture: action credit for capture cap-1') &&
+        text.includes('Failed to resolve posting account')
+      );
+    })(),
+  ],
+];
+for (const [label, ok] of logHelperChecks) {
+  if (!ok) {
+    console.error(`FAIL: diagnostics log — ${label}`);
+    failures += 1;
+  }
+}
+if (logHelperChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: diagnostics log (${logHelperChecks.length} cases)`);
+}
+
 const persistedDedupKey = 'expense|12.50|merchant|2026-09-16';
 await markCaptureImported(persistedDedupKey);
 if (hasImportedCapture(persistedDedupKey)) {
@@ -880,7 +938,18 @@ check('LedgerPage (phone-compact workspace)', <LedgerPage />, [
   'max-md:hidden',
 ]);
 
-check('AuditPage (non-admin gate)', <AuditPage />, ['Admin access required']);
+check('AuditPage (audit trail for every user)', <AuditPage />, [
+  'Audit Log',
+  'No audit events found',
+]);
+
+check('LogsPage (diagnostics)', <LogsPage />, [
+  'Diagnostics log',
+  'Search messages',
+  'All levels',
+  // Phone-friendly controls: the Follow switch keeps a full-height touch target.
+  'flex min-h-11 items-center gap-2 text-sm text-muted-foreground md:min-h-0',
+]);
 
 check('ReceiptsPage (phone capture shortcuts)', <ReceiptsPage />, [
   'Scan QR code',

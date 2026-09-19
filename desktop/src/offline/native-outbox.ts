@@ -1,6 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getApiBaseUrl } from '@/lib/serverConfig';
 import { notifyTransactionsChanged } from '@/lib/transaction-events';
+import { logError, logEvent } from '@/lib/app-log';
 import { nativeImportTransaction } from '@/notifications/capture';
 import {
   getLocalTransactions,
@@ -27,8 +28,9 @@ export async function configureNativeSync(): Promise<void> {
     await invoke('plugin:pudim-native|set_sync_config', {
       baseUrl: await getApiBaseUrl(),
     });
-  } catch {
+  } catch (err) {
     // Desktop and older plugin versions safely ignore native configuration.
+    logError('native', err, 'set_sync_config failed');
   }
 }
 
@@ -49,8 +51,9 @@ export async function putNativeMutation(operation: {
       serverId: operation.server_id,
       payloadJson: JSON.stringify(operation.payload),
     });
-  } catch {
+  } catch (err) {
     // The IndexedDB outbox remains authoritative if native storage is unavailable.
+    logError('native', err, 'sync_outbox_put failed');
   }
 }
 
@@ -58,7 +61,8 @@ async function drainNativeSyncResults(): Promise<NativeSyncResult[]> {
   if (!isTauri()) return [];
   try {
     return await invoke<NativeSyncResult[]>('plugin:pudim-native|drain_sync_results');
-  } catch {
+  } catch (err) {
+    logError('native', err, 'drain_sync_results failed');
     return [];
   }
 }
@@ -67,8 +71,9 @@ export async function clearNativeSyncOutbox(): Promise<void> {
   if (!isTauri()) return;
   try {
     await invoke('plugin:pudim-native|clear_sync_outbox');
-  } catch {
+  } catch (err) {
     // Logout must still complete if the native plugin is unavailable.
+    logError('native', err, 'clear_sync_outbox failed');
   }
 }
 
@@ -76,8 +81,9 @@ export async function removeNativeMutation(clientId: string): Promise<void> {
   if (!isTauri()) return;
   try {
     await invoke('plugin:pudim-native|sync_outbox_remove', { clientId });
-  } catch {
+  } catch (err) {
     // The native worker will safely retry an idempotent operation if needed.
+    logError('native', err, 'sync_outbox_remove failed');
   }
 }
 
@@ -142,9 +148,12 @@ export async function reconcileNativeSyncResults(): Promise<void> {
       if (result.status === 'ok' && result.server_id) {
         await markTransactionSynced(result.client_id, result.server_id);
         notifyTransactionsChanged();
+        logEvent('info', 'native', `native import ${result.client_id} synced as ${result.server_id}`);
       } else {
-        console.error(
-          `[PudimFinance native] capture import ${result.client_id} failed: ${result.error ?? result.status}`,
+        logEvent(
+          'error',
+          'native',
+          `native import ${result.client_id} rejected: ${result.error ?? result.status}`,
         );
       }
       continue;

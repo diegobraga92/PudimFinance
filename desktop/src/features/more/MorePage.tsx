@@ -47,13 +47,9 @@ export function MorePage() {
   }));
 
   const settings: Row[] = [
-    {
-      key: 'server',
-      labelKey: 'nav.server',
-      descKey: 'nav.descServer',
-      icon: TOOL_GROUPS[2].items[0].icon,
-      route: '/server',
-    },
+    // Settings screens come from the navigation model so a new entry (e.g. the
+    // diagnostics log) cannot be forgotten here.
+    ...TOOL_GROUPS[2].items.map((item) => ({ ...item })),
     {
       key: 'theme-dark',
       labelKey: 'more.themeDark',

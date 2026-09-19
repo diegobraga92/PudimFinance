@@ -16,6 +16,7 @@ import { AuditPage } from '@/features/audit/AuditPage';
 import { ServerPage } from '@/features/server/ServerPage';
 import { NotificationSettingsPage } from '@/features/notifications/NotificationSettingsPage';
 import { PendingCapturesPage } from '@/features/notifications/PendingCapturesPage';
+import { LogsPage } from '@/features/diagnostics/LogsPage';
 import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 import { BiometricLock } from '@/features/biometric/BiometricLock';
 
@@ -58,6 +59,7 @@ export function App() {
             <Route path="/notifications" element={<NotificationSettingsPage />} />
             <Route path="/pending-review" element={<PendingCapturesPage />} />
             <Route path="/server" element={<ServerPage />} />
+            <Route path="/logs" element={<LogsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>

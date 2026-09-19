@@ -1,7 +1,6 @@
 package app.tauri.pudimnative
 
 import android.content.Context
-import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import org.json.JSONArray
@@ -16,15 +15,15 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
     override fun doWork(): Result {
         val operations = orderedOperations(SyncOutbox.operations(applicationContext))
         if (operations.length() == 0) {
-            Log.i(TAG, "No pending operations")
+            PudimNativeLogs.info(TAG, "No pending operations")
             return Result.success()
         }
         val baseUrl = SyncOutbox.baseUrl(applicationContext) ?: run {
-            Log.i(TAG, "Retrying ${operations.length()} operation(s): base URL is not configured")
+            PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): base URL is not configured")
             return Result.retry()
         }
         val accessToken = SecureStorage.get(applicationContext, "pudim_token") ?: run {
-            Log.i(TAG, "Retrying ${operations.length()} operation(s): access token is unavailable")
+            PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): access token is unavailable")
             return Result.retry()
         }
 
@@ -33,7 +32,7 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
             if (response.code == 401) {
                 val refreshed = refresh(baseUrl)
                 if (refreshed) {
-                    Log.i(TAG, "Access token refreshed")
+                    PudimNativeLogs.info(TAG, "Access token refreshed")
                     val newAccess = SecureStorage.get(applicationContext, "pudim_token")
                     if (newAccess != null) response = push(baseUrl, newAccess, operations)
                 }
@@ -41,11 +40,11 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
             when {
                 response.code in 200..299 -> {
                     applyResults(operations, response.body)
-                    Log.i(TAG, "Applied ${operations.length()} operation(s), HTTP ${response.code}")
+                    PudimNativeLogs.info(TAG, "Applied ${operations.length()} operation(s), HTTP ${response.code}")
                     Result.success()
                 }
                 response.code == 401 -> {
-                    Log.i(TAG, "Retrying ${operations.length()} operation(s): authorization failed")
+                    PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): authorization failed")
                     Result.retry()
                 }
                 response.code in 400..499 -> {
@@ -53,16 +52,16 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
                     // foreground UI and removed so WorkManager does not spin
                     // forever on a malformed payload.
                     recordBatchError(operations, response.body.ifBlank { "HTTP ${response.code}" })
-                    Log.i(TAG, "Recorded permanent batch failure for ${operations.length()} operation(s), HTTP ${response.code}")
+                    PudimNativeLogs.info(TAG, "Recorded permanent batch failure for ${operations.length()} operation(s), HTTP ${response.code}")
                     Result.success()
                 }
                 else -> {
-                    Log.i(TAG, "Retrying ${operations.length()} operation(s): HTTP ${response.code}")
+                    PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): HTTP ${response.code}")
                     Result.retry()
                 }
             }
         } catch (error: Exception) {
-            Log.i(TAG, "Retrying ${operations.length()} operation(s): ${error.message ?: error.javaClass.simpleName}")
+            PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): ${error.message ?: error.javaClass.simpleName}")
             Result.retry()
         }
     }
@@ -134,7 +133,7 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
             } else {
                 // A batch can answer HTTP 200 while a single operation failed, so
                 // log the reason instead of only reporting the batch as applied.
-                Log.w(
+                PudimNativeLogs.warn(
                     TAG,
                     "operation $clientId failed: ${result.optString("status")} ${result.optString("error")}",
                 )
@@ -162,7 +161,7 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
     }
 
     private fun recordBatchError(operations: JSONArray, error: String) {
-        Log.w(TAG, "batch rejected: $error (${operations.length()} operation(s))")
+        PudimNativeLogs.warn(TAG, "batch rejected: $error (${operations.length()} operation(s))")
         for (index in 0 until operations.length()) {
             val clientId = operations.optJSONObject(index)?.optString("client_id") ?: continue
             SyncOutbox.acknowledge(applicationContext, clientId)

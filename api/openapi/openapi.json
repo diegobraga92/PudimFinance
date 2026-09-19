@@ -225,14 +225,15 @@
         "tags": [
           "Audit"
         ],
-        "summary": "Lists audit events for administrators.",
+        "summary": "Lists audit events for any signed-in user.",
+        "description": "Every authenticated account can read the trail; authentication itself is\nenforced by the auth middleware on the API router.",
         "operationId": "list_audit_events",
         "responses": {
           "200": {
             "description": "List of audit events"
           },
-          "403": {
-            "description": "Admin access required"
+          "401": {
+            "description": "Missing or invalid token"
           }
         }
       }

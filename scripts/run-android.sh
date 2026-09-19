@@ -300,6 +300,9 @@ Verifying the prompt actions (Income / Debit / Credit):
        $ADB -s $DEVICE_SERIAL shell run-as $PACKAGE_NAME ls shared_prefs
        pudim_capture_actions.xml     -> the tap was drained by the app
        pudim_native_sync_outbox.xml  -> the transaction is queued for upload
+  4. in the app, Settings -> Logs (or the Server screen shortcut) shows the same
+     trail merged with the WebView/API/sync entries; this also works on release
+     builds, where logcat and `run-as` are unavailable.
   The tap must always either create the transaction or keep the capture on the
   Pending review screen; if neither happens, the run is a regression.
 

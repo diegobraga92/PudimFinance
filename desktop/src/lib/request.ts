@@ -2,6 +2,7 @@
 
 import { clearAuthSession, getAccessToken, getRefreshToken, setAuthSession } from './auth';
 import { getApiBaseUrl } from './serverConfig';
+import { logError, logEvent } from './app-log';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -58,6 +59,7 @@ let refreshPromise: Promise<boolean> | null = null;
 async function performRefresh(timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): Promise<boolean> {
   const refreshToken = await getRefreshToken();
   if (!refreshToken) {
+    logEvent('warn', 'api', 'Token refresh skipped: no stored refresh token');
     await clearAuthSession();
     return false;
   }
@@ -72,6 +74,7 @@ async function performRefresh(timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): P
       timeoutMs,
     );
     if (!res.ok) {
+      logEvent('error', 'api', `Token refresh failed: ${res.status} ${res.statusText}`);
       await clearAuthSession();
       return false;
     }
@@ -81,9 +84,11 @@ async function performRefresh(timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS): P
       user: { id: string; email: string; role: string; display_name?: string | null };
     };
     await setAuthSession(data.access_token, data.refresh_token, data.user);
+    logEvent('info', 'api', 'Access token refreshed');
     return true;
-  } catch {
+  } catch (err) {
     // Server unreachable. Keep the stored session and let callers handle offline.
+    logError('api', err, 'Token refresh unreachable');
     return false;
   }
 }
@@ -111,6 +116,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const { token, withAuth = true, headers, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...rest } = options;
   const url = `${await getApiBaseUrl()}${path}`;
   const accessToken = withAuth ? await getAccessToken() : null;
+  const method = rest.method ?? 'GET';
 
   const doFetch = (t: string | null): Promise<Response> => {
     const finalHeaders = new Headers(headers);
@@ -124,27 +130,33 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     return fetchWithTimeout(url, { ...rest, headers: finalHeaders }, timeoutMs);
   };
 
-  let res = await doFetch(accessToken);
+  try {
+    let res = await doFetch(accessToken);
 
-  // Single retry after a successful token refresh.
-  if (res.status === 401 && withAuth && token === undefined) {
-    const refreshed = await refreshOnce(timeoutMs);
-    if (refreshed) {
-      res = await doFetch(await getAccessToken());
+    // Single retry after a successful token refresh.
+    if (res.status === 401 && withAuth && token === undefined) {
+      const refreshed = await refreshOnce(timeoutMs);
+      if (refreshed) {
+        res = await doFetch(await getAccessToken());
+      }
     }
-  }
 
-  if (!res.ok) {
-    let message = `${res.status} ${res.statusText}`;
-    try {
-      const body = (await res.json()) as { error?: string };
-      if (body.error) message = body.error;
-    } catch {
-      // Non-JSON error body, so fall back to the status text.
+    if (!res.ok) {
+      let message = `${res.status} ${res.statusText}`;
+      try {
+        const body = (await res.json()) as { error?: string };
+        if (body.error) message = body.error;
+      } catch {
+        // Non-JSON error body, so fall back to the status text.
+      }
+      logEvent('error', 'api', `${method} ${path} failed: ${res.status} ${message}`);
+      throw new ApiError(message, res.status, res.statusText);
     }
-    throw new ApiError(message, res.status, res.statusText);
-  }
 
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+    if (res.status === 204) return undefined as T;
+    return (await res.json()) as T;
+  } catch (err) {
+    if (isNetworkError(err)) logError('api', err, `${method} ${path} unreachable`);
+    throw err;
+  }
 }

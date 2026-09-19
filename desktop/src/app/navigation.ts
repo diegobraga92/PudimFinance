@@ -10,6 +10,7 @@ import {
   Bell,
   Inbox,
   Server,
+  Terminal,
   House,
   Menu,
 } from 'lucide-react';
@@ -111,6 +112,13 @@ export const TOOL_GROUPS: NavGroup[] = [
         route: '/server',
         descKey: 'nav.descServer',
       },
+      {
+        key: 'logs',
+        labelKey: 'nav.logs',
+        icon: Terminal,
+        route: '/logs',
+        descKey: 'nav.descLogs',
+      },
     ],
   },
 ];
@@ -137,6 +145,7 @@ const SECONDARY_SCREENS: { prefix: string; labelKey: TranslationKey }[] = [
   { prefix: '/notifications', labelKey: 'nav.notifications' },
   { prefix: '/pending-review', labelKey: 'nav.reviewCaptures' },
   { prefix: '/server', labelKey: 'nav.server' },
+  { prefix: '/logs', labelKey: 'nav.logs' },
   { prefix: '/more', labelKey: 'nav.more' },
 ];
 

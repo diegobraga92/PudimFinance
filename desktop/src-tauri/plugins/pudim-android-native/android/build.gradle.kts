@@ -20,6 +20,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+
+    // The log buffer calls android.util.Log, which plain JVM unit tests do not
+    // implement; returning defaults keeps the buffer testable.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 kotlin {

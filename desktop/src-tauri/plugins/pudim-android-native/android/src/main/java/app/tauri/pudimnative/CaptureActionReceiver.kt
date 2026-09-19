@@ -3,7 +3,6 @@ package app.tauri.pudimnative
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 
 /**
  * Handles the income / debit / credit buttons on an import-prompt notification.
@@ -50,7 +49,7 @@ class CaptureActionReceiver : BroadcastReceiver() {
         // A capture the listener already imported (Android can redeliver an
         // action) is owned by the sync outbox, so it must not be imported twice.
         if (NativeCaptureJournal.contains(context, captureId)) {
-            Log.i(TAG, "action=$action capture=$captureId ignored: already imported")
+            PudimNativeLogs.info(TAG, "action=$action capture=$captureId ignored: already imported")
             NotificationCaptureQueue.removeByCaptureId(context, captureId)
             return
         }
@@ -62,7 +61,10 @@ class CaptureActionReceiver : BroadcastReceiver() {
             // never lose the tap, because the journal below always runs.
             val imported = runCatching { NativeCaptureImporter.importAction(context, payload) }
                 .onFailure {
-                    Log.w(TAG, "action=$action capture=$captureId native import failed; keeping it for the app", it)
+                    PudimNativeLogs.warn(
+                        TAG,
+                        "action=$action capture=$captureId native import failed; keeping it for the app: ${it.message}",
+                    )
                 }
                 .getOrNull()
             if (imported != null) {
@@ -78,7 +80,7 @@ class CaptureActionReceiver : BroadcastReceiver() {
             }
         }
 
-        Log.i(
+        PudimNativeLogs.info(
             TAG,
             "action=$action capture=$captureId " + when {
                 forwarded -> "forwarded to the app"
