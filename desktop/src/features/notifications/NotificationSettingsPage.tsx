@@ -16,6 +16,7 @@ import {
   KNOWN_APPS,
   getNotificationSettings,
   saveNotificationSettings,
+  pruneStaleCaptureSettings,
   type NotificationSettings,
 } from '@/notifications/capture';
 import {
@@ -95,6 +96,22 @@ export function NotificationSettingsPage() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [refreshPermissions]);
+
+  // Capture settings point at server rows by id. Switching servers (or
+  // restoring another database) leaves ids that no longer exist, which makes the
+  // server reject every import while the app reports nothing. Clear them once
+  // the current server's lists are known.
+  React.useEffect(() => {
+    if (!settings || !accountsQuery.data || !categoriesQuery.data) return;
+    const pruned = pruneStaleCaptureSettings(settings, {
+      accounts: accountsQuery.data,
+      categories: categoriesQuery.data,
+    });
+    if (!pruned.changed) return;
+    setSettings(pruned.settings);
+    void saveNotificationSettings(pruned.settings);
+    void syncCaptureSettings(pruned.settings);
+  }, [settings, accountsQuery.data, categoriesQuery.data]);
 
   const update = React.useCallback((patch: Partial<NotificationSettings>) => {
     setSettings((cur) => {

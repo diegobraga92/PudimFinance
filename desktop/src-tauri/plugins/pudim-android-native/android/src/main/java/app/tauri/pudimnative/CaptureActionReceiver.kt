@@ -3,6 +3,7 @@ package app.tauri.pudimnative
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 
 /**
  * Handles the income / debit / credit buttons on an import-prompt notification.
@@ -49,14 +50,22 @@ class CaptureActionReceiver : BroadcastReceiver() {
         // A capture the listener already imported (Android can redeliver an
         // action) is owned by the sync outbox, so it must not be imported twice.
         if (NativeCaptureJournal.contains(context, captureId)) {
+            Log.i(TAG, "action=$action capture=$captureId ignored: already imported")
             NotificationCaptureQueue.removeByCaptureId(context, captureId)
             return
         }
 
-        if (!PudimNativePlugin.notifyCaptureAction(payload)) {
+        val forwarded = PudimNativePlugin.notifyCaptureAction(payload)
+        if (!forwarded) {
             // No WebView listener: import immediately into the encrypted native
-            // outbox so the tap still creates a transaction.
-            NativeCaptureImporter.importAction(context, payload)?.let { imported ->
+            // outbox so the tap still creates a transaction. A failure here must
+            // never lose the tap, because the journal below always runs.
+            val imported = runCatching { NativeCaptureImporter.importAction(context, payload) }
+                .onFailure {
+                    Log.w(TAG, "action=$action capture=$captureId native import failed; keeping it for the app", it)
+                }
+                .getOrNull()
+            if (imported != null) {
                 payload.putAll(
                     NativeCaptureImporter.importPayload(
                         payload,
@@ -69,12 +78,22 @@ class CaptureActionReceiver : BroadcastReceiver() {
             }
         }
 
+        Log.i(
+            TAG,
+            "action=$action capture=$captureId " + when {
+                forwarded -> "forwarded to the app"
+                payload.containsKey("client_id") -> "imported natively (client=${payload["client_id"]})"
+                else -> "queued for the app"
+            },
+        )
+
         // Always journal: if the WebView never sees this, the action is drained
         // on the next launch and completes the import.
         PendingCaptureActions.enqueue(context, payload)
     }
 
     companion object {
+        private const val TAG = "PudimCapture"
         const val ACTION = "app.tauri.pudimnative.CAPTURE_ACTION"
         const val EXTRA_CAPTURE_ID = "capture_id"
         const val EXTRA_ACTION = "action"

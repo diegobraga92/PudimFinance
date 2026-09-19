@@ -1,7 +1,7 @@
 import type { components } from './api-types';
 import { request, ApiError, isNetworkError } from './request';
 import { isOnline, markServerUnavailable, uuid } from '@/offline/net';
-import { queueLocalMutation } from '@/offline/sync-engine';
+import { discardPendingOperations, queueLocalMutation } from '@/offline/sync-engine';
 import { expandLocalCategoryIds, filterAndSortLocalTransactions } from '@/offline/filters';
 import { notifyTransactionsChanged } from '@/lib/transaction-events';
 import {
@@ -11,6 +11,7 @@ import {
   getLocalAccounts,
   getLocalCategories,
   getLocalTransactions,
+  getPendingOperations,
   updateLocalTransactionFields,
   upsertLocalAccount,
   upsertLocalCategory,
@@ -528,13 +529,25 @@ export async function updateTransaction(
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
+  const local = (await getLocalTransactions()).find((t) => t.id === id || t.server_id === id);
+  // A row that only exists on this device has no server counterpart, so queueing
+  // a delete would fail forever; drop the queued create instead.
+  const neverSynced = !!local && local.synced === 0 && !local.server_id;
+
   const queueAndDelete = async () => {
-    await queueLocalMutation('delete', 'transaction', id, id, {});
+    if (neverSynced && local) {
+      const queued = (await getPendingOperations()).filter(
+        (op) => op.entity_type === 'transaction' && op.local_id === local.id,
+      );
+      await discardPendingOperations(queued.map((op) => op.id));
+    } else {
+      await queueLocalMutation('delete', 'transaction', id, id, {});
+    }
     await deleteLocalTransaction(id);
     notifyTransactionsChanged();
   };
 
-  if (!(await isOnline())) {
+  if (neverSynced || !(await isOnline())) {
     await queueAndDelete();
     return;
   }

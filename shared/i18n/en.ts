@@ -1059,6 +1059,8 @@ export const en = {
     'Could not reach the backend at this address. Check the IP/port and that the server is running.',
   'server.saved': '✅ Server saved — the app is using it now',
   'server.failedSave': 'Failed to save server',
+  'server.captureSettingsReset':
+    'Capture settings referenced accounts/categories from the previous server and were cleared — pick them again on the Notifications screen',
   'server.addressRequired': 'Server address cannot be empty',
 
   'notifications.title': 'Notification Capture',
@@ -1139,6 +1141,16 @@ export const en = {
   'offline.syncPending_other': '🟢 {count} changes pending — tap to sync',
   'offline.failed_one': '⚠️ {count} change could not be synced — review and retry',
   'offline.failed_other': '⚠️ {count} changes could not be synced — review and retry',
+  'offline.review': 'Review',
+  'offline.failedTitle': 'Changes that could not be synced',
+  'offline.failedDesc':
+    'The server rejected these changes. Retrying keeps failing until the data is fixed; discarding removes them from this device.',
+  'offline.discard': 'Discard',
+  'offline.discardAll': 'Discard all',
+  'offline.discarded': 'Discarded changes',
+  'offline.opCreate': 'Create',
+  'offline.opUpdate': 'Edit',
+  'offline.opDelete': 'Delete',
 
   'onboarding.skip': 'Skip',
   'onboarding.next': 'Next',

@@ -132,6 +132,12 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
             if (result.optString("status") == "ok") {
                 SyncOutbox.acknowledge(applicationContext, clientId)
             } else {
+                // A batch can answer HTTP 200 while a single operation failed, so
+                // log the reason instead of only reporting the batch as applied.
+                Log.w(
+                    TAG,
+                    "operation $clientId failed: ${result.optString("status")} ${result.optString("error")}",
+                )
                 SyncOutbox.acknowledge(applicationContext, clientId)
                 SyncOutbox.recordResult(
                     applicationContext,
@@ -156,6 +162,7 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
     }
 
     private fun recordBatchError(operations: JSONArray, error: String) {
+        Log.w(TAG, "batch rejected: $error (${operations.length()} operation(s))")
         for (index in 0 until operations.length()) {
             val clientId = operations.optJSONObject(index)?.optString("client_id") ?: continue
             SyncOutbox.acknowledge(applicationContext, clientId)

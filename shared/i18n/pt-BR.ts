@@ -1062,6 +1062,8 @@ export const ptBR = {
     'Não foi possível acessar o backend neste endereço. Verifique o IP/porta e se o servidor está rodando.',
   'server.saved': '✅ Servidor salvo — o app já está usando',
   'server.failedSave': 'Falha ao salvar o servidor',
+  'server.captureSettingsReset':
+    'As configurações de captura apontavam para contas/categorias do servidor anterior e foram limpas — escolha novamente na tela de Notificações',
   'server.addressRequired': 'O endereço do servidor não pode ficar vazio',
 
   'notifications.title': 'Captura de Notificações',
@@ -1142,6 +1144,16 @@ export const ptBR = {
   'offline.syncPending_other': '🟢 {count} alterações pendentes — toque para sincronizar',
   'offline.failed_one': '⚠️ {count} alteração não pôde ser sincronizada — revise e tente novamente',
   'offline.failed_other': '⚠️ {count} alterações não puderam ser sincronizadas — revise e tente novamente',
+  'offline.review': 'Revisar',
+  'offline.failedTitle': 'Alterações que não puderam ser sincronizadas',
+  'offline.failedDesc':
+    'O servidor recusou estas alterações. Tentar de novo continua falhando até os dados serem corrigidos; descartar remove tudo deste aparelho.',
+  'offline.discard': 'Descartar',
+  'offline.discardAll': 'Descartar tudo',
+  'offline.discarded': 'Alterações descartadas',
+  'offline.opCreate': 'Criar',
+  'offline.opUpdate': 'Editar',
+  'offline.opDelete': 'Excluir',
 
   'onboarding.skip': 'Pular',
   'onboarding.next': 'Próximo',

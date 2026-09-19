@@ -68,6 +68,18 @@ export interface PendingOperation {
   last_error?: string | null;
 }
 
+/** Number of failed pushes before an operation stops retrying on its own. */
+export const MAX_PUSH_ATTEMPTS = 3;
+
+/**
+ * True when an operation has exhausted its automatic retry budget. Failed
+ * operations stay in the outbox (nothing is lost) but are skipped until the
+ * user retries or discards them explicitly.
+ */
+export function isOperationFailed(op: Pick<PendingOperation, 'attempts'>): boolean {
+  return (op.attempts ?? 0) >= MAX_PUSH_ATTEMPTS;
+}
+
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
@@ -297,9 +309,17 @@ export async function countPendingOperations(): Promise<number> {
   return (await getAll<PendingOperation>('pending_operations')).length;
 }
 
+/**
+ * Pending operations that still have retries left. The scheduler uses this so
+ * a permanently rejected change stops triggering sync passes forever.
+ */
+export async function countSyncableOperations(): Promise<number> {
+  return (await getPendingOperations()).filter((op) => !isOperationFailed(op)).length;
+}
+
 /** Returns operations that have exhausted the automatic retry budget. */
 export async function getFailedPendingOperations(): Promise<PendingOperation[]> {
-  return (await getPendingOperations()).filter((operation) => (operation.attempts ?? 0) >= 3);
+  return (await getPendingOperations()).filter(isOperationFailed);
 }
 
 // Sync metadata

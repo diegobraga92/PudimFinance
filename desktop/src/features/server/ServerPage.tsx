@@ -1,8 +1,10 @@
 import * as React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Info, PlugZap, Save } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
+import { fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
 import {
   getApiBaseUrl,
   getDefaultServerUrl,
@@ -10,6 +12,12 @@ import {
   testServerConnection,
 } from '@/lib/serverConfig';
 import { configureNativeSync } from '@/offline/native-outbox';
+import {
+  getNotificationSettings,
+  pruneStaleCaptureSettings,
+  saveNotificationSettings,
+} from '@/notifications/capture';
+import { syncCaptureSettings } from '@/notifications/native';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +27,7 @@ import { Label } from '@/components/ui/label';
 export function ServerPage() {
   const { t } = useI18n();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [current, setCurrent] = React.useState('');
   const [value, setValue] = React.useState('');
@@ -43,15 +52,45 @@ export function ServerPage() {
     setTesting(false);
   };
 
+  /**
+   * Re-validates the notification-capture settings against the server that was
+   * just selected. Account/category ids are server-specific UUIDs, so ids from
+   * the previous server would make the server reject every capture import.
+   */
+  const pruneCaptureSettingsForServer = async (): Promise<boolean> => {
+    try {
+      const [accounts, categories, settings] = await Promise.all([
+        fetchAccountsWithBalance(),
+        fetchCategories(),
+        getNotificationSettings(),
+      ]);
+      const pruned = pruneStaleCaptureSettings(settings, { accounts, categories });
+      if (!pruned.changed) return false;
+      await saveNotificationSettings(pruned.settings);
+      await syncCaptureSettings(pruned.settings);
+      return true;
+    } catch {
+      // The new server may be unreachable right now; the notifications screen
+      // prunes the same settings as soon as its lists load.
+      return false;
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       const normalized = await setApiBaseUrl(value);
       await configureNativeSync();
+      // Cached rows belong to the previous server.
+      await queryClient.invalidateQueries();
+      const pruned = await pruneCaptureSettingsForServer();
       setCurrent(normalized);
       setValue(normalized);
       setTestResult(null);
       toast({ title: t('server.saved'), variant: 'success' });
+      if (pruned) {
+        toast({ title: t('server.captureSettingsReset'), variant: 'info' });
+      }
     } catch (err) {
       toast({ title: err instanceof Error ? err.message : t('server.failedSave'), variant: 'error' });
     } finally {

@@ -1,15 +1,21 @@
 /** Coordinates queued mutations, server pulls, and the local mirror. */
 
 import { syncPull, syncPush, type SyncPushOperation } from '@/lib/sync-api';
+import { notifyTransactionsChanged } from '@/lib/transaction-events';
 import {
   addPendingOperation,
   countPendingOperations,
+  countSyncableOperations,
+  deleteLocalAccount,
+  deleteLocalCategory,
+  deleteLocalTransaction,
   getLastSync,
   getLocalAccounts,
   getLocalCategories,
   getLocalTransactions,
   getFailedPendingOperations,
   getPendingOperations,
+  isOperationFailed,
   markAccountSynced,
   markCategorySynced,
   markTransactionSynced,
@@ -23,6 +29,7 @@ import {
   type LocalAccount,
   type LocalCategory,
   type LocalTransaction,
+  type PendingOperation,
 } from './database';
 import { isOnline, uuid } from './net';
 import { putNativeMutation, reconcileNativeSyncResults, removeNativeMutation } from './native-outbox';
@@ -75,18 +82,33 @@ async function performSync(): Promise<SyncResult> {
     };
   }
 
-  const push = await pushPending();
-  const pulled = await pullChanges();
-  const failedOperations = await getFailedPendingOperations();
-  const firstError = push.firstError ?? failedOperations[0]?.last_error ?? undefined;
-  return {
-    pushed: push.pushed,
-    pulledTransactions: pulled.transactions.length,
-    pulledCategories: pulled.categories.length,
-    failed: Math.max(push.failed, failedOperations.length),
-    firstError,
-    ok: push.failed === 0 && failedOperations.length === 0,
-  };
+  try {
+    const push = await pushPending();
+    const pulled = await pullChanges();
+    const failedOperations = await getFailedPendingOperations();
+    const firstError = push.firstError ?? failedOperations[0]?.last_error ?? undefined;
+    return {
+      pushed: push.pushed,
+      pulledTransactions: pulled.transactions.length,
+      pulledCategories: pulled.categories.length,
+      failed: Math.max(push.failed, failedOperations.length),
+      firstError,
+      ok: push.failed === 0 && failedOperations.length === 0,
+    };
+  } catch (err) {
+    // A transport/server failure must not reject the shared sync promise: the
+    // queued changes stay put and the caller keeps a countable result.
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      pushed: 0,
+      pulledTransactions: 0,
+      pulledCategories: 0,
+      failed: 0,
+      firstError: message,
+      ok: false,
+      error: message,
+    };
+  }
 }
 
 function performSyncWithLock(): Promise<SyncResult> {
@@ -115,8 +137,6 @@ export async function retryFailedOperations(): Promise<SyncResult> {
 export async function syncSilently(): Promise<SyncResult> {
   return performSyncWithLock();
 }
-
-const MAX_PUSH_ATTEMPTS = 3;
 
 interface PushResult {
   pushed: number;
@@ -176,9 +196,9 @@ async function pushBatch(
 
 /** Sends creates before updates/deletes so offline-created parents exist first. */
 async function pushPending(): Promise<PushResult> {
-  const pending = (await getPendingOperations()).filter(
-    (op) => (op.attempts ?? 0) < MAX_PUSH_ATTEMPTS,
-  );
+  // Failed operations stay queued until the user retries or discards them, so a
+  // permanently rejected change cannot keep every sync pass busy.
+  const pending = (await getPendingOperations()).filter((op) => !isOperationFailed(op));
   if (pending.length === 0) return { pushed: 0, failed: 0 };
 
   const creates = pending.filter((op) => op.operation_type === 'create');
@@ -325,7 +345,66 @@ export async function queueLocalMutation(
   });
 }
 
-export { countPendingOperations, getLocalAccounts, getLocalCategories, getLocalTransactions, isOnline };
+/**
+ * Abandons queued operations the user chose to discard.
+ *
+ * Creates never reached the server, so their local row is deleted with them;
+ * updates/deletes are re-marked as synced so the next pull restores the server
+ * state. The mirrored native operation is removed too, otherwise WorkManager
+ * would still upload it while the app is closed.
+ *
+ * Returns the number of discarded operations.
+ */
+export async function discardPendingOperations(ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const wanted = new Set(ids);
+  const operations = (await getPendingOperations()).filter((op) => wanted.has(op.id));
+  let touchedTransactions = false;
+  for (const op of operations) {
+    await removePendingOperation(op.id);
+    const clientId = op.local_id ?? op.server_id;
+    if (clientId) await removeNativeMutation(clientId);
+    if (op.operation_type === 'create') {
+      await deleteDiscardedLocalRow(op);
+    } else if (op.operation_type === 'update') {
+      // Keep the local row but treat it as settled; the next pull overwrites it.
+      await markDiscardedRowSynced(op);
+    }
+    if (op.entity_type === 'transaction') touchedTransactions = true;
+  }
+  if (touchedTransactions) notifyTransactionsChanged();
+  return operations.length;
+}
+
+/** Removes the local mirror row of a discarded create. */
+async function deleteDiscardedLocalRow(op: PendingOperation): Promise<void> {
+  if (!op.local_id) return;
+  if (op.entity_type === 'transaction') await deleteLocalTransaction(op.local_id);
+  else if (op.entity_type === 'category') await deleteLocalCategory(op.local_id);
+  else await deleteLocalAccount(op.local_id);
+}
+
+/** Re-marks an unsynced row as settled after its update was discarded. */
+async function markDiscardedRowSynced(op: PendingOperation): Promise<void> {
+  if (!op.server_id) return;
+  const localId = op.local_id ?? op.server_id;
+  if (op.entity_type === 'transaction') await markTransactionSynced(localId, op.server_id);
+  else if (op.entity_type === 'category') await markCategorySynced(localId, op.server_id);
+  else await markAccountSynced(localId, op.server_id);
+}
+
+export {
+  countPendingOperations,
+  countSyncableOperations,
+  getFailedPendingOperations,
+  getLocalAccounts,
+  getLocalCategories,
+  getLocalTransactions,
+  getPendingOperations,
+  isOnline,
+};
+
+export type { PendingOperation };
 
 /** Register the pending-count callback for UI indicators. */
 export function subscribePendingCount(cb: (count: number) => void): () => void {

@@ -294,8 +294,8 @@ Useful commands:
 
 Verifying the prompt actions (Income / Debit / Credit):
   1. post the synthetic notification above and tap Credit on the Pudim prompt
-  2. watch the worker and any crash:
-       $ADB -s $DEVICE_SERIAL logcat -s PudimSyncWorker:I PudimNative:I AndroidRuntime:E
+  2. watch the worker, the capture decisions, and any crash:
+       $ADB -s $DEVICE_SERIAL logcat -s PudimCapture:I PudimSyncWorker:I AndroidRuntime:E
   3. inspect what the tap journaled (debug builds only):
        $ADB -s $DEVICE_SERIAL shell run-as $PACKAGE_NAME ls shared_prefs
        pudim_capture_actions.xml     -> the tap was drained by the app

@@ -1,11 +1,14 @@
 package app.tauri.pudimnative
 
 import android.content.Context
+import android.util.Log
 import org.json.JSONObject
 import java.util.UUID
 
 /** Materializes dead-WebView notification captures into the native sync outbox. */
 internal object NativeCaptureImporter {
+
+    private const val TAG = "PudimCapture"
 
     /** `YYYY-MM-DD` check for dates that travelled from the WebView. */
     private val isoDate = Regex("\\d{4}-\\d{2}-\\d{2}")
@@ -45,19 +48,32 @@ internal object NativeCaptureImporter {
         val captureId = payload["capture_id"] as? String ?: return null
         val action = payload["action"] as? String ?: return null
         val settings = CaptureSettingsStore.read(context)
-        val parsed = parsePayload(payload, settings.defaultCategoryId) ?: return null
+        val parsed = parsePayload(payload, settings.defaultCategoryId)
+        if (parsed == null) {
+            Log.i(TAG, "capture=$captureId not imported: no amount found in the notification or action")
+            return null
+        }
         val plan = CaptureImportPlanner.planForAction(
             action,
             parsed,
             settings.defaultCategoryId,
             settings.debitAccountId,
             settings.creditAccountId,
-        ) ?: return null
+        )
+        if (plan == null) {
+            Log.i(TAG, "capture=$captureId not imported: unknown action '$action'")
+            return null
+        }
         val notes = context.getString(R.string.capture_notes)
         val clientId = UUID.randomUUID().toString()
         enqueue(context, clientId, plan, notes)
         NativeCaptureJournal.add(context, captureId)
         NotificationCaptureQueue.removeByCaptureId(context, captureId)
+        Log.i(
+            TAG,
+            "capture=$captureId imported natively: type=${plan.type} amount=${plan.amount} " +
+                "account=${plan.accountId ?: "-"} category=${plan.categoryId ?: "-"}",
+        )
         return NativeCaptureImport(clientId, plan)
     }
 

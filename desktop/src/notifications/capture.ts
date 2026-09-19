@@ -90,6 +90,45 @@ export async function saveNotificationSettings(settings: NotificationSettings): 
   }
 }
 
+/** Server-side rows a capture setting can point at. */
+export interface CaptureSettingRefs {
+  /** Accounts of the current server; omit while unknown so nothing is cleared. */
+  accounts?: { id: string }[];
+  /** Categories of the current server; omit while unknown. */
+  categories?: { id: string }[];
+}
+
+/**
+ * Clears capture settings that reference ids missing from the current server.
+ *
+ * Debit/credit accounts and the default category are stored as UUIDs, so
+ * pointing the app at another server (or restoring a different database) leaves
+ * ids no transaction can use: every capture import is then rejected by the
+ * server while the app shows nothing.
+ */
+export function pruneStaleCaptureSettings(
+  settings: NotificationSettings,
+  refs: CaptureSettingRefs,
+): { settings: NotificationSettings; changed: boolean } {
+  const isKnown = (rows: { id: string }[] | undefined, id: string | null): boolean =>
+    !rows || id === null || rows.some((row) => row.id === id);
+  const next: NotificationSettings = { ...settings };
+  let changed = false;
+  if (refs.accounts && !isKnown(refs.accounts, next.debitAccountId)) {
+    next.debitAccountId = null;
+    changed = true;
+  }
+  if (refs.accounts && !isKnown(refs.accounts, next.creditAccountId)) {
+    next.creditAccountId = null;
+    changed = true;
+  }
+  if (refs.categories && !isKnown(refs.categories, next.defaultCategoryId)) {
+    next.defaultCategoryId = null;
+    changed = true;
+  }
+  return { settings: next, changed };
+}
+
 export interface ParsedTransaction {
   /** `income` or `expense`. */
   type: 'income' | 'expense';

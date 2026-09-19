@@ -1,4 +1,4 @@
-import { countPendingOperations, syncAll } from './sync-engine';
+import { countSyncableOperations, syncAll } from './sync-engine';
 import { isServerUnavailable, probeNow } from './net';
 
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -12,7 +12,7 @@ async function pass(): Promise<void> {
   if (!running) return;
   wakeRequested = false;
   try {
-    const pending = await countPendingOperations();
+    const pending = await countSyncableOperations();
     if (pending > 0 && !isServerUnavailable()) {
       await syncAll();
     } else if (!isServerUnavailable()) {
@@ -22,7 +22,7 @@ async function pass(): Promise<void> {
     // Sync errors are reflected by the engine/banner; the scheduler must live.
   } finally {
     if (running) {
-      const pending = await countPendingOperations().catch(() => 0);
+      const pending = await countSyncableOperations().catch(() => 0);
       timer = setTimeout(() => void pass(), pending > 0 ? ACTIVE_DELAY_MS : IDLE_DELAY_MS);
     }
   }

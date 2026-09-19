@@ -80,7 +80,10 @@ import {
   markCaptureImported,
   nativeImportTransaction,
   parseNotification,
+  pruneStaleCaptureSettings,
+  type NotificationSettings,
 } from '../src/notifications/capture';
+import { isOperationFailed } from '../src/offline/database';
 import { expandLocalCategoryIds, filterAndSortLocalTransactions } from '../src/offline/filters';
 import { toIsoDate } from '../src/lib/date-input';
 import { normalizeServerUrl } from '../src/lib/serverConfig';
@@ -696,6 +699,59 @@ for (const [label, ok] of actionRecoveryChecks) {
 }
 if (actionRecoveryChecks.every(([, ok]) => ok)) {
   console.log(`PASS: capture action recovery (${actionRecoveryChecks.length} cases)`);
+}
+
+const baseSettings: NotificationSettings = {
+  enabled: true,
+  monitoredApps: [],
+  mode: 'ask',
+  defaultCategoryId: 'cat-1',
+  pushPrompt: true,
+  debitAccountId: 'acc-1',
+  creditAccountId: 'acc-credit',
+};
+
+const offlineGuardChecks: [string, boolean][] = [
+  ['a fresh operation still has retries', !isOperationFailed({ attempts: 0 })],
+  ['a missing attempt count is treated as fresh', !isOperationFailed({})],
+  ['three attempts mark an operation as failed', isOperationFailed({ attempts: 3 })],
+  ['more attempts stay failed', isOperationFailed({ attempts: 9 })],
+  (() => {
+    // This is the bug that silently dropped every capture: ids from the previous
+    // server survive a server switch and the new server rejects the import.
+    const pruned = pruneStaleCaptureSettings(baseSettings, {
+      accounts: [{ id: 'acc-1' }],
+      categories: [{ id: 'other-category' }],
+    });
+    return [
+      'capture settings from another server are cleared',
+      pruned.changed &&
+        pruned.settings.debitAccountId === 'acc-1' &&
+        pruned.settings.creditAccountId === null &&
+        pruned.settings.defaultCategoryId === null,
+    ];
+  })(),
+  (() => {
+    const pruned = pruneStaleCaptureSettings(baseSettings, {
+      accounts: [{ id: 'acc-1' }, { id: 'acc-credit' }],
+      categories: [{ id: 'cat-1' }],
+    });
+    return ['settings that still exist are kept', !pruned.changed];
+  })(),
+  (() => {
+    // While the queries are loading/offline the ids must not be wiped.
+    const pruned = pruneStaleCaptureSettings(baseSettings, {});
+    return ['unknown account lists leave the settings alone', !pruned.changed];
+  })(),
+];
+for (const [label, ok] of offlineGuardChecks) {
+  if (!ok) {
+    console.error(`FAIL: offline sync guards — ${label}`);
+    failures += 1;
+  }
+}
+if (offlineGuardChecks.every(([, ok]) => ok)) {
+  console.log(`PASS: offline sync guards (${offlineGuardChecks.length} cases)`);
 }
 
 const persistedDedupKey = 'expense|12.50|merchant|2026-09-16';
