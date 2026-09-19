@@ -75,21 +75,29 @@ pub async fn resolve_posting_account(
         }
 
         // 3. Create and link a posting account for this category.
-        let created: Uuid = sqlx::query_scalar(
+        //
+        // `fetch_optional` on purpose: an id the server does not know selects no
+        // rows, and a client can legitimately reference a category that is gone
+        // (deleted here, or restored from another database). That must fall
+        // through to the generic posting account below instead of failing the
+        // whole write with `RowNotFound`.
+        let created: Option<Uuid> = sqlx::query_scalar(
             "INSERT INTO accounts (name, type)
              SELECT c.name, $2 FROM categories c WHERE c.id = $1
              RETURNING id",
         )
         .bind(cid)
         .bind(ttype)
-        .fetch_one(pool)
+        .fetch_optional(pool)
         .await?;
-        sqlx::query("UPDATE categories SET ledger_account_id = $1 WHERE id = $2")
-            .bind(created)
-            .bind(cid)
-            .execute(pool)
-            .await?;
-        return Ok(created);
+        if let Some(created) = created {
+            sqlx::query("UPDATE categories SET ledger_account_id = $1 WHERE id = $2")
+                .bind(created)
+                .bind(cid)
+                .execute(pool)
+                .await?;
+            return Ok(created);
+        }
     }
 
     // 4. With no category, fall back to a generic posting account.
@@ -174,6 +182,37 @@ pub async fn account_name(pool: &PgPool, id: Uuid) -> Result<String> {
         .fetch_optional(pool)
         .await?;
     name.ok_or_else(|| anyhow!("account {id} no longer exists"))
+}
+
+/// Validates a client-supplied category id against the categories this database
+/// actually has.
+///
+/// Returns the id unchanged when it exists, otherwise `None` plus a
+/// user-facing warning. Clients legitimately hold ids the server does not know
+/// (the category was deleted here, or the app was pointed at another server /
+/// restored database), and such a reference must downgrade the write to
+/// "uncategorized" instead of failing it — the transaction row references
+/// `categories(id)` by foreign key, so an unknown id would be rejected outright.
+pub async fn sanitize_category_id(
+    pool: &PgPool,
+    category_id: Option<Uuid>,
+) -> Result<(Option<Uuid>, Option<String>)> {
+    let Some(id) = category_id else {
+        return Ok((None, None));
+    };
+    let existing: Option<Uuid> = sqlx::query_scalar("SELECT id FROM categories WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(match existing {
+        Some(id) => (Some(id), None),
+        None => (
+            None,
+            Some(format!(
+                "category {id} no longer exists; the transaction was saved without a category"
+            )),
+        ),
+    })
 }
 
 /// Inserts the balanced ledger pair for a simple transaction, using
@@ -324,5 +363,66 @@ mod tests {
     #[test]
     fn invalid_type_has_no_plan() {
         assert!(legs("transfer", dec("10")).is_none());
+    }
+
+    /// Opens the configured database, or `None` when the suite runs without one
+    /// (the unit tests above must stay runnable without `DATABASE_URL`).
+    async fn test_pool() -> Option<PgPool> {
+        let url = std::env::var("DATABASE_URL").ok()?;
+        PgPool::connect(&url).await.ok()
+    }
+
+    /// A category id this database does not have must downgrade the write to
+    /// "uncategorized" with a warning instead of failing it.
+    #[tokio::test]
+    async fn sanitize_category_id_reports_an_unknown_id() {
+        let Some(pool) = test_pool().await else {
+            return;
+        };
+
+        let (sanitized, warning) = sanitize_category_id(&pool, Some(Uuid::new_v4()))
+            .await
+            .expect("an unknown id must not fail sanitisation");
+        assert_eq!(sanitized, None);
+        assert!(warning.is_some(), "an unknown id must report a warning");
+
+        let (sanitized, warning) = sanitize_category_id(&pool, None).await.expect("sanitize");
+        assert_eq!(sanitized, None);
+        assert!(warning.is_none(), "no category at all stays silent");
+
+        let existing: Option<Uuid> = sqlx::query_scalar("SELECT id FROM categories LIMIT 1")
+            .fetch_optional(&pool)
+            .await
+            .expect("query categories");
+        if let Some(id) = existing {
+            let (sanitized, warning) = sanitize_category_id(&pool, Some(id))
+                .await
+                .expect("sanitize");
+            assert_eq!(sanitized, Some(id), "a known category is passed through");
+            assert!(warning.is_none());
+        }
+    }
+
+    /// The real-world bug: a stale category id made `resolve_posting_account`
+    /// fail with `RowNotFound`, which rejected every capture while the app
+    /// showed nothing. It must fall through to the generic posting account.
+    #[tokio::test]
+    async fn resolve_posting_account_falls_back_for_an_unknown_category() {
+        let Some(pool) = test_pool().await else {
+            return;
+        };
+
+        match resolve_posting_account(&pool, Some(Uuid::new_v4()), "expense").await {
+            Ok(_) => {}
+            // A database with no expense account at all is the only legitimate
+            // failure, and it must say so instead of surfacing a row-not-found.
+            Err(error) => {
+                let message = error.to_string();
+                assert!(
+                    message.contains("ledger account exists"),
+                    "an unknown category must fall back, got: {message}"
+                );
+            }
+        }
     }
 }

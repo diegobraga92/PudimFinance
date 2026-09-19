@@ -50,13 +50,21 @@ export function transactionTypeForAction(action: CaptureActionKind): 'income' | 
 }
 
 /** Returns the configured source account for a prompt action. */
+/**
+ * Resolves the account a prompt action must post to.
+ *
+ * Debit and credit use the accounts configured for those payment methods.
+ * Income has no dedicated setting, so it falls back to the account the user set
+ * as default on this device before letting the server pick "Cash".
+ */
 export function accountIdForAction(
   action: CaptureActionKind,
   settings: Pick<NotificationSettings, 'debitAccountId' | 'creditAccountId'>,
+  fallbackAccountId: string | null = null,
 ): string | null {
   if (action === 'debit') return settings.debitAccountId;
   if (action === 'credit') return settings.creditAccountId;
-  return null;
+  return fallbackAccountId;
 }
 
 /** Bank/payment apps matched by notification app name. */

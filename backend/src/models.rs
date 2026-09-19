@@ -1119,6 +1119,10 @@ pub struct SyncOpResult {
     pub server_id: Option<Uuid>,
     /// Error message when status != ok.
     pub error: Option<String>,
+    /// Non-fatal downgrade applied while storing the operation, e.g. a category
+    /// that no longer exists and was dropped. `status` stays `ok`, so the client
+    /// keeps the transaction and only reports the warning.
+    pub warning: Option<String>,
 }
 
 /// Response with the results for each pushed operation.

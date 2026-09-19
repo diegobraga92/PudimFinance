@@ -345,9 +345,13 @@ pub fn cancel_capture_prompt<R: Runtime>(app: AppHandle<R>, id: String) -> Resul
     }
 }
 
-/// Returns (and clears) prompt actions tapped while the webview was asleep.
+/// Returns the prompt actions tapped while the webview was asleep, without
+/// clearing them. The webview acknowledges each entry with
+/// [`ack_capture_actions`] once it is applied, so a crash cannot lose a tap.
 #[tauri::command]
-pub fn drain_capture_actions<R: Runtime>(app: AppHandle<R>) -> Result<Vec<CaptureAction>, String> {
+pub fn peek_pending_capture_actions<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Vec<CaptureAction>, String> {
     let state = app.state::<CaptureHandle<R>>();
     #[cfg(mobile)]
     {
@@ -355,13 +359,33 @@ pub fn drain_capture_actions<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Captur
             return Ok(Vec::new());
         };
         handle
-            .run_mobile_plugin::<Vec<CaptureAction>>("drainCaptureActions", ())
+            .run_mobile_plugin::<Vec<CaptureAction>>("peekPendingCaptureActions", ())
             .map_err(|e| e.to_string())
     }
     #[cfg(not(mobile))]
     {
         let _ = &state;
         Ok(Vec::new())
+    }
+}
+
+/// Drops the capture actions the webview applied; returns how many were removed.
+#[tauri::command]
+pub fn ack_capture_actions<R: Runtime>(app: AppHandle<R>, ids: Vec<String>) -> Result<u32, String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(0);
+        };
+        handle
+            .run_mobile_plugin::<u32>("ackCaptureActions", serde_json::json!({ "ids": ids }))
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = (&state, &ids);
+        Ok(0)
     }
 }
 

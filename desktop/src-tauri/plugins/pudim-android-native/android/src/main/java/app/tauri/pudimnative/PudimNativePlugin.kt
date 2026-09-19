@@ -379,10 +379,17 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve()
     }
 
-    /** Returns (and clears) import actions tapped while the app was killed. */
+    /** Returns the actions tapped while the app was asleep, without clearing them. */
     @Command
-    fun drainCaptureActions(invoke: Invoke) {
-        invoke.resolveObject(PendingCaptureActions.drain(activity))
+    fun peekPendingCaptureActions(invoke: Invoke) {
+        invoke.resolveObject(PendingCaptureActions.peek(activity))
+    }
+
+    /** Drops the actions the WebView has applied; returns how many were removed. */
+    @Command
+    fun ackCaptureActions(invoke: Invoke) {
+        val args = invoke.parseArgs(CaptureIdsArgs::class.java)
+        invoke.resolveObject(PendingCaptureActions.ack(activity, args.ids))
     }
 
     /** Whether the OS currently allows posting notifications. */
@@ -548,6 +555,11 @@ internal class CapturePromptArgs {
 @InvokeArg
 internal class CaptureIdArgs {
     lateinit var id: String
+}
+
+@InvokeArg
+internal class CaptureIdsArgs {
+    var ids: List<String> = emptyList()
 }
 
 @InvokeArg

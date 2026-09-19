@@ -31,6 +31,13 @@ import {
 } from '@/lib/api';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { findPreviousTransaction } from '@/offline/autocomplete';
+import { paymentAccountsOf, resolveDefaultAccount } from '@/lib/default-account';
+import {
+  getDefaultAccountId,
+  getLastUsedAccountId,
+  setDefaultAccountId,
+  setLastUsedAccountId,
+} from '@/lib/preferences';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -106,6 +113,25 @@ export function TransactionForm({
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [filledHint, setFilledHint] = React.useState<string | null>(null);
+  const [configuredDefaultId, setConfiguredDefaultId] = React.useState<string | null>(() =>
+    getDefaultAccountId(),
+  );
+
+  // The account this form will post to when the user leaves the picker alone.
+  const defaultAccount = React.useMemo(
+    () =>
+      resolveDefaultAccount(accounts, {
+        configuredId: configuredDefaultId,
+        lastUsedId: getLastUsedAccountId(),
+      }),
+    [accounts, configuredDefaultId],
+  );
+  const isDefaultSelection = (accountId || null) === configuredDefaultId;
+
+  // Read inside the reset effect below: re-running it on every accounts refetch
+  // (a new array identity) would discard what the user already typed.
+  const accountsRef = React.useRef(accounts);
+  accountsRef.current = accounts;
 
   // Reset the form whenever the dialog opens (create) or target changes (edit).
   React.useEffect(() => {
@@ -116,7 +142,16 @@ export function TransactionForm({
     setCategoryId(editing?.category_id ?? '');
     setDate(editing?.date ?? toIsoDate(new Date()));
     setNotes(editing?.notes ?? '');
-    setAccountId(editing?.account_id ?? '');
+    // An edited row keeps its stored account — including the server-side default
+    // (empty) — while a new one starts from the account the user configured.
+    setAccountId(
+      editing
+        ? editing.account_id ?? ''
+        : resolveDefaultAccount(accountsRef.current, {
+            configuredId: getDefaultAccountId(),
+            lastUsedId: getLastUsedAccountId(),
+          })?.id ?? '',
+    );
     setInstallments('1');
     setError(null);
     setSaving(false);
@@ -148,9 +183,7 @@ export function TransactionForm({
   };
 
   const filteredCategories = categories.filter((c) => c.type === type);
-  const paymentAccounts = accounts.filter(
-    (a) => a.account_kind === 'bank' || a.account_kind === 'cash' || a.account_kind === 'card',
-  );
+  const paymentAccounts = paymentAccountsOf(accounts);
 
   const installmentsNum = parseInt(installments, 10);
   const amountNum = parseFloat(amount.replace(',', '.'));
@@ -184,6 +217,8 @@ export function TransactionForm({
       } else {
         await createTransaction(payload);
       }
+      // Remember the choice so the next transaction starts from it.
+      setLastUsedAccountId(accountId || null);
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('transactions.form.failedSave'));
@@ -272,14 +307,36 @@ export function TransactionForm({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="tx-account">{t('transactions.form.account')}</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="tx-account">{t('transactions.form.account')}</Label>
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline disabled:text-dim disabled:no-underline"
+                  disabled={isDefaultSelection}
+                  onClick={() => {
+                    const next = accountId || null;
+                    setDefaultAccountId(next);
+                    setConfiguredDefaultId(next);
+                  }}
+                >
+                  {isDefaultSelection
+                    ? t('transactions.form.defaultAccountSet')
+                    : t('transactions.form.setDefaultAccount')}
+                </button>
+              </div>
               <select
                 id="tx-account"
                 className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]"
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
               >
-                <option value="">— {t('transactions.form.defaultAccount')} —</option>
+                <option value="">
+                  —{' '}
+                  {t('transactions.form.defaultAccountNamed', {
+                    account: defaultAccount?.name ?? t('common.none'),
+                  })}{' '}
+                  —
+                </option>
                 {paymentAccounts.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}

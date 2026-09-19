@@ -39,21 +39,30 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
             }
             when {
                 response.code in 200..299 -> {
-                    applyResults(operations, response.body)
-                    PudimNativeLogs.info(TAG, "Applied ${operations.length()} operation(s), HTTP ${response.code}")
-                    Result.success()
+                    // The batch answers 200 even when individual operations
+                    // failed, so the retry decision comes from the per-operation
+                    // results, never from the HTTP status.
+                    if (applyResults(operations, response.body)) {
+                        PudimNativeLogs.info(TAG, "Retrying rejected operation(s), HTTP ${response.code}")
+                        Result.retry()
+                    } else {
+                        Result.success()
+                    }
                 }
                 response.code == 401 -> {
                     PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): authorization failed")
                     Result.retry()
                 }
                 response.code in 400..499 -> {
-                    // A permanent per-batch HTTP error is journaled for the
-                    // foreground UI and removed so WorkManager does not spin
-                    // forever on a malformed payload.
-                    recordBatchError(operations, response.body.ifBlank { "HTTP ${response.code}" })
-                    PudimNativeLogs.info(TAG, "Recorded permanent batch failure for ${operations.length()} operation(s), HTTP ${response.code}")
-                    Result.success()
+                    // Journaled for the foreground UI and retried a bounded
+                    // number of times, so a bad request cannot silently drop
+                    // every pending capture.
+                    if (recordBatchError(operations, response.body.ifBlank { "HTTP ${response.code}" })) {
+                        PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): HTTP ${response.code}")
+                        Result.retry()
+                    } else {
+                        Result.success()
+                    }
                 }
                 else -> {
                     PudimNativeLogs.info(TAG, "Retrying ${operations.length()} operation(s): HTTP ${response.code}")
@@ -117,56 +126,118 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
         return true
     }
 
-    private fun applyResults(operations: JSONArray, body: String) {
+    private fun applyResults(operations: JSONArray, body: String): Boolean {
         val results = try { JSONObject(body).optJSONArray("results") ?: JSONArray() } catch (_: Exception) { JSONArray() }
         val byId = HashMap<String, JSONObject>()
         for (index in 0 until results.length()) {
             val result = results.optJSONObject(index) ?: continue
             byId[result.optString("client_id")] = result
         }
+        var settled = 0
+        var failed = 0
+        var retry = false
         for (index in 0 until operations.length()) {
             val operation = operations.optJSONObject(index) ?: continue
             val clientId = operation.optString("client_id")
-            val result = byId[clientId] ?: continue
-            if (result.optString("status") == "ok") {
-                SyncOutbox.acknowledge(applicationContext, clientId)
-            } else {
-                // A batch can answer HTTP 200 while a single operation failed, so
-                // log the reason instead of only reporting the batch as applied.
-                PudimNativeLogs.warn(
-                    TAG,
-                    "operation $clientId failed: ${result.optString("status")} ${result.optString("error")}",
-                )
-                SyncOutbox.acknowledge(applicationContext, clientId)
-                SyncOutbox.recordResult(
-                    applicationContext,
-                    clientId,
-                    result.optString("status", "error"),
-                    result.optString("server_id").takeIf { it.isNotBlank() },
-                    result.optString("error").takeIf { it.isNotBlank() },
-                )
+            val result = byId.remove(clientId)
+            if (result == null) {
+                // The batch answered for other operations only; keep this one.
+                PudimNativeLogs.warn(TAG, "operation $clientId has no result in the batch; keeping it")
+                failed += 1
+                retry = true
+                continue
+            }
+            val status = result.optString("status")
+            val error = result.optString("error").takeIf { it.isNotBlank() }
+            val warning = result.optString("warning").takeIf { it.isNotBlank() }
+            val serverId = result.optString("server_id").takeIf { it.isNotBlank() }
+            when (status) {
+                "ok" -> {
+                    if (warning != null) {
+                        PudimNativeLogs.warn(TAG, "operation $clientId stored with a warning: $warning")
+                    }
+                    SyncOutbox.acknowledge(applicationContext, clientId)
+                    SyncOutbox.recordResult(applicationContext, clientId, "ok", serverId, null, warning)
+                    settled += 1
+                }
+                "conflict" -> {
+                    // The server already holds this row, so the operation is done.
+                    SyncOutbox.acknowledge(applicationContext, clientId)
+                    SyncOutbox.recordResult(applicationContext, clientId, "conflict", null, error)
+                    settled += 1
+                }
+                else -> {
+                    // A rejected operation must never be dropped silently: the
+                    // batch answers HTTP 200 even when an operation failed, and
+                    // deleting it lost the capture. Retry a bounded number of
+                    // times, then park it as a permanent failure for the UI.
+                    failed += 1
+                    val attempts = SyncOutbox.bumpAttempt(applicationContext, clientId)
+                    when (SyncResultPolicy.decide(status, attempts, MAX_ATTEMPTS)) {
+                        SyncResultPolicy.Action.RETRY -> {
+                            PudimNativeLogs.warn(
+                                TAG,
+                                "operation $clientId rejected (attempt $attempts/$MAX_ATTEMPTS): ${error ?: status}",
+                            )
+                            SyncOutbox.recordResult(applicationContext, clientId, status.ifBlank { "error" }, null, error)
+                            retry = true
+                        }
+                        else -> {
+                            PudimNativeLogs.warn(
+                                TAG,
+                                "operation $clientId rejected permanently after $attempts attempts: ${error ?: status}",
+                            )
+                            SyncOutbox.acknowledge(applicationContext, clientId)
+                            SyncOutbox.recordResult(
+                                applicationContext,
+                                clientId,
+                                "failed",
+                                null,
+                                "$attempts attempts: ${error ?: status}",
+                            )
+                        }
+                    }
+                }
             }
         }
-        for (index in 0 until results.length()) {
-            val result = results.optJSONObject(index) ?: continue
-            if (result.optString("status") == "ok") {
-                SyncOutbox.recordResult(
-                    applicationContext,
-                    result.optString("client_id"),
-                    "ok",
-                    result.optString("server_id").takeIf { it.isNotBlank() },
-                )
-            }
+        // Results for operations that are no longer queued still settle the
+        // foreground mirror (e.g. a capture the WebView adopted).
+        for (result in byId.values) {
+            if (result.optString("status") != "ok") continue
+            SyncOutbox.recordResult(
+                applicationContext,
+                result.optString("client_id"),
+                "ok",
+                result.optString("server_id").takeIf { it.isNotBlank() },
+                null,
+                result.optString("warning").takeIf { it.isNotBlank() },
+            )
         }
+        PudimNativeLogs.info(TAG, "Batch answered: $settled settled, $failed failed")
+        return retry
     }
 
-    private fun recordBatchError(operations: JSONArray, error: String) {
+    /**
+     * Journals a batch-level rejection.
+     *
+     * Operations are kept until they exhaust [MAX_ATTEMPTS], so one bad request
+     * cannot drop every pending capture at once. Returns whether a retry is due.
+     */
+    private fun recordBatchError(operations: JSONArray, error: String): Boolean {
         PudimNativeLogs.warn(TAG, "batch rejected: $error (${operations.length()} operation(s))")
+        var retry = false
         for (index in 0 until operations.length()) {
             val clientId = operations.optJSONObject(index)?.optString("client_id") ?: continue
-            SyncOutbox.acknowledge(applicationContext, clientId)
-            SyncOutbox.recordResult(applicationContext, clientId, "error", error = error)
+            val attempts = SyncOutbox.bumpAttempt(applicationContext, clientId)
+            if (attempts < MAX_ATTEMPTS) {
+                SyncOutbox.recordResult(applicationContext, clientId, "error", error = error)
+                retry = true
+            } else {
+                SyncOutbox.acknowledge(applicationContext, clientId)
+                SyncOutbox.recordResult(applicationContext, clientId, "failed", error = "$attempts attempts: $error")
+            }
         }
+        return retry
     }
 
     /** Keeps native replay dependency-safe just like the foreground JS engine. */
@@ -182,5 +253,8 @@ internal class SyncWorker(context: Context, params: WorkerParameters) : Worker(c
 
     private companion object {
         const val TAG = "PudimSyncWorker"
+
+        /** Delivery attempts before a rejected operation is parked for the UI. */
+        const val MAX_ATTEMPTS = SyncResultPolicy.MAX_ATTEMPTS
     }
 }

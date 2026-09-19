@@ -170,13 +170,35 @@ export async function cancelCapturePrompt(id: string): Promise<void> {
   }
 }
 
-/** Drains import actions tapped while the app was killed (Android). */
-export async function drainCaptureActions(): Promise<CaptureAction[]> {
+/**
+ * Reads import actions tapped while the app was asleep, **without** clearing
+ * them. The app acknowledges each entry with {@link ackCaptureActions} once the
+ * import landed, so a crash mid-drain retries instead of dropping the tap.
+ */
+export async function peekPendingCaptureActions(): Promise<CaptureAction[]> {
   if (!isTauri()) return [];
   try {
-    return await invoke<CaptureAction[]>('plugin:pudim-native|drain_capture_actions');
-  } catch {
+    return await invoke<CaptureAction[]>('plugin:pudim-native|peek_pending_capture_actions');
+  } catch (error) {
+    recordNativeError('peek_pending_capture_actions', error);
     return [];
+  }
+}
+
+/**
+ * Drops capture actions the app has applied so they are not replayed.
+ *
+ * Resolves how many journal entries the native side removed. Acknowledging is
+ * best effort: a failed ack only costs a retry, because applying an entry is
+ * idempotent (the dedup journal suppresses an already imported capture).
+ */
+export async function ackCaptureActions(ids: string[]): Promise<number> {
+  if (!isTauri() || ids.length === 0) return 0;
+  try {
+    return await invoke<number>('plugin:pudim-native|ack_capture_actions', { ids });
+  } catch (error) {
+    recordNativeError('ack_capture_actions', error);
+    return 0;
   }
 }
 

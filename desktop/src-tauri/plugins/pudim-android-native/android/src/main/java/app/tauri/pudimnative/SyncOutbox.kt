@@ -49,6 +49,7 @@ internal object SyncOutbox {
         status: String,
         serverId: String? = null,
         error: String? = null,
+        warning: String? = null,
     ) {
         val results = readEncryptedArray(context, RESULTS_KEY)
         while (results.length() >= MAX_RESULTS) results.remove(0)
@@ -57,6 +58,7 @@ internal object SyncOutbox {
             put("status", status)
             if (serverId != null) put("server_id", serverId)
             if (error != null) put("error", error)
+            if (warning != null) put("warning", warning)
         })
         writeEncryptedArray(context, RESULTS_KEY, results)
     }
@@ -72,8 +74,31 @@ internal object SyncOutbox {
                 put("status", result.optString("status"))
                 result.optString("server_id").takeIf { it.isNotBlank() }?.let { put("server_id", it) }
                 result.optString("error").takeIf { it.isNotBlank() }?.let { put("error", it) }
+                result.optString("warning").takeIf { it.isNotBlank() }?.let { put("warning", it) }
             }
         }
+    }
+
+    /**
+     * Increments and returns the delivery attempt counter of an operation.
+     *
+     * A per-operation rejection used to delete the operation outright, which
+     * silently lost the capture when the rejection was transient or caused by a
+     * stale client reference. The counter lets the worker retry a bounded number
+     * of times before parking it as a permanent, user-visible failure.
+     */
+    @Synchronized
+    fun bumpAttempt(context: Context, clientId: String): Int {
+        val operations = readEncryptedArray(context, OUTBOX_KEY)
+        for (index in 0 until operations.length()) {
+            val operation = operations.optJSONObject(index) ?: continue
+            if (operation.optString("client_id") != clientId) continue
+            val attempts = operation.optInt("attempts", 0) + 1
+            operation.put("attempts", attempts)
+            writeEncryptedArray(context, OUTBOX_KEY, operations)
+            return attempts
+        }
+        return 0
     }
 
     fun setBaseUrl(context: Context, baseUrl: String) {

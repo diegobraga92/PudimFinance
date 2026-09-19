@@ -119,11 +119,12 @@ pub async fn push(
 
     for op in payload.operations {
         let result = match apply_operation(&state, &op).await {
-            Ok(server_id) => SyncOpResult {
+            Ok(applied) => SyncOpResult {
                 client_id: op.client_id.clone(),
                 status: "ok".to_string(),
-                server_id,
+                server_id: applied.server_id,
                 error: None,
+                warning: applied.warning,
             },
             Err((code, msg)) => SyncOpResult {
                 client_id: op.client_id.clone(),
@@ -134,6 +135,7 @@ pub async fn push(
                 },
                 server_id: None,
                 error: Some(msg),
+                warning: None,
             },
         };
         results.push(result);
@@ -142,21 +144,40 @@ pub async fn push(
     Ok(Json(SyncPushResponse { results }))
 }
 
-/// Applies a single operation, returning the server UUID on success.
+/// Outcome of applying one operation: the server id plus an optional warning
+/// about a non-fatal downgrade (a stale category reference that was dropped).
+struct AppliedOp {
+    server_id: Option<Uuid>,
+    warning: Option<String>,
+}
+
+impl AppliedOp {
+    /// An operation stored exactly as requested.
+    fn plain(server_id: Option<Uuid>) -> Self {
+        Self {
+            server_id,
+            warning: None,
+        }
+    }
+}
+
+/// Applies a single operation, returning its server UUID and any warning.
 async fn apply_operation(
     state: &AppState,
     op: &SyncOperation,
-) -> Result<Option<Uuid>, (StatusCode, String)> {
+) -> Result<AppliedOp, (StatusCode, String)> {
     match (op.entity_type.as_str(), op.operation_type.as_str()) {
         ("transaction", "create") => apply_transaction_create(state, op).await,
         ("transaction", "update") => apply_transaction_update(state, op).await,
-        ("transaction", "delete") => apply_transaction_delete(state, op).await,
-        ("category", "create") => apply_category_create(state, op).await,
-        ("category", "update") => apply_category_update(state, op).await,
-        ("category", "delete") => apply_category_delete(state, op).await,
-        ("account", "create") => apply_account_create(state, op).await,
-        ("account", "update") => apply_account_update(state, op).await,
-        ("account", "delete") => apply_account_delete(state, op).await,
+        ("transaction", "delete") => apply_transaction_delete(state, op)
+            .await
+            .map(AppliedOp::plain),
+        ("category", "create") => apply_category_create(state, op).await.map(AppliedOp::plain),
+        ("category", "update") => apply_category_update(state, op).await.map(AppliedOp::plain),
+        ("category", "delete") => apply_category_delete(state, op).await.map(AppliedOp::plain),
+        ("account", "create") => apply_account_create(state, op).await.map(AppliedOp::plain),
+        ("account", "update") => apply_account_update(state, op).await.map(AppliedOp::plain),
+        ("account", "delete") => apply_account_delete(state, op).await.map(AppliedOp::plain),
 
         _ => Err((
             StatusCode::BAD_REQUEST,
@@ -171,7 +192,7 @@ async fn apply_operation(
 async fn apply_transaction_create(
     state: &AppState,
     op: &SyncOperation,
-) -> Result<Option<Uuid>, (StatusCode, String)> {
+) -> Result<AppliedOp, (StatusCode, String)> {
     // A previous attempt may have already created this transaction.
     let existing: Option<Uuid> =
         sqlx::query_scalar("SELECT id FROM transactions WHERE idempotency_key = $1")
@@ -186,7 +207,7 @@ async fn apply_transaction_create(
             })?;
 
     if let Some(id) = existing {
-        return Ok(Some(id));
+        return Ok(AppliedOp::plain(Some(id)));
     }
 
     let description = op
@@ -234,6 +255,19 @@ async fn apply_transaction_create(
         .get("installment_plan_id")
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
+
+    // A stale category reference (deleted here, or restored from another
+    // database) must not fail the write: store the transaction without a
+    // category and report the downgrade to the client.
+    let (category_id, category_warning) =
+        crate::transaction_ledger::sanitize_category_id(&state.pg_pool, category_id)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to validate category: {e}"),
+                )
+            })?;
 
     // Resolve the payment and posting accounts (read-only pool work).
     let source_account =
@@ -337,13 +371,16 @@ async fn apply_transaction_create(
         )
     })?;
 
-    Ok(Some(tx.id))
+    Ok(AppliedOp {
+        server_id: Some(tx.id),
+        warning: category_warning,
+    })
 }
 
 async fn apply_transaction_update(
     state: &AppState,
     op: &SyncOperation,
-) -> Result<Option<Uuid>, (StatusCode, String)> {
+) -> Result<AppliedOp, (StatusCode, String)> {
     let server_id = op.server_id.ok_or_else(|| {
         (
             StatusCode::BAD_REQUEST,
@@ -395,6 +432,19 @@ async fn apply_transaction_update(
         .get("installment_plan_id")
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
+
+    // A stale category reference (deleted here, or restored from another
+    // database) must not fail the write: store the transaction without a
+    // category and report the downgrade to the client.
+    let (category_id, category_warning) =
+        crate::transaction_ledger::sanitize_category_id(&state.pg_pool, category_id)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to validate category: {e}"),
+                )
+            })?;
 
     // Resolve the payment and posting accounts (read-only pool work).
     let source_account =
@@ -517,7 +567,10 @@ async fn apply_transaction_update(
         )
     })?;
 
-    Ok(Some(server_id))
+    Ok(AppliedOp {
+        server_id: Some(server_id),
+        warning: category_warning,
+    })
 }
 
 async fn apply_transaction_delete(

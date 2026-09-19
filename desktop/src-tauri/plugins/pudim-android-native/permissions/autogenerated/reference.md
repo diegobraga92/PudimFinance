@@ -12,7 +12,8 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-drain-pending`
 - `allow-show-capture-prompt`
 - `allow-cancel-capture-prompt`
-- `allow-drain-capture-actions`
+- `allow-peek-pending-capture-actions`
+- `allow-ack-capture-actions`
 - `allow-notification-posting-allowed`
 - `allow-request-notification-permission`
 - `allow-set-capture-settings`
@@ -66,6 +67,32 @@ Enables the access_granted command without any pre-configured scope.
 <td>
 
 Denies the access_granted command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-ack-capture-actions`
+
+</td>
+<td>
+
+Enables the ack_capture_actions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-ack-capture-actions`
+
+</td>
+<td>
+
+Denies the ack_capture_actions command without any pre-configured scope.
 
 </td>
 </tr>
@@ -196,32 +223,6 @@ Enables the clear_sync_outbox command without any pre-configured scope.
 <td>
 
 Denies the clear_sync_outbox command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`pudim-android-native:allow-drain-capture-actions`
-
-</td>
-<td>
-
-Enables the drain_capture_actions command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`pudim-android-native:deny-drain-capture-actions`
-
-</td>
-<td>
-
-Denies the drain_capture_actions command without any pre-configured scope.
 
 </td>
 </tr>
@@ -430,6 +431,32 @@ Enables the peek_logs command without any pre-configured scope.
 <td>
 
 Denies the peek_logs command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-peek-pending-capture-actions`
+
+</td>
+<td>
+
+Enables the peek_pending_capture_actions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-peek-pending-capture-actions`
+
+</td>
+<td>
+
+Denies the peek_pending_capture_actions command without any pre-configured scope.
 
 </td>
 </tr>

@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Landmark, LogOut, Menu, Moon, Plus, Sun } from 'lucide-react';
 
 import { useAuth } from '@/app/auth';
@@ -187,12 +188,26 @@ function routeFromDeepLink(link: string): string | null {
   return null;
 }
 
+/**
+ * Query caches whose rows change whenever a transaction is created, adopted from
+ * the native import journal or replayed from the offline queue.
+ */
+const TRANSACTION_QUERY_KEYS: string[][] = [
+  ['transactions'],
+  ['summary'],
+  ['accounts'],
+  ['budget-summary'],
+  ['dashboard-cash-flow'],
+  ['dashboard-cash-flow-comparison'],
+];
+
 /** Application shell: desktop top bar, Android app bar + bottom tabs. */
 export function RootLayout() {
   const { t, locale } = useI18n();
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { pathname } = useLocation();
   const mainRef = React.useRef<HTMLElement>(null);
   const previousPathnameRef = React.useRef(pathname);
@@ -253,9 +268,17 @@ export function RootLayout() {
     };
   }, []);
 
-  // The widget is refreshed after local mutations and completed sync passes.
+  // Local mutations, adopted native imports and completed sync passes all change
+  // the rows the dashboard, transactions and summary queries have cached. Refresh
+  // those caches together with the widget so a capture imported while the app was
+  // backgrounded shows up on return instead of only after a cold start.
   React.useEffect(() => {
-    const refresh = () => void refreshWidgetSpending(locale);
+    const refresh = () => {
+      void refreshWidgetSpending(locale);
+      for (const queryKey of TRANSACTION_QUERY_KEYS) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+    };
     void refreshWidgetSpending(locale);
     const unsubscribeTransactions = subscribeTransactionsChanged(refresh);
     const unsubscribeSync = subscribeSync(refresh);
@@ -266,7 +289,7 @@ export function RootLayout() {
       unsubscribeSync();
       window.removeEventListener('focus', onFocus);
     };
-  }, [locale]);
+  }, [locale, queryClient]);
 
   React.useEffect(() => {
     void pushWidgetTheme(theme);

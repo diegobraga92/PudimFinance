@@ -6197,6 +6197,13 @@
           "status": {
             "type": "string",
             "description": "`ok`, `conflict`, or `error`."
+          },
+          "warning": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Non-fatal downgrade applied while storing the operation, e.g. a category\nthat no longer exists and was dropped. `status` stays `ok`, so the client\nkeeps the transaction and only reports the warning."
           }
         }
       },

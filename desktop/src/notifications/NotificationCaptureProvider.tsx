@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { createTransaction } from '@/lib/api';
+import { createTransaction, fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
 import { useToast } from '@/components/ui/toaster';
 import { useI18n } from '@/app/i18n';
 import {
@@ -19,8 +19,10 @@ import {
   markCaptureImported,
   nativeImportTransaction,
   parseNotification,
+  pruneStaleCaptureSettings,
   removePendingCapture,
   removePendingCaptureByDedupKey,
+  saveNotificationSettings,
   toPendingCapture,
   transactionTypeForAction,
   type NotificationSettings,
@@ -28,10 +30,11 @@ import {
   type PendingCapture,
 } from './capture';
 import {
+  ackCaptureActions,
   cancelCapturePrompt,
-  drainCaptureActions,
   drainNativeNotifications,
   notificationPostingAllowed,
+  peekPendingCaptureActions,
   showCapturePrompt,
   subscribeCaptureActions,
   subscribeNativeNotifications,
@@ -42,10 +45,14 @@ import {
 import { isOnline } from '@/offline/net';
 import { requestSync } from '@/offline/sync-scheduler';
 import { adoptNativeTransaction, reconcileNativeSyncResults } from '@/offline/native-outbox';
+import { getDefaultAccountId } from '@/lib/preferences';
 import { logError, logEvent } from '@/lib/app-log';
 
 /** How long a "just imported" capture stays suppressed to avoid double-imports. */
 const DEDUP_WINDOW_MS = 30_000;
+
+/** Amount shown by a review placeholder whose capture carried no usable value. */
+const PLACEHOLDER_AMOUNT = '0.00';
 
 /** Prefers the resolved app label over the raw package name. */
 function sourceLabel(notification: CapturedNotification): string {
@@ -190,6 +197,59 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   handleParsedRef.current = handleParsed;
 
   /**
+   * Clears capture settings that reference ids this server does not have.
+   *
+   * A restored server database (or a server switch that bypassed the server
+   * page) leaves account/category ids the server rejects, which made every
+   * native capture import fail while the app showed nothing. The settings page
+   * prunes on sight; this runs the same check before the settings are handed to
+   * the native listener, once per session.
+   */
+  const healedRef = React.useRef(false);
+  const healCaptureSettings = React.useCallback(async (): Promise<NotificationSettings> => {
+    const settings = await getNotificationSettings();
+    if (healedRef.current) return settings;
+    healedRef.current = true;
+    try {
+      if (!(await isOnline())) return settings;
+      const [accounts, categories] = await Promise.all([fetchAccountsWithBalance(), fetchCategories()]);
+      const pruned = pruneStaleCaptureSettings(settings, { accounts, categories });
+      if (!pruned.changed) return settings;
+      await saveNotificationSettings(pruned.settings);
+      logEvent(
+        'warn',
+        'capture',
+        'capture settings referenced ids missing from this server; cleared them',
+      );
+      toastRef.current({ title: tRef.current('notifications.staleSettingsCleared'), variant: 'warning' });
+      return pruned.settings;
+    } catch (err) {
+      logError('capture', err, 'capture settings check failed');
+      return settings;
+    }
+  }, []);
+
+  /**
+   * Surfaces closed-app sync problems: a capture the server stored with a
+   * downgrade, or one it rejected permanently. The local mirror is kept pending
+   * for both, so the toast points at a capture that is still there instead of
+   * one that vanished.
+   */
+  const reportNativeSyncIssues = React.useCallback(async () => {
+    const issues = await reconcileNativeSyncResults();
+    for (const issue of issues) {
+      logEvent('warn', 'capture', `native sync ${issue.kind} for ${issue.clientId}: ${issue.message}`);
+      toastRef.current({
+        title: tRef.current(
+          issue.kind === 'failed' ? 'notifications.syncFailedTitle' : 'notifications.syncWarningTitle',
+        ),
+        description: issue.message,
+        variant: issue.kind === 'failed' ? 'error' : 'warning',
+      });
+    }
+  }, []);
+
+  /**
    * Mirrors a transaction the native side imported while the app was asleep.
    *
    * The capture never reached this inbox: it was imported into the encrypted
@@ -205,45 +265,77 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       `native import ${action.client_id} received` +
         (parsed ? ` (${parsed.type} ${parsed.amount} "${parsed.description}")` : ''),
     );
-    // Skip the local row when the same capture was already imported through the
-    // WebView (dedup journal hit); mirroring it again would show two rows.
-    if (parsed && !hasImportedCapture(dedupKeyOf(parsed))) {
-      await adoptNativeTransaction({
-        client_id: action.client_id,
-        type: action.type,
-        amount: action.amount,
-        description: action.description,
-        date: action.date,
-        category_id: action.category_id,
-        account_id: action.account_id,
-        notes: action.notes,
-      });
-    }
-    let next = await getPendingCaptures();
     if (parsed) {
+      // Skip the local row when the same capture was already imported through the
+      // WebView (dedup journal hit); mirroring it again would show two rows.
+      if (!hasImportedCapture(dedupKeyOf(parsed))) {
+        await adoptNativeTransaction({
+          client_id: action.client_id,
+          type: action.type,
+          amount: action.amount,
+          description: action.description,
+          date: action.date,
+          category_id: action.category_id,
+          account_id: action.account_id,
+          notes: action.notes,
+        });
+      }
       const dedupKey = dedupKeyOf(parsed);
       await markCaptureImported(dedupKey);
-      next = await removePendingCaptureByDedupKey(dedupKey);
+      await removePendingCaptureByDedupKey(dedupKey);
+      // The inbox entry that carried this capture is superseded by the import.
+      if (action.capture_id) await removePendingCapture(action.capture_id);
+    } else {
+      // The native side did import it, but the journal entry no longer describes
+      // a usable amount. Surface an editable review item instead of dropping the
+      // tap silently — the transaction is already in the native outbox.
+      await addPendingCapture(
+        toPendingCapture(
+          {
+            type: action.type === 'income' ? 'income' : 'expense',
+            amount: nativeImportTransaction({ amount: action.amount })?.amount ?? PLACEHOLDER_AMOUNT,
+            description: action.description?.trim() || FALLBACK_CAPTURE_DESCRIPTION,
+            date: isoDateOrToday(action.date),
+            categoryId: action.category_id ?? null,
+          },
+          action.app_label ?? action.app_name ?? '',
+          { id: action.capture_id },
+        ),
+      );
+      logEvent(
+        'warn',
+        'capture',
+        `native import ${action.client_id} carried no usable amount; kept for review`,
+      );
+      toastRef.current({ title: tRef.current('notifications.failedCreate'), variant: 'error' });
     }
-    if (action.capture_id) next = await removePendingCapture(action.capture_id);
     // The worker may already have settled it; draining now avoids a local row
     // that keeps looking unsynced for a transaction the server accepted.
-    await reconcileNativeSyncResults();
-    return next;
-  }, []);
+    await reportNativeSyncIssues();
+    return getPendingCaptures();
+  }, [reportNativeSyncIssues]);
 
-  /** Imports a queued capture from a prompt action (income/debit/credit). */
-  const importFromAction = React.useCallback(async (action: CaptureAction) => {
+  /**
+   * Imports a queued capture from a prompt action (income/debit/credit).
+   *
+   * Resolves whether the action is settled: `false` keeps it in the native
+   * journal so the next drain retries instead of losing the tap.
+   */
+  const importFromAction = React.useCallback(async (action: CaptureAction): Promise<boolean> => {
     // Settings may change while this provider remains mounted. Reload them so
     // push actions use the current account and default-category selections.
     const settings = await getNotificationSettings();
     settingsRef.current = settings;
     if (action.native_import && action.client_id) {
       setPendingItems(await adoptNativeImport(action));
-      return;
+      return true;
     }
     const kind = action.action;
-    if (!isCaptureActionKind(kind)) return;
+    if (!isCaptureActionKind(kind)) {
+      // Nothing to import and nothing to retry: drop it instead of replaying it.
+      logEvent('warn', 'capture', `capture ${action.capture_id} carried no import action`);
+      return true;
+    }
     logEvent('info', 'capture', `action ${kind} for capture ${action.capture_id}`);
     let item = (await getPendingCaptures()).find((c) => c.id === action.capture_id);
     if (!item) {
@@ -292,7 +384,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
         'capture',
         `action ${kind} for capture ${action.capture_id} could not be rebuilt; kept for review`,
       );
-      return;
+      return true;
     }
     const { dedupKey } = item;
     // The dedup journal is only written after a successful import, by this path,
@@ -301,9 +393,9 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     if (hasImportedCapture(dedupKey)) {
       setPendingItems(await removePendingCaptureByDedupKey(dedupKey));
       logEvent('info', 'capture', `action ${kind} skipped: ${item.description} was already imported`);
-      return;
+      return true;
     }
-    const accountId = accountIdForAction(kind, settings);
+    const accountId = accountIdForAction(kind, settings, getDefaultAccountId());
     const categoryId = categoryIdForCapture(item, settings);
     try {
       await createTransaction({
@@ -328,12 +420,15 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           : tRef.current('notifications.createdOffline', { amount: item.amount }),
         variant: 'success',
       });
+      return true;
     } catch (err) {
       logError('capture', err, `action ${kind} for capture ${action.capture_id}`);
       toastRef.current({
         title: err instanceof Error ? err.message : tRef.current('notifications.failedCreate'),
         variant: 'error',
       });
+      // Leave the tap journaled so the next drain retries the import.
+      return false;
     }
   }, [adoptNativeImport]);
   const importFromActionRef = React.useRef(importFromAction);
@@ -369,40 +464,63 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     actionUnsubscribeRef.current = null;
   }, []);
 
+  /** Guards against overlapping drains (visibility + focus can fire together). */
+  const drainInFlightRef = React.useRef(false);
+
   const drainQueuedCaptures = React.useCallback(async () => {
-    // Settings may have changed while this provider stayed mounted or while the
-    // app was backgrounded. Use the persisted values for every drain.
-    const settings = await getNotificationSettings();
-    settingsRef.current = settings;
-    if (settings.enabled) {
-      const queued = await drainNativeNotifications();
-      if (queued.length > 0) {
-        logEvent('info', 'capture', `drained ${queued.length} queued notification(s)`);
+    // Two overlapping drains would apply the same unacknowledged entry twice.
+    if (drainInFlightRef.current) return;
+    drainInFlightRef.current = true;
+    try {
+      // Settings may have changed while this provider stayed mounted or while the
+      // app was backgrounded. Use the persisted values for every drain.
+      const settings = await getNotificationSettings();
+      settingsRef.current = settings;
+      if (settings.enabled) {
+        const queued = await drainNativeNotifications();
+        if (queued.length > 0) {
+          logEvent('info', 'capture', `drained ${queued.length} queued notification(s)`);
+        }
+        for (const payload of queued) {
+          const label = sourceLabel(payload);
+          if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) continue;
+          const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
+          if (!text) continue;
+          const parsed = parseNotification(text, [], settings.defaultCategoryId);
+          if (parsed) handleParsedRef.current(parsed, payload);
+        }
       }
-      for (const payload of queued) {
-        const label = sourceLabel(payload);
-        if (settings.monitoredApps.length > 0 && !settings.monitoredApps.includes(label)) continue;
-        const text = [payload.title, payload.text].filter(Boolean).join(' ').trim();
-        if (!text) continue;
-        const parsed = parseNotification(text, [], settings.defaultCategoryId);
-        if (parsed) handleParsedRef.current(parsed, payload);
+      // Peek, apply, acknowledge: an action the WebView cannot apply stays in
+      // the native journal instead of being destroyed by the read.
+      const actions = await peekPendingCaptureActions();
+      if (actions.length > 0) {
+        logEvent('info', 'capture', `peeked ${actions.length} queued capture action(s)`);
       }
+      let acknowledged = 0;
+      for (const action of actions) {
+        let applied = false;
+        try {
+          applied = await importFromActionRef.current(action);
+        } catch (err) {
+          logError('capture', err, `draining capture ${action.capture_id}`);
+        }
+        // Acknowledge per entry so a later failure cannot drop an earlier import.
+        if (applied) acknowledged += await ackCaptureActions([action.capture_id]);
+      }
+      if (acknowledged > 0) {
+        logEvent('info', 'capture', `acknowledged ${acknowledged} queued capture action(s)`);
+      }
+      setPendingItems(await getPendingCaptures());
+    } finally {
+      drainInFlightRef.current = false;
     }
-    const actions = await drainCaptureActions();
-    if (actions.length > 0) {
-      logEvent('info', 'capture', `drained ${actions.length} queued capture action(s)`);
-    }
-    for (const action of actions) {
-      await importFromActionRef.current(action);
-    }
-    setPendingItems(await getPendingCaptures());
   }, []);
 
   React.useEffect(() => {
     let mounted = true;
 
     void (async () => {
-      settingsRef.current = await getNotificationSettings();
+      settingsRef.current = await healCaptureSettings();
       if (settingsRef.current) void syncCaptureSettings(settingsRef.current);
       if (mounted) setPendingItems(await getPendingCaptures());
       // Register the live listener before draining cold-start captures. This
@@ -419,7 +537,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       mounted = false;
       unsubscribeLive();
     };
-  }, [drainQueuedCaptures, subscribeLive, unsubscribeLive]);
+  }, [drainQueuedCaptures, healCaptureSettings, subscribeLive, unsubscribeLive]);
 
   React.useEffect(() => {
     // Re-registers the live listeners and applies anything the native side

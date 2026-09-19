@@ -2760,6 +2760,12 @@ export interface components {
             server_id?: string | null;
             /** @description `ok`, `conflict`, or `error`. */
             status: string;
+            /**
+             * @description Non-fatal downgrade applied while storing the operation, e.g. a category
+             *     that no longer exists and was dropped. `status` stays `ok`, so the client
+             *     keeps the transaction and only reports the warning.
+             */
+            warning?: string | null;
         };
         /** @description A single client-initiated mutation to apply on the server. */
         SyncOperation: {

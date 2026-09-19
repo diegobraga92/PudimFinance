@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-ack-capture-actions"
+description = "Enables the ack_capture_actions command without any pre-configured scope."
+commands.allow = ["ack_capture_actions"]
+
+[[permission]]
+identifier = "deny-ack-capture-actions"
+description = "Denies the ack_capture_actions command without any pre-configured scope."
+commands.deny = ["ack_capture_actions"]

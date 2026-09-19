@@ -19,6 +19,20 @@ export interface NativeSyncResult {
   status: string;
   server_id?: string;
   error?: string;
+  /** Non-fatal downgrade the server applied (e.g. a stale category dropped). */
+  warning?: string;
+}
+
+/**
+ * A closed-app sync outcome the user should know about: a capture stored with a
+ * downgrade, or one the server rejected for good and the worker stopped
+ * retrying. Both keep the local mirror pending, so the capture stays visible.
+ */
+export interface NativeSyncIssue {
+  clientId: string;
+  kind: 'warning' | 'failed';
+  /** Server-provided reason, shown as the toast description. */
+  message: string;
 }
 
 /** Configures WorkManager with the same server URL used by the web client. */
@@ -133,10 +147,18 @@ export async function adoptNativeTransaction(entry: NativeImportEntry): Promise<
   return true;
 }
 
-/** Applies closed-app worker results to the IndexedDB mirror. */
-export async function reconcileNativeSyncResults(): Promise<void> {
+/**
+ * Applies closed-app worker results to the IndexedDB mirror.
+ *
+ * Returns the outcomes the user should be told about: a capture stored with a
+ * downgrade (`warning`) or one the server rejected permanently (`failed`).
+ * Rejections that are still being retried are only logged, so a flaky server
+ * does not nag on every pass.
+ */
+export async function reconcileNativeSyncResults(): Promise<NativeSyncIssue[]> {
   const results = await drainNativeSyncResults();
-  if (results.length === 0) return;
+  if (results.length === 0) return [];
+  const issues: NativeSyncIssue[] = [];
   const pending = await getPendingOperations();
   const byClientId = new Map(pending.map((operation) => [operation.local_id ?? operation.server_id, operation]));
   for (const result of results) {
@@ -149,6 +171,21 @@ export async function reconcileNativeSyncResults(): Promise<void> {
         await markTransactionSynced(result.client_id, result.server_id);
         notifyTransactionsChanged();
         logEvent('info', 'native', `native import ${result.client_id} synced as ${result.server_id}`);
+        if (result.warning) {
+          logEvent('warn', 'native', `native import ${result.client_id} stored with a warning: ${result.warning}`);
+          issues.push({ clientId: result.client_id, kind: 'warning', message: result.warning });
+        }
+      } else if (result.status === 'failed') {
+        logEvent(
+          'error',
+          'native',
+          `native import ${result.client_id} failed permanently: ${result.error ?? result.status}`,
+        );
+        issues.push({
+          clientId: result.client_id,
+          kind: 'failed',
+          message: result.error ?? result.status,
+        });
       } else {
         logEvent(
           'error',
@@ -169,8 +206,20 @@ export async function reconcileNativeSyncResults(): Promise<void> {
         }
       }
       await removePendingOperation(operation.id);
+      if (result.warning) {
+        logEvent('warn', 'native', `operation ${result.client_id} stored with a warning: ${result.warning}`);
+        issues.push({ clientId: result.client_id, kind: 'warning', message: result.warning });
+      }
+    } else if (result.status === 'failed') {
+      await recordPendingOperationFailure(operation.id, result.error ?? `Sync ${result.status}`);
+      issues.push({
+        clientId: result.client_id,
+        kind: 'failed',
+        message: result.error ?? `Sync ${result.status}`,
+      });
     } else {
       await recordPendingOperationFailure(operation.id, result.error ?? `Sync ${result.status}`);
     }
   }
+  return issues;
 }
