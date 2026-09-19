@@ -275,7 +275,11 @@ pub fn drain_pending<R: Runtime>(app: AppHandle<R>) -> Result<Vec<CapturedNotifi
 }
 
 /// Posts an Android notification with transaction import actions.
+///
+/// The parameters stay flat so the webview payload, the command signature and
+/// the Kotlin plugin arguments keep the same shape.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn show_capture_prompt<R: Runtime>(
     app: AppHandle<R>,
     id: String,
