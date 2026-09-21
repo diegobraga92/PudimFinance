@@ -4,6 +4,10 @@ Self-hosted personal finance application with a Rust/Axum API, PostgreSQL,
 RabbitMQ, and a Tauri 2 client for desktop and Android. The same React frontend
 can also be served as a browser application.
 
+> **New here?** [`docs/overview.md`](docs/overview.md) explains the architecture,
+> data model, request flows, and the decisions behind them. This README is the
+> quickstart.
+
 ## Stack
 
 - **Backend:** Rust, Tokio, Axum, SQLx, PostgreSQL
