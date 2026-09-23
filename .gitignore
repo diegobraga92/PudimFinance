@@ -9,6 +9,9 @@ desktop/src-tauri/plugins/*/target/
 # Python (scripts/)
 __pycache__/
 
+# Local database dumps (scripts/backup.sh, scripts/restore.sh)
+backups/
+
 # Rust
 backend/target/
 backend/**/*.rs.bk
