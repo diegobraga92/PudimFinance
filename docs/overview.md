@@ -80,8 +80,8 @@ client-facing container. The native clients talk to the backend directly.
 
 | Service | Image (version might be outdated) | Host port (can be changed) | Role |
 |---|---|---:|---|
-| `postgres` | `postgres:16-alpine` | 5432 | Primary data store |
-| `rabbitmq` | `rabbitmq:3.13-management-alpine` | 5672, 15672 | Event broker + management UI |
+| `postgres` | `postgres:18.6-alpine` | 5432 | Primary data store |
+| `rabbitmq` | `rabbitmq:4.3.5-management-alpine` | 5672, 15672 | Event broker + management UI |
 | `backend` | `backend/Dockerfile` | 3000 | API, migrations, metrics |
 | `web` | `desktop/Dockerfile.web` | 5173 | Browser SPA + same-origin API proxy |
 | `prometheus` | `prom/prometheus:v2.53.0` | 9090 | Metrics storage |

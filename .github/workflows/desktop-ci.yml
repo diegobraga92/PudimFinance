@@ -21,6 +21,13 @@ on:
       - '.github/workflows/desktop-ci.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   NODE_VERSION: '22'
@@ -33,6 +40,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
       - name: Cache Rust crates
         uses: actions/cache@v6
         with:
@@ -40,13 +59,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             desktop/src-tauri/target
-          key: desktop-cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-
-      - name: Cache node_modules
-        uses: actions/cache@v6
-        with:
-          path: desktop/node_modules
-          key: desktop-npm-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json') }}
+            desktop/src-tauri/plugins/pudim-android-native/target
+          key: desktop-cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/plugins/pudim-android-native/Cargo.lock') }}
+          restore-keys: |
+            desktop-cargo-${{ runner.os }}-
 
       - name: Install Linux system dependencies (Tauri)
         run: |
@@ -94,9 +110,19 @@ jobs:
         working-directory: desktop
         run: npm run test:request-timeout
 
-      - name: Build frontend
+      - name: Category icon catalog smoke
         working-directory: desktop
-        run: npm run build
+        run: npm run test:category-icons
+
+      - name: Default account fallback smoke
+        working-directory: desktop
+        run: npm run test:default-account
+
+      - name: Generated API types are up to date
+        working-directory: desktop
+        run: |
+          npm run generate-types
+          git diff --exit-code -- src/lib/api-types.ts
 
       - name: Rustfmt check
         working-directory: desktop/src-tauri
@@ -132,18 +158,17 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             desktop/src-tauri/target
-          key: android-cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock') }}
-
-      - name: Cache node_modules
-        uses: actions/cache@v6
-        with:
-          path: desktop/node_modules
-          key: android-npm-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json') }}
+            desktop/src-tauri/plugins/pudim-android-native/target
+          key: android-cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/plugins/pudim-android-native/Cargo.lock') }}
+          restore-keys: |
+            android-cargo-${{ runner.os }}-
 
       - name: Install Node
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
       - name: Set up JDK 17 (Android build)
         uses: actions/setup-java@v6
@@ -164,21 +189,19 @@ jobs:
         working-directory: desktop
         run: npm run typecheck
 
-      - name: Build frontend
-        working-directory: desktop
-        run: npm run build
-
-      # GitHub-hosted runners provide the Android SDK and NDK.
       - name: Initialize Android project
         working-directory: desktop
         run: npm run tauri android init
 
-      # Generate the Android-specific launcher artwork.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
       - name: Generate Android launcher icons
         working-directory: desktop
         run: npm run icons
 
-      # Inject release signing and the optional LAN HTTP policy into generated files.
       - name: Prepare the Android release build (signing + cleartext HTTP + Credential Manager)
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 || secrets.ANDROID_KEY_BASE64 || secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -187,7 +210,6 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.RELEASE_KEY_PASSWORD || secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: python3 scripts/android-release-setup.py
 
-      # Build the APK without the unused AAB bundle.
       - name: Build Android app (aarch64)
         working-directory: desktop
         run: npm run tauri android build -- --target aarch64 --apk
@@ -196,7 +218,6 @@ jobs:
         working-directory: desktop/src-tauri/gen/android
         run: ./gradlew :pudim-native:testDebugUnitTest --no-daemon
 
-      # Pull requests validate the APK, main/manual runs publish the release artifact.
       - name: Verify the release APK is signed
         run: |
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
@@ -234,6 +255,13 @@ jobs:
     name: Offline sync smoke
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      DATABASE_URL: postgres://pudim:pudim@localhost:5432/pudimfinance
+      RABBITMQ_URL: amqp://pudim:pudim@localhost:5672
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 3000
+      JWT_SECRET: ci-offline-smoke-secret
+      RUST_LOG: backend=info
     services:
       postgres:
         image: postgres:18.6-alpine
@@ -267,6 +295,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
@@ -274,36 +304,19 @@ jobs:
           cache-workspaces: backend
           cache-key: offline-backend
 
-      - name: Cache Node dependencies
-        uses: actions/cache@v6
-        with:
-          path: desktop/node_modules
-          key: offline-npm-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json') }}
-
       - name: Install Node dependencies
         working-directory: desktop
         run: npm ci
 
       - name: Build backend (release)
         working-directory: backend
-        env:
-          DATABASE_URL: postgres://pudim:pudim@localhost:5432/pudimfinance
-          RABBITMQ_URL: amqp://pudim:pudim@localhost:5672
         run: cargo build --release
 
       - name: Start backend
         working-directory: backend
-        env:
-          DATABASE_URL: postgres://pudim:pudim@localhost:5432/pudimfinance
-          RABBITMQ_URL: amqp://pudim:pudim@localhost:5672
-          SERVER_HOST: 0.0.0.0
-          SERVER_PORT: 3000
-          JWT_SECRET: ci-offline-smoke-secret
-          RUST_LOG: backend=info
         run: |
           ./target/release/backend > /tmp/pudimfinance-backend.log 2>&1 &
           pid=$!
-          echo "$pid" > /tmp/pudimfinance-backend.pid
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://localhost:3000/health >/dev/null; then
               echo "backend healthy after ${attempt}s"
@@ -331,14 +344,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The same image the LAN server publishes on WEB_PORT (see docker-compose.yml).
+      - uses: docker/setup-buildx-action@v4
+
       - name: Build web image
-        run: docker build -f desktop/Dockerfile.web -t pudimfinance-web:ci .
+        run: |
+          docker buildx build \
+            --file desktop/Dockerfile.web \
+            --tag pudimfinance-web:ci \
+            --load \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            .
 
       - name: Smoke-test the served SPA
-        # `backend` is only consulted by /api|/health; nginx resolves upstream
-        # names when the config loads, so give it a dummy address or it refuses
-        # to start outside the compose network.
         run: |
           docker run -d --name pudim-web-ci --add-host backend:127.0.0.1 -p 8080:80 pudimfinance-web:ci
           for _ in $(seq 1 20); do
@@ -351,6 +369,9 @@ jobs:
           asset=$(echo "$shell" | grep -o '/assets/[^"]*\.js' | head -1)
           test -n "$asset" || { echo 'no hashed JS bundle referenced'; exit 1; }
           curl -fsS "http://localhost:8080${asset}" | head -c 200 >/dev/null
-          # Deep links fall back to the shell (the SPA routes under /#/...).
           curl -fsS http://localhost:8080/transactions | grep -q 'id="root"'
           docker rm -f pudim-web-ci
+
+      - name: Stop the web container
+        if: always()
+        run: docker rm -f pudim-web-ci || true
