@@ -18,7 +18,7 @@ use crate::models::{
 use crate::routes::settings;
 use crate::state::AppState;
 use crate::transaction_ledger;
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 
 /// Routes for transaction operations.
 pub fn router() -> Router<AppState> {
@@ -277,6 +277,169 @@ async fn resolve_ledger_accounts(
     Ok((source, source_name, posting, posting_name))
 }
 
+/// Splits `total` into `count` monthly installments.
+fn installment_split(total: Decimal, count: i32) -> (Decimal, Decimal) {
+    let per = (total / Decimal::from(count)).round_dp(2);
+    let last = total - per * Decimal::from(count - 1);
+    // Every installment but the last holds `per`, and the
+    // last one absorbs the rounding remainder, so the parts always add up to
+    // `total` (e.g. 100.00 over 3 => 33.33, 33.33, 33.34).
+    (per, last)
+}
+
+/// Creates the installment plan for `first` and materializes the remaining
+/// installments as real, dated transactions.
+#[allow(clippy::too_many_arguments)]
+async fn create_installment_plan(
+    db: &mut PgConnection,
+    first: &Transaction,
+    count: i32,
+    per: Decimal,
+    last: Decimal,
+    total: Decimal,
+    category_id: Option<Uuid>,
+    account_id: Uuid,
+    posting_account: Uuid,
+    posting_name: &str,
+    source_name: &str,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    // The plan row (account_id is the resolved payment account).
+    let plan_id: Uuid = sqlx::query_scalar(
+        "INSERT INTO installment_plans
+            (description, total_amount, installments, installment_amount, category_id, start_date, account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id",
+    )
+    .bind(&first.description)
+    .bind(total)
+    .bind(count)
+    .bind(per)
+    .bind(category_id)
+    .bind(first.date)
+    .bind(account_id)
+    .fetch_one(&mut *db)
+    .await
+    .map_err(|e| {
+        error!("Failed to create installment plan: {e}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to create installment plan" })),
+        )
+    })?;
+
+    // First installment is the transaction we were given.
+    sqlx::query("UPDATE transactions SET installment_plan_id = $1 WHERE id = $2")
+        .bind(plan_id)
+        .bind(first.id)
+        .execute(&mut *db)
+        .await
+        .map_err(|e| {
+            error!("Failed to link installment plan: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to create installment plan" })),
+            )
+        })?;
+    sqlx::query(
+        "INSERT INTO installment_transactions (plan_id, installment_number, due_date, transaction_id, status)
+         VALUES ($1, 1, $2, $3, 'generated')",
+    )
+    .bind(plan_id)
+    .bind(first.date)
+    .bind(first.id)
+    .execute(&mut *db)
+    .await
+    .map_err(|e| {
+        error!("Failed to schedule installment: {e}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to create installment plan" })),
+        )
+    })?;
+
+    // Remaining installments are dated monthly, and each is a real expense.
+    for i in 2..=count {
+        let due = transaction_ledger::add_months(first.date, i - 1);
+        let amount_i = if i == count { last } else { per };
+        let desc_i = format!("Parcela {}/{} — {}", i, count, first.description);
+        let t: Transaction = sqlx::query_as(
+            "INSERT INTO transactions (description, amount, type, category_id, date, notes, installment_plan_id, account_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id, description, amount, type, category_id, date, notes,
+                       installment_plan_id, account_id, created_at, updated_at",
+        )
+        .bind(&desc_i)
+        .bind(amount_i)
+        .bind(&first.r#type)
+        .bind(category_id)
+        .bind(due)
+        .bind(None::<String>)
+        .bind(plan_id)
+        .bind(account_id)
+        .fetch_one(&mut *db)
+        .await
+        .map_err(|e| {
+            error!("Failed to create installment transaction: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to create installment transaction" })),
+            )
+        })?;
+
+        transaction_ledger::post_entries(
+            &mut *db,
+            t.id,
+            &t.r#type,
+            posting_account,
+            posting_name,
+            account_id,
+            source_name,
+            t.amount,
+            &t.description,
+        )
+        .await
+        .map_err(|e| {
+            error!("Failed to post ledger entries for {}: {e}", t.id);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to post ledger entries" })),
+            )
+        })?;
+
+        sqlx::query("UPDATE transactions SET ledger_transaction_id = $1 WHERE id = $1")
+            .bind(t.id)
+            .execute(&mut *db)
+            .await
+            .map_err(|e| {
+                error!("Failed to link ledger entries for {}: {e}", t.id);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to post ledger entries" })),
+                )
+            })?;
+
+        sqlx::query(
+            "INSERT INTO installment_transactions (plan_id, installment_number, due_date, transaction_id, status)
+             VALUES ($1, $2, $3, $4, 'generated')",
+        )
+        .bind(plan_id)
+        .bind(i)
+        .bind(due)
+        .bind(t.id)
+        .execute(&mut *db)
+        .await
+        .map_err(|e| {
+            error!("Failed to schedule installment: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to create installment plan" })),
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
 /// Creates a new transaction.
 #[utoipa::path(
     post,
@@ -304,8 +467,7 @@ pub async fn create_transaction(
         }
         Some(n) => {
             let count = n as i32;
-            let per = (payload.amount / Decimal::from(count)).round_dp(2);
-            let last = payload.amount - per * Decimal::from(count - 1);
+            let (per, last) = installment_split(payload.amount, count);
             Some((count, per, last))
         }
         None => None,
@@ -415,139 +577,20 @@ pub async fn create_transaction(
     // When splitting into installments, create the plan and materialize every
     // installment as a dated expense. On a cash basis each counts in its due month.
     if let Some((count, per, last)) = installment_spec {
-        // The plan row (account_id is the resolved payment account).
-        let plan_id: Uuid = sqlx::query_scalar(
-            "INSERT INTO installment_plans
-                (description, total_amount, installments, installment_amount, category_id, start_date, account_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id",
+        create_installment_plan(
+            &mut db,
+            &transaction,
+            count,
+            per,
+            last,
+            payload.amount,
+            payload.category_id,
+            source_account,
+            posting_account,
+            &posting_name,
+            &source_name,
         )
-        .bind(payload.description.trim())
-        .bind(payload.amount)
-        .bind(count)
-        .bind(per)
-        .bind(payload.category_id)
-        .bind(payload.date)
-        .bind(source_account)
-        .fetch_one(&mut *db)
-        .await
-        .map_err(|e| {
-            error!("Failed to create installment plan: {e}");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": "Failed to create installment plan" })),
-            )
-        })?;
-
-        // First installment is the transaction we just created.
-        sqlx::query("UPDATE transactions SET installment_plan_id = $1 WHERE id = $2")
-            .bind(plan_id)
-            .bind(transaction.id)
-            .execute(&mut *db)
-            .await
-            .map_err(|e| {
-                error!("Failed to link installment plan: {e}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "Failed to create installment plan" })),
-                )
-            })?;
-        sqlx::query(
-            "INSERT INTO installment_transactions (plan_id, installment_number, due_date, transaction_id, status)
-             VALUES ($1, 1, $2, $3, 'generated')",
-        )
-        .bind(plan_id)
-        .bind(payload.date)
-        .bind(transaction.id)
-        .execute(&mut *db)
-        .await
-        .map_err(|e| {
-            error!("Failed to schedule installment: {e}");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": "Failed to create installment plan" })),
-            )
-        })?;
-
-        // Remaining installments are dated monthly, and each is a real expense.
-        for i in 2..=count {
-            let due = transaction_ledger::add_months(payload.date, i - 1);
-            let amount_i = if i == count { last } else { per };
-            let desc_i = format!("Parcela {}/{} — {}", i, count, payload.description.trim());
-            let t: Transaction = sqlx::query_as(
-                "INSERT INTO transactions (description, amount, type, category_id, date, notes, installment_plan_id, account_id)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                 RETURNING id, description, amount, type, category_id, date, notes,
-                           installment_plan_id, account_id, created_at, updated_at",
-            )
-            .bind(&desc_i)
-            .bind(amount_i)
-            .bind(&payload.r#type)
-            .bind(payload.category_id)
-            .bind(due)
-            .bind(None::<String>)
-            .bind(plan_id)
-            .bind(source_account)
-            .fetch_one(&mut *db)
-            .await
-            .map_err(|e| {
-                error!("Failed to create installment transaction: {e}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "Failed to create installment transaction" })),
-                )
-            })?;
-
-            transaction_ledger::post_entries(
-                &mut *db,
-                t.id,
-                &t.r#type,
-                posting_account,
-                &posting_name,
-                source_account,
-                &source_name,
-                t.amount,
-                &t.description,
-            )
-            .await
-            .map_err(|e| {
-                error!("Failed to post ledger entries for {}: {e}", t.id);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "Failed to post ledger entries" })),
-                )
-            })?;
-
-            sqlx::query("UPDATE transactions SET ledger_transaction_id = $1 WHERE id = $1")
-                .bind(t.id)
-                .execute(&mut *db)
-                .await
-                .map_err(|e| {
-                    error!("Failed to link ledger entries for {}: {e}", t.id);
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({ "error": "Failed to post ledger entries" })),
-                    )
-                })?;
-
-            sqlx::query(
-                "INSERT INTO installment_transactions (plan_id, installment_number, due_date, transaction_id, status)
-                 VALUES ($1, $2, $3, $4, 'generated')",
-            )
-            .bind(plan_id)
-            .bind(i)
-            .bind(due)
-            .bind(t.id)
-            .execute(&mut *db)
-            .await
-            .map_err(|e| {
-                error!("Failed to schedule installment: {e}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "Failed to create installment plan" })),
-                )
-            })?;
-        }
+        .await?;
     }
 
     // Reload the first transaction so the response reflects the linked plan.
@@ -646,6 +689,26 @@ pub async fn update_transaction(
 ) -> Result<Json<Transaction>, (StatusCode, Json<serde_json::Value>)> {
     validate_transaction_payload(&payload.description, payload.amount, &payload.r#type)?;
 
+    let installment_spec = match payload.installments {
+        Some(n) if !(2..=60).contains(&n) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "installments must be between 2 and 60" })),
+            ));
+        }
+        Some(n) => {
+            let count = n as i32;
+            let (per, last) = installment_split(payload.amount, count);
+            Some((count, per, last))
+        }
+        None => None,
+    };
+
+    let first_amount = installment_spec
+        .as_ref()
+        .map(|(_, per, _)| *per)
+        .unwrap_or(payload.amount);
+
     if let Some(cid) = payload.category_id {
         let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM categories WHERE id = $1")
             .bind(cid)
@@ -676,21 +739,29 @@ pub async fn update_transaction(
     )
     .await?;
 
-    // Capture the existing ledger group id so stale entries can be removed.
-    let old_ledger_id: Option<Option<Uuid>> =
-        sqlx::query_scalar("SELECT ledger_transaction_id FROM transactions WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&state.pg_pool)
-            .await
-            .map_err(|e| {
-                error!("Failed to fetch transaction {}: {}", id, e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "Failed to update transaction" })),
-                )
-            })?;
+    // Capture the existing ledger group id (so stale entries can be removed)
+    // and the current plan link (so a split cannot duplicate a plan).
+    #[derive(sqlx::FromRow)]
+    struct Existing {
+        ledger_transaction_id: Option<Uuid>,
+        installment_plan_id: Option<Uuid>,
+    }
 
-    let old_ledger_id = match old_ledger_id {
+    let existing: Option<Existing> = sqlx::query_as(
+        "SELECT ledger_transaction_id, installment_plan_id FROM transactions WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&state.pg_pool)
+    .await
+    .map_err(|e| {
+        error!("Failed to fetch transaction {}: {}", id, e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to update transaction" })),
+        )
+    })?;
+
+    let existing = match existing {
         Some(v) => v,
         None => {
             return Err((
@@ -699,6 +770,14 @@ pub async fn update_transaction(
             ))
         }
     };
+    let old_ledger_id = existing.ledger_transaction_id;
+
+    if installment_spec.is_some() && existing.installment_plan_id.is_some() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "transaction already belongs to an installment plan" })),
+        ));
+    }
 
     let mut db = state.pg_pool.begin().await.map_err(|e| {
         error!("Failed to begin DB transaction: {e}");
@@ -717,7 +796,8 @@ pub async fn update_transaction(
                    installment_plan_id, account_id, created_at, updated_at",
     )
     .bind(payload.description.trim())
-    .bind(payload.amount)
+    // A split stores the installment amount on this row; otherwise the amount.
+    .bind(first_amount)
     .bind(&payload.r#type)
     .bind(payload.category_id)
     .bind(payload.date)
@@ -778,6 +858,45 @@ pub async fn update_transaction(
                 Json(json!({ "error": "Failed to link ledger entries" })),
             )
         })?;
+
+    // A split on edit creates the plan now that the row holds `per`.
+    if let Some((count, per, last)) = installment_spec {
+        create_installment_plan(
+            &mut db,
+            &transaction,
+            count,
+            per,
+            last,
+            payload.amount,
+            payload.category_id,
+            source_account,
+            posting_account,
+            &posting_name,
+            &source_name,
+        )
+        .await?;
+    }
+
+    // Reload so the response reflects the linked plan.
+    let transaction = if installment_spec.is_some() {
+        sqlx::query_as::<_, Transaction>(
+            "SELECT id, description, amount, type, category_id, date, notes,
+                    installment_plan_id, account_id, created_at, updated_at
+             FROM transactions WHERE id = $1",
+        )
+        .bind(transaction.id)
+        .fetch_one(&mut *db)
+        .await
+        .map_err(|e| {
+            error!("Failed to reload transaction {}: {e}", transaction.id);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to reload transaction" })),
+            )
+        })?
+    } else {
+        transaction
+    };
 
     db.commit().await.map_err(|e| {
         error!("Failed to commit DB transaction: {e}");
@@ -911,4 +1030,51 @@ fn validate_transaction_payload(
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::installment_split;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+
+    fn dec(value: &str) -> Decimal {
+        Decimal::from_str(value).expect("literal is a valid decimal")
+    }
+
+    #[test]
+    fn split_divides_evenly_without_a_remainder() {
+        let (per, last) = installment_split(dec("120.00"), 3);
+        assert_eq!(per, dec("40.00"));
+        assert_eq!(last, dec("40.00"));
+    }
+
+    #[test]
+    fn split_gives_the_rounding_remainder_to_the_last_installment() {
+        // 100.00 / 3 = 33.333...; the first two are rounded down and the last
+        // one carries the cent that keeps the plan adding up to the total.
+        let (per, last) = installment_split(dec("100.00"), 3);
+        assert_eq!(per, dec("33.33"));
+        assert_eq!(last, dec("33.34"));
+    }
+
+    #[test]
+    fn split_parts_always_add_up_to_the_total() {
+        for (total, count) in [
+            ("100.00", 3),
+            ("100.01", 7),
+            ("1234.56", 60),
+            ("10.00", 4),
+            ("0.03", 2),
+        ] {
+            let total = dec(total);
+            let count: i32 = count;
+            let (per, last) = installment_split(total, count);
+            assert_eq!(
+                per * Decimal::from(count - 1) + last,
+                total,
+                "{total} split over {count} installments must add up"
+            );
+        }
+    }
 }

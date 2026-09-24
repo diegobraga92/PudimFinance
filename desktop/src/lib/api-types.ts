@@ -3067,6 +3067,15 @@ export interface components {
              * @description Installment plan this transaction belongs to (optional).
              */
             installment_plan_id?: string | null;
+            /**
+             * Format: int32
+             * @description Split this transaction into N monthly installments (2-60) on save.
+             *
+             *     `amount` is the purchase total; this row becomes installment 1 and the
+             *     remaining rows are created on the following months. Only allowed while
+             *     the transaction is not already part of an installment plan.
+             */
+            installments?: number | null;
             /** @description Free-form notes. */
             notes?: string | null;
             /**

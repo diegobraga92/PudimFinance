@@ -251,6 +251,8 @@ export const ptBR = {
   'transactions.form.defaultAccountSet': 'Padrão ✓',
   'transactions.form.installments': 'Parcelas',
   'transactions.form.installmentsHint': '1 = pagamento único · 2-60 = parcelas mensais',
+  'transactions.form.installmentsPlanLocked':
+    'Esta transação faz parte de um parcelamento, então o número de parcelas não pode ser alterado aqui.',
   'transactions.form.perInstallment': '{installments}x de {amount} cada',
   'transactions.form.validationDesc': 'A descrição é obrigatória',
   'transactions.form.validationAmount': 'O valor deve ser maior que zero',

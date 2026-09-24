@@ -26,8 +26,8 @@ import {
   updateTransaction,
   type AccountWithBalance,
   type Category,
-  type CreateTransactionRequest,
   type Transaction,
+  type TransactionWriteRequest,
 } from '@/lib/api';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { findPreviousTransaction } from '@/offline/autocomplete';
@@ -185,9 +185,12 @@ export function TransactionForm({
   const filteredCategories = categories.filter((c) => c.type === type);
   const paymentAccounts = paymentAccountsOf(accounts);
 
+  // A row that already belongs to an installment plan cannot be re-split here.
+  const planLocked = Boolean(editing?.installment_plan_id);
+
   const installmentsNum = parseInt(installments, 10);
   const amountNum = parseFloat(amount.replace(',', '.'));
-  const showInstallments = installmentsNum > 1 && amountNum > 0;
+  const showInstallments = !planLocked && installmentsNum > 1 && amountNum > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,7 +204,7 @@ export function TransactionForm({
     }
     setSaving(true);
     setError(null);
-    const payload: CreateTransactionRequest = {
+    const payload: TransactionWriteRequest = {
       description: description.trim(),
       amount: amount.replace(',', '.'),
       type,
@@ -209,7 +212,9 @@ export function TransactionForm({
       date,
       notes: notes.trim() || null,
       account_id: accountId || null,
-      installments: installmentsNum > 1 ? installmentsNum : undefined,
+      installment_plan_id: editing?.installment_plan_id ?? null,
+      // Only a standalone row can be split (the API rejects a plan-linked one).
+      installments: !planLocked && installmentsNum > 1 ? installmentsNum : undefined,
     };
     try {
       if (isEditing && editing) {
@@ -353,15 +358,19 @@ export function TransactionForm({
                 max={60}
                 value={installments}
                 onChange={(e) => setInstallments(e.target.value)}
+                disabled={planLocked}
+                aria-describedby="tx-installments-hint"
               />
-              {showInstallments && (
-                <p className="text-xs text-dim">
-                  {t('transactions.form.perInstallment', {
-                    installments: String(installmentsNum),
-                    amount: `R$ ${(amountNum / installmentsNum).toFixed(2)}`,
-                  })}
-                </p>
-              )}
+              <p id="tx-installments-hint" className="text-xs text-dim">
+                {planLocked
+                  ? t('transactions.form.installmentsPlanLocked')
+                  : showInstallments
+                    ? t('transactions.form.perInstallment', {
+                        installments: String(installmentsNum),
+                        amount: `R$ ${(amountNum / installmentsNum).toFixed(2)}`,
+                      })
+                    : t('transactions.form.installmentsHint')}
+              </p>
             </div>
           </div>
 

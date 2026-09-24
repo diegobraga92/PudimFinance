@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Edit3, Inbox, Loader2, X } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
-import { fetchCategories } from '@/lib/api';
+import { fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
+import { paymentAccountsOf } from '@/lib/default-account';
+import { getDefaultAccountId } from '@/lib/preferences';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/EmptyState';
@@ -22,7 +24,12 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useNotificationCapture } from '@/notifications/NotificationCaptureProvider';
-import { appLabelFor, type PendingCapture } from '@/notifications/capture';
+import {
+  appLabelFor,
+  captureDefaultAccountId,
+  getNotificationSettingsSync,
+  type PendingCapture,
+} from '@/notifications/capture';
 
 /** Review inbox for captured transactions awaiting confirmation. */
 export function PendingCapturesPage() {
@@ -30,17 +37,31 @@ export function PendingCapturesPage() {
   const { pendingItems, approve, approveAll, skip } = useNotificationCapture();
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
+  const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: () => fetchAccountsWithBalance() });
+  const accounts = React.useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
+  const paymentAccounts = React.useMemo(() => paymentAccountsOf(accounts), [accounts]);
+  const [settings] = React.useState(() => getNotificationSettingsSync());
 
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<PendingCapture | null>(null);
   const [editDescription, setEditDescription] = React.useState('');
   const [editAmount, setEditAmount] = React.useState('');
   const [editCategoryId, setEditCategoryId] = React.useState<string | null>(null);
+  const [editAccountId, setEditAccountId] = React.useState('');
+  const [editInstallments, setEditInstallments] = React.useState('1');
 
   const categoryById = React.useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
     [categories],
   );
+
+  const defaultAccountId = editing
+    ? captureDefaultAccountId(editing.type, settings, getDefaultAccountId())
+    : null;
+  const defaultAccountName =
+    accounts.find((a) => a.id === defaultAccountId)?.name ?? t('common.none');
+  const installmentsNum = parseInt(editInstallments, 10);
+  const editAmountNum = parseFloat(editAmount.replace(',', '.'));
 
   // Group by source app label, preserving capture order within each group.
   const grouped = React.useMemo(() => {
@@ -59,17 +80,22 @@ export function PendingCapturesPage() {
     setEditDescription(item.description);
     setEditAmount(item.amount);
     setEditCategoryId(item.categoryId);
+    setEditAccountId('');
+    setEditInstallments('1');
   };
 
   const saveEdit = async () => {
     if (!editing) return;
     const amount = editAmount.replace(',', '.').trim();
     if (!amount || !(parseFloat(amount) > 0)) return;
+    const installments = parseInt(editInstallments, 10);
     try {
       await approve(editing.id, {
         description: editDescription.trim() || editing.description,
         amount,
         categoryId: editCategoryId,
+        accountId: editAccountId || undefined,
+        installments: installments > 1 ? installments : undefined,
       });
       setEditing(null);
     } catch {
@@ -226,6 +252,49 @@ export function PendingCapturesPage() {
                   inputMode="decimal"
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nc-account">{t('transactions.form.account')}</Label>
+                <select
+                  id="nc-account"
+                  className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]"
+                  value={editAccountId}
+                  onChange={(e) => setEditAccountId(e.target.value)}
+                >
+                  <option value="">
+                    —{' '}
+                    {t('transactions.form.defaultAccountNamed', { account: defaultAccountName })}{' '}
+                    —
+                  </option>
+                  {paymentAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Installments split an expense into dated monthly charges. */}
+              {editing.type === 'expense' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="nc-installments">{t('transactions.form.installments')}</Label>
+                  <Input
+                    id="nc-installments"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={editInstallments}
+                    onChange={(e) => setEditInstallments(e.target.value)}
+                    aria-describedby="nc-installments-hint"
+                  />
+                  <p id="nc-installments-hint" className="text-xs text-dim">
+                    {installmentsNum > 1 && editAmountNum > 0
+                      ? t('transactions.form.perInstallment', {
+                          installments: String(installmentsNum),
+                          amount: `R$ ${(editAmountNum / installmentsNum).toFixed(2)}`,
+                        })
+                      : t('transactions.form.installmentsHint')}
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>{t('common.category')}</Label>
                 <div className="flex flex-wrap gap-2">

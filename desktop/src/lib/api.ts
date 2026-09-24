@@ -29,6 +29,7 @@ export type UpdateCategoryRequest = components['schemas']['UpdateCategoryRequest
 export type Transaction = components['schemas']['Transaction'];
 export type CreateTransactionRequest = components['schemas']['CreateTransactionRequest'];
 export type UpdateTransactionRequest = components['schemas']['UpdateTransactionRequest'];
+export type TransactionWriteRequest = CreateTransactionRequest & UpdateTransactionRequest;
 export type TransactionListResponse = components['schemas']['TransactionListResponse'];
 export type SummaryResponse = components['schemas']['SummaryResponse'];
 export type CategorySummary = components['schemas']['CategorySummary'];
@@ -412,7 +413,7 @@ export async function fetchTransaction(id: string): Promise<Transaction> {
   return request<Transaction>(`/api/transactions/${id}`);
 }
 
-export async function createTransaction(payload: CreateTransactionRequest): Promise<Transaction> {
+export async function createTransaction(payload: TransactionWriteRequest): Promise<Transaction> {
   const localId = uuid();
   const queueAndStore = async (): Promise<Transaction> => {
     await queueLocalMutation('create', 'transaction', localId, null, payload as Record<string, unknown>);
@@ -480,7 +481,7 @@ export async function createTransaction(payload: CreateTransactionRequest): Prom
 
 export async function updateTransaction(
   id: string,
-  payload: UpdateTransactionRequest,
+  payload: TransactionWriteRequest,
 ): Promise<Transaction> {
   const queueAndStore = async (): Promise<Transaction> => {
     await queueLocalMutation('update', 'transaction', id, id, payload as Record<string, unknown>);

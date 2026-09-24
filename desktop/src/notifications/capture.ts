@@ -67,6 +67,21 @@ export function accountIdForAction(
   return fallbackAccountId;
 }
 
+/**
+ * Account a review-inbox item posts to when the user does not pick one.
+ */
+export function captureDefaultAccountId(
+  type: 'income' | 'expense',
+  settings: Pick<NotificationSettings, 'debitAccountId' | 'creditAccountId'>,
+  fallbackAccountId: string | null = null,
+): string | null {
+  return accountIdForAction(
+    type === 'expense' ? 'debit' : 'income',
+    settings,
+    fallbackAccountId,
+  );
+}
+
 /** Bank/payment apps matched by notification app name. */
 export const KNOWN_APPS: { label: string; appName: string }[] = [
   { label: 'Nubank', appName: 'Nubank' },
@@ -81,6 +96,13 @@ export const KNOWN_APPS: { label: string; appName: string }[] = [
 ];
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
+  return getNotificationSettingsSync();
+}
+
+/**
+ * Synchronous read of the persisted capture settings.
+ */
+export function getNotificationSettingsSync(): NotificationSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;

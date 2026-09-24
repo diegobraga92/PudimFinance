@@ -147,6 +147,9 @@ pub struct UpdateTransactionRequest {
     pub installment_plan_id: Option<Uuid>,
     /// Source account (payment method) for this transaction (optional).
     pub account_id: Option<Uuid>,
+    /// Split this transaction into N monthly installments (2-60) on save.
+    #[schema(minimum = 2, maximum = 60)]
+    pub installments: Option<u8>,
 }
 
 /// Query parameters for listing transactions.

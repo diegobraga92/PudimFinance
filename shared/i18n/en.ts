@@ -249,6 +249,8 @@ export const en = {
   'transactions.form.defaultAccountSet': 'Default ✓',
   'transactions.form.installments': 'Installments',
   'transactions.form.installmentsHint': '1 = single payment · 2-60 = monthly installments',
+  'transactions.form.installmentsPlanLocked':
+    "This transaction is part of an installment plan, so its number of installments can't be changed here.",
   'transactions.form.perInstallment': '{installments}x of {amount} each',
   'transactions.form.validationDesc': 'Description is required',
   'transactions.form.validationAmount': 'Amount must be greater than zero',

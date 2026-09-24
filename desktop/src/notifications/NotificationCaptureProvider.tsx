@@ -6,11 +6,13 @@ import {
   addPendingCapture,
   accountIdForAction,
   appLabelFor,
+  captureDefaultAccountId,
   captureFromAction,
   categoryIdForCapture,
   dedupKeyOf,
   FALLBACK_CAPTURE_DESCRIPTION,
   getNotificationSettings,
+  getNotificationSettingsSync,
   getPendingCaptures,
   hasImportedCapture,
   isCaptureActionKind,
@@ -66,7 +68,13 @@ interface NotificationCaptureContextValue {
   refresh: () => Promise<void>;
   approve: (
     id: string,
-    overrides?: { description?: string; amount?: string; categoryId?: string | null },
+    overrides?: {
+      description?: string;
+      amount?: string;
+      categoryId?: string | null;
+      accountId?: string | null;
+      installments?: number;
+    },
   ) => Promise<void>;
   approveAll: () => Promise<void>;
   skip: (id: string) => Promise<void>;
@@ -572,11 +580,19 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   const approve = React.useCallback(
     async (
       id: string,
-      overrides?: { description?: string; amount?: string; categoryId?: string | null },
+      overrides?: {
+        description?: string;
+        amount?: string;
+        categoryId?: string | null;
+        accountId?: string | null;
+        installments?: number;
+      },
     ) => {
       const item = pendingItems.find((c) => c.id === id);
       if (!item) return;
       void cancelCapturePrompt(id);
+      const settings = settingsRef.current ?? getNotificationSettingsSync();
+      const defaultAccountId = captureDefaultAccountId(item.type, settings, getDefaultAccountId());
       try {
         await createTransaction({
           description: overrides?.description ?? item.description,
@@ -584,6 +600,14 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           type: item.type,
           category_id:
             overrides && overrides.categoryId !== undefined ? overrides.categoryId : item.categoryId,
+          account_id:
+            overrides && overrides.accountId !== undefined
+              ? overrides.accountId
+              : defaultAccountId,
+          installments:
+            overrides && overrides.installments !== undefined && overrides.installments > 1
+              ? overrides.installments
+              : undefined,
           date: item.date,
           notes: tRef.current('notifications.notes'),
         });
@@ -613,6 +637,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
 
   const approveAll = React.useCallback(async () => {
     const items = await getPendingCaptures();
+    const settings = settingsRef.current ?? getNotificationSettingsSync();
     let imported = 0;
     let importedOffline = false;
     for (const item of items) {
@@ -623,6 +648,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           amount: item.amount,
           type: item.type,
           category_id: item.categoryId,
+          account_id: captureDefaultAccountId(item.type, settings, getDefaultAccountId()),
           date: item.date,
           notes: tRef.current('notifications.notes'),
         });

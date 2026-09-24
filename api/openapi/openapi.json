@@ -6783,6 +6783,16 @@
             "format": "uuid",
             "description": "Installment plan this transaction belongs to (optional)."
           },
+          "installments": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Split this transaction into N monthly installments (2-60) on save.",
+            "maximum": 60,
+            "minimum": 2
+          },
           "notes": {
             "type": [
               "string",
