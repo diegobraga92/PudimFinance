@@ -52,6 +52,13 @@ static RE_TOTAL: LazyLock<Regex> = LazyLock::new(|| {
     )
     .expect("valid total regex")
 });
+/// Fallback total for the compact "Consulta Resumida" page.
+static RE_TOTAL_PAYABLE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r##"(?is)<label[^>]*>\s*Valor\s+a\s+pagar\s+R\$\s*:\s*</label>\s*<span[^>]*>(.*?)</span>"##,
+    )
+    .expect("valid payable total regex")
+});
 static RE_DISCOUNT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r##"(?is)<label[^>]*>\s*Descontos\s+R\$\s*:\s*</label>\s*<span[^>]*>(.*?)</span>"##)
         .expect("valid discount regex")
@@ -99,7 +106,9 @@ pub struct DanfeDetails {
     pub cnpj: Option<String>,
     /// Emission date in ISO format.
     pub date: Option<String>,
-    /// Invoice total (`Valor total R$`, not the amount after discounts).
+    /// Invoice total. The full DANFE exposes a `Valor total R$` line; the
+    /// compact consultation page only prints `Valor a pagar R$` (already net of
+    /// discounts, which that page does not list).
     pub total: Option<Decimal>,
     /// Discount shown by the portal.
     pub discount: Option<Decimal>,
@@ -190,7 +199,8 @@ pub fn parse_danfe_html(html: &str) -> DanfeDetails {
         let year = captures.get(3)?.as_str().parse().ok()?;
         NaiveDate::from_ymd_opt(year, month, day).map(|date| date.format("%Y-%m-%d").to_string())
     });
-    let total = extract_labeled_amount(&RE_TOTAL, html);
+    let total = extract_labeled_amount(&RE_TOTAL, html)
+        .or_else(|| extract_labeled_amount(&RE_TOTAL_PAYABLE, html));
     let discount = extract_labeled_amount(&RE_DISCOUNT, html);
     let items = RE_ITEM_ROW
         .captures_iter(html)
@@ -279,6 +289,8 @@ mod tests {
 
     const QR_URL: &str =
         "https://www.nfce.fazenda.sp.gov.br/qrcode?p=35260901735029000265650010000183261099751411%7C3%7C1";
+    /// QR code v2 URL, whose compact consultation page only lists `Valor a pagar`.
+    const QR_V2_URL: &str = "https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx?p=35260903476811107037650060001319331000397737%7C2%7C1%7C1%7C892bff8ee46ee9d3ce7635855e48c83c8473a5aa";
 
     #[test]
     fn accepts_public_https_gov_br_consultation_url() {
@@ -337,6 +349,70 @@ mod tests {
     }
 
     #[test]
+    fn parses_the_compact_consulta_resumida_layout() {
+        // The SP portal serves this shorter page for QR code v2 URLs
+        // (`/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx`): it has neither
+        // `Valor total R$` nor `Descontos R$`, only the net `Valor a pagar R$`.
+        let html = r#"
+            <div id="u20" class="txtTopo">DIA BRASIL SOCIEDADE LIMITADA</div>
+            <div class="text">CNPJ: 03.476.811/1070-37</div>
+            <table id="tabResult">
+              <tr id="Item + 1">
+                <td><span class="txtTit">LTE.SE.DE.JUSSARA 1L</span>
+                  <span class="Rqtd"><strong>Qtde.:</strong>1</span>
+                  <span class="RvlUnit"><strong>Vl. Unit.:</strong>5,79</span></td>
+                <td class="txtTit noWrap">Vl. Total<br><span class="valor">5,79</span></td>
+              </tr>
+            </table>
+            <div id="totalNota" class="txtRight">
+              <div id="linhaTotal">
+                <label>Qtd. total de itens:</label><span class="totalNumb">1</span>
+              </div>
+              <div id="linhaTotal" class="linhaShade">
+                <label>Valor a pagar R$:</label><span class="totalNumb txtMax">72,63</span>
+              </div>
+              <div id="linhaTotal" class="spcTop">
+                <label class="txtObs">Informação dos Tributos Totais Incidentes
+                  (Lei Federal 12.741/2012) R$</label>
+                <span class="totalNumb txtObs">11,54</span>
+              </div>
+            </div>
+            <div>Emissão: </strong>25/09/2026 07:53:45</div>
+        "#;
+
+        let parsed = parse_danfe_html(html);
+
+        assert_eq!(
+            parsed.store_name.as_deref(),
+            Some("DIA BRASIL SOCIEDADE LIMITADA")
+        );
+        assert_eq!(parsed.cnpj.as_deref(), Some("03.476.811/1070-37"));
+        assert_eq!(parsed.date.as_deref(), Some("2026-09-25"));
+        assert_eq!(parsed.total, Some(Decimal::new(7263, 2)));
+        assert_eq!(parsed.discount, None);
+        assert_eq!(parsed.items.len(), 1);
+        assert_eq!(parsed.items[0].description, "LTE.SE.DE.JUSSARA 1L");
+    }
+
+    #[test]
+    fn prefers_the_full_layout_total_over_the_payable_amount() {
+        // The complete DANFE lists both labels; `Valor total R$` must win so the
+        // discount is not silently folded into the total.
+        let html = r#"
+            <div id="totalNota">
+              <label>Valor total R$:</label><span class="totalNumb">78,16</span>
+              <label>Descontos R$:</label><span class="totalNumb">10,35</span>
+              <label>Valor a pagar R$:</label><span class="totalNumb txtMax">67,81</span>
+            </div>
+        "#;
+
+        let parsed = parse_danfe_html(html);
+
+        assert_eq!(parsed.total, Some(Decimal::new(7816, 2)));
+        assert_eq!(parsed.discount, Some(Decimal::new(1035, 2)));
+    }
+
+    #[test]
     fn ignores_missing_or_invalid_danfe_sections_without_panicking() {
         let parsed = parse_danfe_html("<html><div id=\"u20\">broken");
 
@@ -364,5 +440,25 @@ mod tests {
         assert_eq!(parsed.items.len(), 2);
         assert_eq!(parsed.items[0].description, "CMB1 MS A MODA DA CANTINA");
         assert_eq!(parsed.items[1].description, "Entrega");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires the live NFC-e portal; run with NFCE_LIVE=1"]
+    async fn parses_the_live_sp_compact_portal_page() {
+        if std::env::var("NFCE_LIVE").ok().as_deref() != Some("1") {
+            return;
+        }
+
+        let url = consultation_url(QR_V2_URL).expect("valid consultation URL");
+        let parsed = super::fetch_danfe(&url).await.expect("portal response");
+
+        assert_eq!(
+            parsed.store_name.as_deref(),
+            Some("DIA BRASIL SOCIEDADE LIMITADA")
+        );
+        assert_eq!(parsed.cnpj.as_deref(), Some("03.476.811/1070-37"));
+        assert_eq!(parsed.date.as_deref(), Some("2026-09-25"));
+        assert_eq!(parsed.total, Some(Decimal::new(7263, 2)));
+        assert_eq!(parsed.items.len(), 9);
     }
 }
