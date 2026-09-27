@@ -156,6 +156,20 @@ function localAccountToAccount(a: LocalAccount): AccountWithBalance {
   };
 }
 
+/** Minimal shape shared by every mirrored row that can be addressed by id. */
+type MirrorIdentity = { id: string; server_id: string | null };
+
+function dedupeMirrorRows<T extends MirrorIdentity>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const row of rows) {
+    const identity = row.server_id ?? row.id;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    unique.push(row);
+  }
+  return unique;
+}
 
 export type SyncPushRequest = components['schemas']['SyncPushRequest'];
 export type SyncPushResponse = components['schemas']['SyncPushResponse'];
@@ -235,7 +249,7 @@ export async function fetchMe(
 
 export async function fetchCategories(): Promise<Category[]> {
   if (!(await isOnline())) {
-    return (await getLocalCategories()).map(localCategoryToCategory);
+    return dedupeMirrorRows(await getLocalCategories()).map(localCategoryToCategory);
   }
   return request<Category[]>('/api/categories');
 }
@@ -385,7 +399,7 @@ export async function fetchTransactions(
 ): Promise<TransactionListResponse> {
   // Offline, serve the local mirror (sorted newest-first by the store).
   if (!(await isOnline())) {
-    const items = await getLocalTransactions();
+    const items = dedupeMirrorRows(await getLocalTransactions());
     const categoryId = params?.category_id;
     const localCategories = params?.include_subcategories && categoryId
       ? await getLocalCategories()
@@ -662,7 +676,7 @@ export async function updateSettings(payload: UpdateAppSettingsRequest): Promise
 
 export async function fetchAccountsWithBalance(): Promise<AccountWithBalance[]> {
   if (!(await isOnline())) {
-    return (await getLocalAccounts()).map(localAccountToAccount);
+    return dedupeMirrorRows(await getLocalAccounts()).map(localAccountToAccount);
   }
   return request<AccountWithBalance[]>('/api/accounts');
 }

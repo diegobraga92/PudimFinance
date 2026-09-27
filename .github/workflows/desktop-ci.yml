@@ -118,6 +118,10 @@ jobs:
         working-directory: desktop
         run: npm run test:default-account
 
+      - name: Offline mirror identity smoke
+        working-directory: desktop
+        run: npm run test:category-mirror
+
       - name: Generated API types are up to date
         working-directory: desktop
         run: |

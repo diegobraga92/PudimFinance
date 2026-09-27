@@ -182,6 +182,38 @@ function clearAll(storeName: string): Promise<void> {
   return tx(storeName, 'readwrite', (store) => store.clear()).then(() => undefined);
 }
 
+/** A mirrored row: stored under `id`, optionally linked to a server UUID. */
+interface MirrorRow {
+  id: string;
+  server_id: string | null;
+}
+
+/**
+ * Writes a row without changing the identity it already has in the store.
+ */
+async function putKeepingKey<T extends MirrorRow>(storeName: string, row: T): Promise<void> {
+  const rows = await getAll<T>(storeName);
+  const existing = rows.find(
+    (item) => item.id === row.id || (row.server_id !== null && item.server_id === row.server_id),
+  );
+  const next = existing && existing.id !== row.id ? { ...row, id: existing.id } : row;
+  await tx(storeName, 'readwrite', (store) => store.put(next));
+}
+
+/** Drops the other rows that share `serverId` with the row keyed by `keepId`. */
+async function deleteSiblingRows<T extends MirrorRow>(
+  storeName: string,
+  keepId: string,
+  serverId: string,
+): Promise<void> {
+  const rows = await getAll<T>(storeName);
+  for (const row of rows) {
+    if (row.id !== keepId && row.server_id === serverId) {
+      await tx(storeName, 'readwrite', (store) => store.delete(row.id));
+    }
+  }
+}
+
 export async function getLocalTransactions(): Promise<LocalTransaction[]> {
   const rows = await getAll<LocalTransaction>('local_transactions');
   return rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -193,7 +225,7 @@ async function getLocalTransactionById(id: string): Promise<LocalTransaction | n
 }
 
 export async function upsertLocalTransaction(txRow: LocalTransaction): Promise<void> {
-  await tx('local_transactions', 'readwrite', (store) => store.put(txRow));
+  await putKeepingKey('local_transactions', txRow);
 }
 
 export async function deleteLocalTransaction(id: string): Promise<void> {
@@ -221,6 +253,7 @@ export async function markTransactionSynced(localId: string, serverId: string): 
   const existing = await getLocalTransactionById(localId);
   if (!existing) return;
   await upsertLocalTransaction({ ...existing, server_id: serverId, synced: 1 });
+  await deleteSiblingRows<LocalTransaction>('local_transactions', existing.id, serverId);
 }
 
 export async function getLocalCategories(): Promise<LocalCategory[]> {
@@ -229,7 +262,7 @@ export async function getLocalCategories(): Promise<LocalCategory[]> {
 }
 
 export async function upsertLocalCategory(category: LocalCategory): Promise<void> {
-  await tx('local_categories', 'readwrite', (store) => store.put(category));
+  await putKeepingKey('local_categories', category);
 }
 
 export async function deleteLocalCategory(id: string): Promise<void> {
@@ -248,6 +281,7 @@ export async function markCategorySynced(localId: string, serverId: string): Pro
   const existing = (await getLocalCategories()).find((c) => c.id === localId);
   if (!existing) return;
   await upsertLocalCategory({ ...existing, server_id: serverId, synced: 1 });
+  await deleteSiblingRows<LocalCategory>('local_categories', existing.id, serverId);
 }
 
 export async function getLocalAccounts(): Promise<LocalAccount[]> {
@@ -256,7 +290,7 @@ export async function getLocalAccounts(): Promise<LocalAccount[]> {
 }
 
 export async function upsertLocalAccount(account: LocalAccount): Promise<void> {
-  await tx('local_accounts', 'readwrite', (store) => store.put(account));
+  await putKeepingKey('local_accounts', account);
 }
 
 export async function deleteLocalAccount(id: string): Promise<void> {
@@ -347,5 +381,6 @@ export async function markAccountSynced(localId: string, serverId: string): Prom
   const existing = (await getLocalAccounts()).find((a) => a.id === localId);
   if (!existing) return;
   await upsertLocalAccount({ ...existing, server_id: serverId, synced: 1 });
+  await deleteSiblingRows<LocalAccount>('local_accounts', existing.id, serverId);
 }
 

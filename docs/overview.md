@@ -293,7 +293,10 @@ flowchart TD
   Mutations queue locally and push/pull through `/api/sync/*`. Operations stop
   auto-retrying after `MAX_PUSH_ATTEMPTS = 3` but are never dropped until the user
   retries or discards them. The scheduler polls at 15 s while work is pending and
-  60 s when idle, waking on `online`, `focus`, and `visibilitychange`.
+  60 s when idle, waking on `online`, `focus`, and `visibilitychange`. A mirror
+  row keeps its client UUID as the store key even after the server assigns an
+  id, so writes reuse the existing key and mirror reads deduplicate by
+  `server_id ?? id`; otherwise one entity could be listed twice offline.
 - **Android native layer**: `NotificationListenerService`, `CaptureActionReceiver`,
   and `CaptureParser` handle bank alerts. An encrypted `SyncOutbox` plus
   `SyncWorker` (WorkManager) pushes operations while the app is closed, and
