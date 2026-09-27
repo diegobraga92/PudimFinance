@@ -1259,19 +1259,19 @@ export const en = {
   'notifications.autoCreateDesc': 'Creates transactions immediately without confirmation.',
   'notifications.pushPrompt': 'Ask from a notification',
   'notifications.pushPromptDesc':
-    'When a transaction is detected, post a notification with Income / Debit / Credit buttons so you can import it without opening the app.',
+    'When a transaction is detected, post a notification with Discard / Later buttons so you can deal with it without opening the app.',
   'notifications.pushBlocked': 'System notifications are turned off',
   'notifications.pushBlockedDesc':
     'Allow notifications so the import prompt can appear on your device.',
   'notifications.enableNotifications': 'Allow notifications',
-  'notifications.importAccounts': 'Debit & credit accounts',
-  'notifications.importAccountsDesc':
-    'Account used when a captured transaction is imported as a debit or credit expense.',
+  'notifications.importAccount': 'Capture account',
+  'notifications.importAccountDesc':
+    'Account a captured expense is imported into.',
   'notifications.debitAccount': 'Debit account',
-  'notifications.creditAccount': 'Credit card',
   'notifications.promptTitle': '{app} transaction detected',
   'notifications.promptBody': '{description} — R$ {amount}',
-  'notifications.promptHint': 'Choose how to import the transaction from the notification.',
+  'notifications.promptHint':
+    'Discard drops the capture; Later keeps it for the review screen.',
   'notifications.defaultCategory': 'Default Category',
   'notifications.defaultCategoryDesc':
     "Used when the merchant can't be matched to an existing category.",

@@ -24,9 +24,8 @@
     <string name="capture_prompt_channel_name">Transaction detected</string>
     <string name="capture_prompt_channel_desc">Asks how to import a transaction detected from a bank notification</string>
     <string name="capture_prompt_title">%1$s transaction detected</string>
-    <string name="capture_prompt_income">Income</string>
-    <string name="capture_prompt_debit">Debit</string>
-    <string name="capture_prompt_credit">Credit</string>
+    <string name="capture_prompt_discard">Discard</string>
+    <string name="capture_prompt_later">Later</string>
     <string name="capture_notes">Captured from push notification</string>
     <string name="biometric_title">Unlock PudimFinance</string>
     <string name="biometric_subtitle">Use your fingerprint or face to continue</string>

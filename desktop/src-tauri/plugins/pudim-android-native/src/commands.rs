@@ -29,14 +29,15 @@ pub struct CapturedNotification {
     pub prompted: bool,
 }
 
-/// A choice made on an import-prompt notification action button, or a
-/// transaction the native side imported while the WebView was asleep.
+/// A choice made on a capture-prompt notification button, or a transaction the
+/// native side imported while the WebView was asleep.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct CaptureAction {
     /// Id of the pending capture the notification was posted for.
     pub capture_id: String,
-    /// `income`, `debit`, or `credit`. Absent on native-import journal entries.
+    /// `discard` when the user dropped the capture from the prompt. Absent on
+    /// native-import journal entries.
     #[serde(default)]
     pub action: Option<String>,
     /// Android application id of the source app, when known.
@@ -274,23 +275,17 @@ pub fn drain_pending<R: Runtime>(app: AppHandle<R>) -> Result<Vec<CapturedNotifi
     }
 }
 
-/// Posts an Android notification with transaction import actions.
+/// Posts an Android notification offering to discard a capture or review it later.
 ///
 /// The parameters stay flat so the webview payload, the command signature and
 /// the Kotlin plugin arguments keep the same shape.
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
 pub fn show_capture_prompt<R: Runtime>(
     app: AppHandle<R>,
     id: String,
     title: String,
     body: String,
     app_label: String,
-    app_name: Option<String>,
-    description: Option<String>,
-    amount: Option<String>,
-    date: Option<String>,
-    category_id: Option<String>,
 ) -> Result<(), String> {
     let state = app.state::<CaptureHandle<R>>();
     #[cfg(mobile)]
@@ -306,13 +301,6 @@ pub fn show_capture_prompt<R: Runtime>(
                     "title": title,
                     "body": body,
                     "appLabel": app_label,
-                    // Parsed capture fields so a tap can still be imported
-                    // natively when the WebView is not alive to handle it.
-                    "appName": app_name,
-                    "description": description,
-                    "amount": amount,
-                    "date": date,
-                    "categoryId": category_id,
                 }),
             )
             .map_err(|e| e.to_string())
@@ -320,7 +308,6 @@ pub fn show_capture_prompt<R: Runtime>(
     #[cfg(not(mobile))]
     {
         let _ = (&state, &id, &title, &body, &app_label);
-        let _ = (&app_name, &description, &amount, &date, &category_id);
         Ok(())
     }
 }
@@ -432,7 +419,6 @@ pub fn request_notification_permission<R: Runtime>(app: AppHandle<R>) -> Result<
 /// Mirrors the webview's capture settings to the Android listener, so it can
 /// keep prompting for detected transactions while the app process is dead.
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
 pub fn set_capture_settings<R: Runtime>(
     app: AppHandle<R>,
     enabled: bool,
@@ -441,7 +427,6 @@ pub fn set_capture_settings<R: Runtime>(
     mode: String,
     default_category_id: Option<String>,
     debit_account_id: Option<String>,
-    credit_account_id: Option<String>,
 ) -> Result<(), String> {
     let state = app.state::<CaptureHandle<R>>();
     #[cfg(mobile)]
@@ -459,7 +444,6 @@ pub fn set_capture_settings<R: Runtime>(
                     "mode": mode,
                     "defaultCategoryId": default_category_id,
                     "debitAccountId": debit_account_id,
-                    "creditAccountId": credit_account_id,
                 }),
             )
             .map_err(|e| e.to_string())
@@ -474,7 +458,6 @@ pub fn set_capture_settings<R: Runtime>(
             mode,
             default_category_id,
             debit_account_id,
-            credit_account_id,
         );
         Ok(())
     }

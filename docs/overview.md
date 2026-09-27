@@ -227,12 +227,12 @@ flowchart TD
     P --> Q["NotificationCaptureQueue (journal, dedup by dedupKey)"]
     Q --> S{"Capture mode"}
     S -->|"auto"| I["Import as transaction"]
-    S -->|"ask"| Prompt["Post import-prompt notification<br/>with income / debit / credit buttons"]
-    Prompt --> R["CaptureActionReceiver"]
-    R --> I
+    S -->|"ask"| Prompt["Post capture-prompt notification<br/>with discard / later buttons"]
+    Prompt -->|"discard"| D["CaptureActionReceiver drops the capture"]
+    Prompt -->|"later or notification tap"| UI["Review inbox (/pending-review)"]
     I --> O["Encrypted SyncOutbox → WorkManager push"]
     O --> API["API /api/sync/push"]
-    I -.->|"app open"| UI["Review inbox (/pending-review)"]
+    I -.->|"app open"| UI
 ```
 
 ### Receipt scanning (NFC-e)

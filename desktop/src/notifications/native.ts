@@ -13,11 +13,11 @@ export interface CapturedNotification {
   post_time: number;
   /** Id assigned by the listener when captured while the app was dead. */
   capture_id?: string;
-  /** Whether the listener already posted an import prompt for it. */
+  /** Whether the listener already posted a capture prompt for it. */
   prompted?: boolean;
 }
 
-/** Content of an OS notification asking how to import a captured transaction. */
+/** Content of an OS notification offering to discard a capture or review it later. */
 export interface CapturePrompt {
   /** Pending-capture id the prompt belongs to. */
   id: string;
@@ -27,16 +27,6 @@ export interface CapturePrompt {
   body: string;
   /** Human-readable source app label, shown as the sub-text. */
   appLabel: string;
-  /** Source app package, so a tap can be imported natively. */
-  appName?: string;
-  /** Parsed merchant description, so a tap can be imported natively. */
-  description?: string;
-  /** Parsed decimal amount, so a tap can be imported natively. */
-  amount?: string;
-  /** Parsed ISO date, so a drained tap rebuilds the same capture. */
-  date?: string;
-  /** Category, so a drained tap rebuilds the same capture. */
-  categoryId?: string | null;
 }
 
 /**
@@ -47,7 +37,7 @@ export interface CaptureAction {
   capture_id: string;
   /** Absent on native-import entries, which carry `native_import` instead. */
   action?: CaptureActionKind;
-  /** Source app id/label and raw notification, present for listener-posted prompts. */
+  /** Raw notification the native listener journaled with a native import. */
   app_name?: string;
   app_label?: string;
   title?: string;
@@ -138,7 +128,7 @@ export async function drainNativeNotifications(): Promise<CapturedNotification[]
   }
 }
 
-/** Posts an Android notification with import actions. */
+/** Posts the Android capture prompt (Discard / Later) for a capture. */
 export async function showCapturePrompt(prompt: CapturePrompt): Promise<void> {
   if (!isTauri()) return;
   try {
@@ -147,13 +137,6 @@ export async function showCapturePrompt(prompt: CapturePrompt): Promise<void> {
       title: prompt.title,
       body: prompt.body,
       appLabel: prompt.appLabel,
-      // Parsed capture fields travel with the prompt so tapping an action while
-      // the WebView is asleep can still import the transaction natively.
-      appName: prompt.appName ?? null,
-      description: prompt.description ?? null,
-      amount: prompt.amount ?? null,
-      date: prompt.date ?? null,
-      categoryId: prompt.categoryId ?? null,
     });
   } catch {
     // The capture remains available in the review inbox.
@@ -171,9 +154,9 @@ export async function cancelCapturePrompt(id: string): Promise<void> {
 }
 
 /**
- * Reads import actions tapped while the app was asleep, **without** clearing
+ * Reads capture actions tapped while the app was asleep, **without** clearing
  * them. The app acknowledges each entry with {@link ackCaptureActions} once the
- * import landed, so a crash mid-drain retries instead of dropping the tap.
+ * action landed, so a crash mid-drain retries instead of dropping the tap.
  */
 export async function peekPendingCaptureActions(): Promise<CaptureAction[]> {
   if (!isTauri()) return [];
@@ -255,7 +238,6 @@ export async function syncCaptureSettings(settings: {
   mode?: 'auto' | 'ask';
   defaultCategoryId?: string | null;
   debitAccountId?: string | null;
-  creditAccountId?: string | null;
 }): Promise<void> {
   if (!isTauri()) return;
   try {
@@ -266,7 +248,6 @@ export async function syncCaptureSettings(settings: {
       mode: settings.mode ?? 'ask',
       defaultCategoryId: settings.defaultCategoryId ?? null,
       debitAccountId: settings.debitAccountId ?? null,
-      creditAccountId: settings.creditAccountId ?? null,
     });
   } catch (error) {
     recordNativeError('set_capture_settings', error);

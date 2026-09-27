@@ -1262,19 +1262,19 @@ export const ptBR = {
   'notifications.autoCreateDesc': 'Cria as transações imediatamente, sem confirmação.',
   'notifications.pushPrompt': 'Perguntar por notificação',
   'notifications.pushPromptDesc':
-    'Ao detectar uma transação, envia uma notificação com os botões Receita / Débito / Crédito para importar sem abrir o app.',
+    'Ao detectar uma transação, envia uma notificação com os botões Descartar / Depois para resolver sem abrir o app.',
   'notifications.pushBlocked': 'As notificações do sistema estão desativadas',
   'notifications.pushBlockedDesc':
     'Permita notificações para que o aviso de importação apareça no seu aparelho.',
   'notifications.enableNotifications': 'Permitir notificações',
-  'notifications.importAccounts': 'Contas de débito e crédito',
-  'notifications.importAccountsDesc':
-    'Conta usada quando uma transação capturada é importada como despesa de débito ou crédito.',
+  'notifications.importAccount': 'Conta de captura',
+  'notifications.importAccountDesc':
+    'Conta em que uma despesa capturada é importada.',
   'notifications.debitAccount': 'Conta de débito',
-  'notifications.creditAccount': 'Cartão de crédito',
   'notifications.promptTitle': 'Transação detectada — {app}',
   'notifications.promptBody': '{description} — R$ {amount}',
-  'notifications.promptHint': 'Escolha na notificação como importar a transação.',
+  'notifications.promptHint':
+    'Descartar joga a captura fora; Depois a mantém na tela de revisão.',
   'notifications.defaultCategory': 'Categoria Padrão',
   'notifications.defaultCategoryDesc':
     'Usada quando o estabelecimento não pode ser associado a uma categoria existente.',

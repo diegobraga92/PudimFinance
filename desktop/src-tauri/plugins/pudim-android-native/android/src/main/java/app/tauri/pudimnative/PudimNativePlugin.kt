@@ -351,23 +351,11 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolveObject(NotificationCaptureQueue.drain(activity))
     }
 
-    /** Posts the income/debit/credit import prompt for a captured transaction. */
+    /** Posts the capture prompt for a captured transaction. */
     @Command
     fun showCapturePrompt(invoke: Invoke) {
         val args = invoke.parseArgs(CapturePromptArgs::class.java)
-        // The parsed capture travels with the prompt so a tap can still be
-        // imported natively when the WebView is not alive to handle it.
-        val source = mutableMapOf<String, Any?>(
-            "app_label" to args.appLabel,
-            "title" to args.title,
-            "text" to args.body,
-        )
-        args.appName?.let { source["app_name"] = it }
-        args.description?.let { source["description"] = it }
-        args.amount?.let { source["amount"] = it }
-        args.date?.let { source["date"] = it }
-        args.categoryId?.let { source["category_id"] = it }
-        CapturePromptNotifier.show(activity, args.id, args.title, args.body, args.appLabel, source)
+        CapturePromptNotifier.show(activity, args.id, args.title, args.body, args.appLabel)
         invoke.resolve()
     }
 
@@ -419,7 +407,6 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
             args.mode,
             args.defaultCategoryId,
             args.debitAccountId,
-            args.creditAccountId,
         )
         invoke.resolve()
     }
@@ -540,16 +527,6 @@ internal class CapturePromptArgs {
     lateinit var title: String
     lateinit var body: String
     lateinit var appLabel: String
-    /** Source app package, used when the tap has to be imported natively. */
-    var appName: String? = null
-    /** Parsed merchant description, so the native fallback needs no raw text. */
-    var description: String? = null
-    /** Parsed decimal amount, so the native fallback needs no raw text. */
-    var amount: String? = null
-    /** Parsed ISO date, so a drained tap rebuilds the same capture. */
-    var date: String? = null
-    /** Category, so a drained tap rebuilds the same capture. */
-    var categoryId: String? = null
 }
 
 @InvokeArg
@@ -576,7 +553,6 @@ internal class CaptureSettingsArgs {
     var mode: String = "ask"
     var defaultCategoryId: String? = null
     var debitAccountId: String? = null
-    var creditAccountId: String? = null
 }
 
 @InvokeArg

@@ -402,10 +402,10 @@ export function NotificationSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('notifications.importAccounts')}</CardTitle>
-          <CardDescription>{t('notifications.importAccountsDesc')}</CardDescription>
+          <CardTitle>{t('notifications.importAccount')}</CardTitle>
+          <CardDescription>{t('notifications.importAccountDesc')}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent>
           <div className="space-y-1.5">
             <Label htmlFor="nc-debit-account">{t('notifications.debitAccount')}</Label>
             <select
@@ -418,25 +418,6 @@ export function NotificationSettingsPage() {
               <option value="">— {t('common.none')} —</option>
               {accounts
                 .filter((a) => a.type === 'asset')
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="nc-credit-account">{t('notifications.creditAccount')}</Label>
-            <select
-              id="nc-credit-account"
-              disabled={!canCapture}
-              value={settings.creditAccountId ?? ''}
-              onChange={(e) => update({ creditAccountId: e.target.value || null })}
-              className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
-            >
-              <option value="">— {t('common.none')} —</option>
-              {accounts
-                .filter((a) => a.type === 'liability')
                 .map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}

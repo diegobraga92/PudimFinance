@@ -74,10 +74,10 @@ import { resolveSwipeGesture } from '../src/app/useSwipeNavigation';
 import { groupTransactionsByMonth } from '../src/features/transactions/group-by-month';
 import { clearAuthSession, setAuthSession } from '../src/lib/auth';
 import {
-  accountIdForAction,
-  captureFromAction,
+  captureDefaultAccountId,
   categoryIdForCapture,
   hasImportedCapture,
+  isCaptureActionKind,
   markCaptureImported,
   nativeImportTransaction,
   parseNotification,
@@ -597,10 +597,20 @@ if (captureChecks.every(([, ok]) => ok)) {
 const actionSettings = {
   defaultCategoryId: 'default-expense-category',
   debitAccountId: 'checking-account',
-  creditAccountId: 'credit-card-account',
 };
 const actionSettingsChecks: [string, boolean][] = [
-  ['credit uses the configured credit-card account', accountIdForAction('credit', actionSettings) === 'credit-card-account'],
+  [
+    'discard is the only prompt action the app applies',
+    isCaptureActionKind('discard') && !isCaptureActionKind('later'),
+  ],
+  [
+    'captured expenses default to the debit account',
+    captureDefaultAccountId('expense', actionSettings, 'fallback-account') === 'checking-account',
+  ],
+  [
+    'captured income falls back to the device default account',
+    captureDefaultAccountId('income', actionSettings, 'fallback-account') === 'fallback-account',
+  ],
   [
     'expense action uses the current default category',
     categoryIdForCapture({ type: 'expense', categoryId: null }, actionSettings) ===
@@ -624,49 +634,6 @@ if (actionSettingsChecks.every(([, ok]) => ok)) {
 }
 
 const actionRecoveryChecks: [string, boolean][] = [
-  (() => {
-    // A listener-posted tap carries the raw notification, so it is re-parsed.
-    const rebuilt = captureFromAction(
-      { action: 'credit', title: 'Nubank', text: 'Compra aprovada de R$ 23,50 em PADARIA DO ZE' },
-      { defaultCategoryId: 'default-expense-category' },
-    );
-    return [
-      'action rebuilds the capture from the raw notification',
-      rebuilt?.parsed.type === 'expense' &&
-        rebuilt.parsed.amount === '23.50' &&
-        rebuilt.parsed.description === 'PADARIA DO ZE',
-    ];
-  })(),
-  (() => {
-    // An in-app prompt has its localized body as `text`; the parsed fields
-    // carried by the action must win so the rebuilt dedup key matches the inbox.
-    const rebuilt = captureFromAction(
-      {
-        action: 'income',
-        amount: '50,00',
-        description: 'JOÃO SILVA',
-        date: '2026-09-16',
-        categoryId: 'cat-income',
-        title: 'Nubank transaction detected',
-        text: 'Compra aprovada de R$ 99,90 em LOJA X',
-        app_label: 'Nubank',
-      },
-      { defaultCategoryId: 'default-expense-category' },
-    );
-    return [
-      'parsed fields win over the prompt body',
-      rebuilt?.parsed.type === 'income' &&
-        rebuilt.parsed.amount === '50.00' &&
-        rebuilt.parsed.description === 'JOÃO SILVA' &&
-        rebuilt.parsed.date === '2026-09-16' &&
-        rebuilt.parsed.categoryId === 'cat-income' &&
-        rebuilt.appName === 'Nubank',
-    ];
-  })(),
-  [
-    'action without a usable amount cannot be rebuilt',
-    captureFromAction({ action: 'credit' }, { defaultCategoryId: null }) === null,
-  ],
   (() => {
     const native = nativeImportTransaction({
       type: 'expense',
@@ -710,7 +677,6 @@ const baseSettings: NotificationSettings = {
   defaultCategoryId: 'cat-1',
   pushPrompt: true,
   debitAccountId: 'acc-1',
-  creditAccountId: 'acc-credit',
 };
 
 const offlineGuardChecks: [string, boolean][] = [
@@ -722,20 +688,19 @@ const offlineGuardChecks: [string, boolean][] = [
     // This is the bug that silently dropped every capture: ids from the previous
     // server survive a server switch and the new server rejects the import.
     const pruned = pruneStaleCaptureSettings(baseSettings, {
-      accounts: [{ id: 'acc-1' }],
+      accounts: [{ id: 'acc-other' }],
       categories: [{ id: 'other-category' }],
     });
     return [
       'capture settings from another server are cleared',
       pruned.changed &&
-        pruned.settings.debitAccountId === 'acc-1' &&
-        pruned.settings.creditAccountId === null &&
+        pruned.settings.debitAccountId === null &&
         pruned.settings.defaultCategoryId === null,
     ];
   })(),
   (() => {
     const pruned = pruneStaleCaptureSettings(baseSettings, {
-      accounts: [{ id: 'acc-1' }, { id: 'acc-credit' }],
+      accounts: [{ id: 'acc-1' }],
       categories: [{ id: 'cat-1' }],
     });
     return ['settings that still exist are kept', !pruned.changed];

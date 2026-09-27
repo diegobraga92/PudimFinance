@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Edit3, Inbox, Loader2, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 
 import { useI18n } from '@/app/i18n';
 import { fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
@@ -78,14 +79,25 @@ export function PendingCapturesPage() {
     return Array.from(map.entries());
   }, [pendingItems]);
 
-  const openEdit = (item: PendingCapture) => {
+  const openEdit = React.useCallback((item: PendingCapture) => {
     setEditing(item);
     setEditDescription(item.description);
     setEditAmount(item.amount);
     setEditCategoryId(item.categoryId);
     setEditAccountId('');
     setEditInstallments('1');
-  };
+  }, []);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const deepLinkedCaptureId = searchParams.get('capture');
+  React.useEffect(() => {
+    if (!deepLinkedCaptureId) return;
+    const item = pendingItems.find((candidate) => candidate.id === deepLinkedCaptureId);
+    if (!item) return;
+    openEdit(item);
+    setSearchParams({}, { replace: true });
+  }, [deepLinkedCaptureId, openEdit, pendingItems, setSearchParams]);
 
   const saveEdit = async () => {
     if (!editing) return;

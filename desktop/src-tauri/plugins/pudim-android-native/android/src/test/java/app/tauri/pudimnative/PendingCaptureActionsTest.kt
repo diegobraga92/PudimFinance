@@ -12,7 +12,7 @@ import org.junit.Test
 class PendingCaptureActionsTest {
 
     private fun action(captureId: String, extra: Map<String, Any?> = emptyMap()): Map<String, Any?> =
-        mapOf("capture_id" to captureId, "action" to "credit") + extra
+        mapOf("capture_id" to captureId, "action" to "discard") + extra
 
     @Test
     fun decodeReturnsEveryQueuedActionWithoutClearingIt() {
@@ -28,13 +28,13 @@ class PendingCaptureActionsTest {
 
     @Test
     fun addItemKeepsOnlyTheLatestEventPerCaptureId() {
-        val first = PendingCaptureActions.addItem(null, action("cap-1", mapOf("action" to "credit")))
-        val second = PendingCaptureActions.addItem(first, action("cap-1", mapOf("action" to "debit")))
+        val first = PendingCaptureActions.addItem(null, action("cap-1", mapOf("action" to "discard")))
+        val second = PendingCaptureActions.addItem(first, action("cap-1", mapOf("action" to "later")))
 
         val items = PendingCaptureActions.decode(second)
 
         assertEquals(1, items.size)
-        assertEquals("debit", items.single()["action"])
+        assertEquals("later", items.single()["action"])
     }
 
     @Test

@@ -180,7 +180,8 @@ function routeFromDeepLink(link: string): string | null {
   }
   // Capture-prompt notifications open the pending-review inbox.
   if (link.startsWith('pending-review')) {
-    return '/pending-review';
+    const query = link.slice('pending-review'.length);
+    return `/pending-review${query.startsWith('?') ? query : ''}`;
   }
   if (link.startsWith('dashboard')) {
     return '/dashboard';

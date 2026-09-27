@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Posting the import prompt on Android 13+ requires the runtime opt-in. -->
+    <!-- Posting the capture prompt on Android 13+ requires the runtime opt-in. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Used by the shared webview QR scanner. wry requests runtime access when getUserMedia starts. -->
     <uses-permission android:name="android.permission.CAMERA" />

@@ -5,17 +5,19 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Handles the income / debit / credit buttons on an import-prompt notification.
+ * Handles the Discard / Later buttons on a capture-prompt notification.
  *
- * When the WebView is active the choice is forwarded immediately through
- * [PudimNativePlugin.notifyCaptureAction] (the `captureAction` event).
- * Otherwise the choice is imported straight into the encrypted native outbox
- * ([NativeCaptureImporter.importAction]).
+ * Tapping either action consumes the prompt. Discard additionally drops the
+ * capture everywhere: the raw notification is removed from
+ * [NotificationCaptureQueue] and the choice is reported to the WebView
+ * ([PudimNativePlugin.notifyCaptureAction], the `captureAction` event) so an
+ * open review inbox drops it immediately. The choice is always persisted in
+ * [PendingCaptureActions] too, so a WebView that is asleep (or crashes) applies
+ * the discard on the next drain instead of leaving the capture behind.
  *
- * Either way the choice is also persisted in [PendingCaptureActions], carrying
- * the uploaded transaction (including its `client_id`) when a native import
- * ran, so the app can materialize or retry it on the next drain instead of
- * losing a capture that was never shown in the review inbox.
+ * "Later" needs no bookkeeping: the capture already sits in
+ * [NotificationCaptureQueue] (or the in-app inbox) and shows up on the
+ * pending-review screen on the next drain.
  */
 class CaptureActionReceiver : BroadcastReceiver() {
 
@@ -27,71 +29,32 @@ class CaptureActionReceiver : BroadcastReceiver() {
         // Tapping an action consumes the prompt.
         CapturePromptNotifier.cancel(context, captureId)
 
-        val payload = mutableMapOf<String, Any?>(
-            "capture_id" to captureId,
-            "action" to action,
-        )
-        // Raw notification context, present only when the listener posted the
-        // prompt (app was dead) — lets the webview replay the import later.
-        intent.getStringExtra(EXTRA_APP_NAME)?.let { payload["app_name"] = it }
-        intent.getStringExtra(EXTRA_APP_LABEL)?.let { payload["app_label"] = it }
-        intent.getStringExtra(EXTRA_TITLE)?.let { payload["title"] = it }
-        intent.getStringExtra(EXTRA_TEXT)?.let { payload["text"] = it }
-        // Parsed fields carried by in-app prompts, whose intent has no raw text.
-        intent.getStringExtra(EXTRA_DESCRIPTION)?.let { payload["description"] = it }
-        intent.getStringExtra(EXTRA_AMOUNT)?.let { payload["amount"] = it }
-        intent.getStringExtra(EXTRA_TYPE)?.let { payload["type"] = it }
-        intent.getStringExtra(EXTRA_DATE)?.let { payload["date"] = it }
-        intent.getStringExtra(EXTRA_CATEGORY_ID)?.let { payload["category_id"] = it }
-        val postTime = intent.getLongExtra(EXTRA_POST_TIME, 0L)
-        if (postTime > 0L) payload["post_time"] = postTime
-
-        // A capture the listener already imported (Android can redeliver an
-        // action) is owned by the sync outbox, so it must not be imported twice.
-        if (NativeCaptureJournal.contains(context, captureId)) {
-            PudimNativeLogs.info(TAG, "action=$action capture=$captureId ignored: already imported")
-            NotificationCaptureQueue.removeByCaptureId(context, captureId)
-            return
-        }
-
-        val forwarded = PudimNativePlugin.notifyCaptureAction(payload)
-        if (!forwarded) {
-            // No WebView listener: import immediately into the encrypted native
-            // outbox so the tap still creates a transaction. A failure here must
-            // never lose the tap, because the journal below always runs.
-            val imported = runCatching { NativeCaptureImporter.importAction(context, payload) }
-                .onFailure {
-                    PudimNativeLogs.warn(
-                        TAG,
-                        "action=$action capture=$captureId native import failed; keeping it for the app: ${it.message}",
-                    )
-                }
-                .getOrNull()
-            if (imported != null) {
-                payload.putAll(
-                    NativeCaptureImporter.importPayload(
-                        payload,
-                        captureId,
-                        imported.clientId,
-                        imported.plan,
-                        context.getString(R.string.capture_notes),
-                    ),
+        when (action) {
+            CapturePromptNotifier.ACTION_DISCARD -> {
+                // Drop the queued raw notification so a later drain cannot bring
+                // the discarded capture back into the review inbox.
+                NotificationCaptureQueue.removeByCaptureId(context, captureId)
+                val payload = mutableMapOf<String, Any?>(
+                    "capture_id" to captureId,
+                    "action" to action,
+                )
+                val forwarded = PudimNativePlugin.notifyCaptureAction(payload)
+                // Always journal: if the WebView never sees this, the discard is
+                // applied on the next launch instead of resurrecting the capture.
+                PendingCaptureActions.enqueue(context, payload)
+                PudimNativeLogs.info(
+                    TAG,
+                    "action=$action capture=$captureId " +
+                        if (forwarded) "forwarded to the app" else "queued for the app",
                 )
             }
+            CapturePromptNotifier.ACTION_LATER -> {
+                PudimNativeLogs.info(TAG, "action=$action capture=$captureId kept for review")
+            }
+            else -> {
+                PudimNativeLogs.warn(TAG, "unknown action '$action' for capture=$captureId")
+            }
         }
-
-        PudimNativeLogs.info(
-            TAG,
-            "action=$action capture=$captureId " + when {
-                forwarded -> "forwarded to the app"
-                payload.containsKey("client_id") -> "imported natively (client=${payload["client_id"]})"
-                else -> "queued for the app"
-            },
-        )
-
-        // Always journal: if the WebView never sees this, the action is drained
-        // on the next launch and completes the import.
-        PendingCaptureActions.enqueue(context, payload)
     }
 
     companion object {
@@ -99,15 +62,5 @@ class CaptureActionReceiver : BroadcastReceiver() {
         const val ACTION = "app.tauri.pudimnative.CAPTURE_ACTION"
         const val EXTRA_CAPTURE_ID = "capture_id"
         const val EXTRA_ACTION = "action"
-        const val EXTRA_APP_NAME = "app_name"
-        const val EXTRA_APP_LABEL = "app_label"
-        const val EXTRA_TITLE = "title"
-        const val EXTRA_TEXT = "text"
-        const val EXTRA_DESCRIPTION = "description"
-        const val EXTRA_AMOUNT = "amount"
-        const val EXTRA_TYPE = "type"
-        const val EXTRA_DATE = "date"
-        const val EXTRA_CATEGORY_ID = "category_id"
-        const val EXTRA_POST_TIME = "post_time"
     }
 }

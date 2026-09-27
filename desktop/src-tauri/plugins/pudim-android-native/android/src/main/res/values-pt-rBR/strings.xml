@@ -24,9 +24,8 @@
     <string name="capture_prompt_channel_name">Transação detectada</string>
     <string name="capture_prompt_channel_desc">Pergunta como importar uma transação detectada em uma notificação bancária</string>
     <string name="capture_prompt_title">Transação detectada — %1$s</string>
-    <string name="capture_prompt_income">Receita</string>
-    <string name="capture_prompt_debit">Débito</string>
-    <string name="capture_prompt_credit">Crédito</string>
+    <string name="capture_prompt_discard">Descartar</string>
+    <string name="capture_prompt_later">Depois</string>
     <string name="capture_notes">Capturada a partir de notificação</string>
     <string name="biometric_title">Desbloquear PudimFinance</string>
     <string name="biometric_subtitle">Use sua impressão digital ou rosto para continuar</string>

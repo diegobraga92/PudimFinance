@@ -15,13 +15,14 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
 /**
- * Posts the "how do you want to import this?" notification for a captured bank
+ * Posts the "what do you want to do with this?" notification for a captured bank
  * transaction, and handles the Android 13+ `POST_NOTIFICATIONS` opt-in.
  *
- * The notification offers three import actions (income / debit / credit) wired
- * to [CaptureActionReceiver], plus a content intent that opens the app on the
- * pending-review screen. Notifications are keyed by the capture id (tag) so a
- * later cancel/edit can address a single capture.
+ * The notification offers two actions wired to [CaptureActionReceiver] — discard
+ * the capture or leave it for the pending-review screen — plus a content intent
+ * that opens the app on that screen with the capture's editor already open.
+ * Notifications are keyed by the capture id (tag) so a later cancel/edit can
+ * address a single capture.
  */
 internal object CapturePromptNotifier {
     private const val CHANNEL_ID = "pudim_capture_prompt"
@@ -30,10 +31,9 @@ internal object CapturePromptNotifier {
     /** Request code for the `POST_NOTIFICATIONS` runtime prompt. */
     const val PERMISSION_REQUEST_CODE = 4201
 
-    /** Import kinds carried by the notification action buttons. */
-    const val ACTION_INCOME = "income"
-    const val ACTION_DEBIT = "debit"
-    const val ACTION_CREDIT = "credit"
+    /** Actions carried by the notification buttons. */
+    const val ACTION_DISCARD = "discard"
+    const val ACTION_LATER = "later"
 
     /** Creates the heads-up channel once (no-op below Android O). */
     private fun ensureChannel(context: Context) {
@@ -51,14 +51,13 @@ internal object CapturePromptNotifier {
         )
     }
 
-    /** Posts (or replaces) the import prompt for [captureId]. */
+    /** Posts (or replaces) the capture prompt for [captureId]. */
     fun show(
         context: Context,
         captureId: String,
         title: String,
         body: String,
         appLabel: String,
-        source: Map<String, Any?>? = null,
     ) {
         ensureChannel(context)
         if (!postingAllowed(context)) return
@@ -74,9 +73,8 @@ internal object CapturePromptNotifier {
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(openIntent(context, captureId))
-            .addAction(action(context, captureId, ACTION_INCOME, context.getString(R.string.capture_prompt_income), source))
-            .addAction(action(context, captureId, ACTION_DEBIT, context.getString(R.string.capture_prompt_debit), source))
-            .addAction(action(context, captureId, ACTION_CREDIT, context.getString(R.string.capture_prompt_credit), source))
+            .addAction(action(context, captureId, ACTION_DISCARD, context.getString(R.string.capture_prompt_discard)))
+            .addAction(action(context, captureId, ACTION_LATER, context.getString(R.string.capture_prompt_later)))
             .build()
 
         if (
@@ -87,7 +85,7 @@ internal object CapturePromptNotifier {
         NotificationManagerCompat.from(context).notify(captureId, NOTIFICATION_ID, notification)
     }
 
-    /** Dismisses the import prompt for [captureId], if still visible. */
+    /** Dismisses the capture prompt for [captureId], if still visible. */
     fun cancel(context: Context, captureId: String) {
         NotificationManagerCompat.from(context).cancel(captureId, NOTIFICATION_ID)
     }
@@ -117,13 +115,12 @@ internal object CapturePromptNotifier {
         return postingAllowed(activity)
     }
 
-    /** Action button that reports the chosen import kind back to the webview. */
+    /** Action button that reports the tapped choice back to [CaptureActionReceiver]. */
     private fun action(
         context: Context,
         captureId: String,
         action: String,
         label: String,
-        source: Map<String, Any?>?,
     ): NotificationCompat.Action {
         val intent = Intent(context, CaptureActionReceiver::class.java).apply {
             this.action = CaptureActionReceiver.ACTION
@@ -131,40 +128,6 @@ internal object CapturePromptNotifier {
             data = Uri.parse("pudim-capture://action/$captureId/$action")
             putExtra(CaptureActionReceiver.EXTRA_CAPTURE_ID, captureId)
             putExtra(CaptureActionReceiver.EXTRA_ACTION, action)
-            // When the listener posted the prompt (app was dead) the raw
-            // notification travels with the action so the webview can import it
-            // on next launch without needing a pre-existing inbox entry.
-            source?.let { fields ->
-                (fields["app_name"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_APP_NAME, it)
-                }
-                (fields["app_label"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_APP_LABEL, it)
-                }
-                (fields["title"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_TITLE, it)
-                }
-                (fields["text"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_TEXT, it)
-                }
-                // Parsed fields, sent for in-app prompts whose action intent
-                // carries no raw notification text.
-                (fields["description"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_DESCRIPTION, it)
-                }
-                (fields["amount"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_AMOUNT, it)
-                }
-                (fields["date"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_DATE, it)
-                }
-                (fields["category_id"] as? String)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_CATEGORY_ID, it)
-                }
-                (fields["post_time"] as? Long)?.let {
-                    putExtra(CaptureActionReceiver.EXTRA_POST_TIME, it)
-                }
-            }
         }
         val requestCode = 31 * captureId.hashCode() + action.hashCode()
         val pending = PendingIntent.getBroadcast(

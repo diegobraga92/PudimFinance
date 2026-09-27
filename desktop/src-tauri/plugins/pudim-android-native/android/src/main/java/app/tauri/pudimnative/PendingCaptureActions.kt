@@ -6,9 +6,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Durable journal of capture events the WebView has not processed yet: import
- * choices tapped on a capture-prompt notification, and transactions imported
- * natively while no WebView was alive.
+ * Durable journal of capture events the WebView has not processed yet: choices
+ * tapped on a capture-prompt notification, and transactions imported natively
+ * while no WebView was alive.
  *
  * The WebView *peeks* the journal and acknowledges each entry only after it has
  * been applied, so a crash (or an entry the WebView cannot apply) leaves the tap

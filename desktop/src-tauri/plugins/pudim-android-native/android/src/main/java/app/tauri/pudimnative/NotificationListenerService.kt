@@ -17,12 +17,12 @@ private val FINANCIAL_TEXT_REGEX = Regex(
  * Notification access).
  *
  * While the app process is alive, each notification is forwarded to the webview
- * through [PudimNativePlugin], which parses it and may post an import prompt.
+ * through [PudimNativePlugin], which parses it and may post a capture prompt.
  *
  * Android keeps this service bound and restarts it after the app is killed, so
  * capture keeps working. In that case the webview is unavailable, so the
  * listener checks the mirrored settings ([CaptureSettingsStore]), detects an
- * amount, posts the import prompt itself ([CapturePromptNotifier]) and persists
+ * amount, posts the capture prompt itself ([CapturePromptNotifier]) and persists
  * the notification (with a `capture_id`/`prompted` flag) for the next launch.
  */
 class NotificationListenerService : NotificationListenerService() {
@@ -57,7 +57,6 @@ class NotificationListenerService : NotificationListenerService() {
                 getString(R.string.capture_prompt_title, appLabel),
                 text,
                 appLabel,
-                source = payload,
             )
             PudimNativeLogs.info(TAG, "prompt posted for $appLabel (capture=$captureId)")
         }

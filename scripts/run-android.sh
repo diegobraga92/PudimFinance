@@ -44,19 +44,20 @@ The runner uses the host backend through Android emulator loopback
 (http://10.0.2.2:3000) and does not reset the database.
 
 Options:
-  --smoke          Post a synthetic financial notification, tap its Credit
-                   quick action, and assert the tap is never lost (it must
-                   create the transaction or stay on Pending review). Fails the
-                   run otherwise. Implies --verify-action=credit.
-  --verify-action[=income|debit|credit]
+  --smoke          Post a synthetic financial notification, tap its Discard
+                   button, and assert the tap is never lost (the capture must be
+                   discarded instead of resurfacing). Fails the run otherwise.
+                   Implies --verify-action=discard.
+  --verify-action[=discard|later]
                    Post the synthetic notification and tap that quick action
-                   instead of just asserting the prompt exists (default: credit).
+                   instead of just asserting the prompt exists (default: discard).
                    Requires a signed-in session with notification capture on.
   --verify-stale-refs
                    Seed a capture category id this server does not have (what a
-                   restored database or a server switch leaves behind), tap
-                   Credit, and assert the capture is still stored — uncategorized
-                   with a warning — instead of being rejected and dropped.
+                   restored database or a server switch leaves behind), let the
+                   closed-app auto-import run, and assert the capture is still
+                   stored — uncategorized with a warning — instead of being
+                   rejected and dropped.
   --no-build       Reuse the newest existing debug APK. Refuses to install an
                    APK older than the sources it was built from unless
                    --allow-stale is passed (a stale APK silently hides fixes).
@@ -81,7 +82,7 @@ EOF
 for arg in "$@"; do
     case "$arg" in
         --smoke)        SMOKE=true ;;
-        --verify-action) VERIFY_ACTION=credit ;;
+        --verify-action) VERIFY_ACTION=discard ;;
         --verify-action=*) VERIFY_ACTION="${arg#*=}" ;;
         --verify-stale-refs) VERIFY_STALE_REFS=true ;;
         --allow-stale)  ALLOW_STALE=true ;;
@@ -95,11 +96,11 @@ for arg in "$@"; do
 done
 
 if [ -z "$VERIFY_ACTION" ] && [ "$SMOKE" = true ]; then
-    VERIFY_ACTION=credit
+    VERIFY_ACTION=discard
 fi
 case "$VERIFY_ACTION" in
-    "" | income | debit | credit) ;;
-    *) log_error "--verify-action must be one of: income, debit, credit (got '$VERIFY_ACTION')."; exit 2 ;;
+    "" | discard | later) ;;
+    *) log_error "--verify-action must be one of: discard, later (got '$VERIFY_ACTION')."; exit 2 ;;
 esac
 
 cleanup() {
@@ -372,9 +373,8 @@ post_test_notification() {
 
 action_label_for() {
     case "$1" in
-        income) printf 'Income' ;;
-        debit)  printf 'Debit' ;;
-        credit) printf 'Credit' ;;
+        discard) printf 'Discard' ;;
+        later)   printf 'Later' ;;
     esac
 }
 
@@ -402,8 +402,7 @@ journal_actions() {
         cat shared_prefs/pudim_capture_actions.xml 2>/dev/null || true
 }
 
-# Taps a real Income/Debit/Credit button and asserts the capture is never lost:
-# the native import uploaded it, or the app applied and acknowledged the journal.
+# Taps a real Discard/Later button and asserts the tap is never lost.
 verify_capture_action() {
     local kind="$1"
     local label
@@ -473,6 +472,11 @@ verify_capture_action() {
         return 1
     fi
     log_ok "The '$label' tap reached the capture receiver."
+
+    if [ "$kind" = "later" ]; then
+        log_ok "Later left the capture for the Pending review screen."
+        return 0
+    fi
 
     # A rejected operation must never be swallowed. The field bug had the worker
     # acknowledge an operation the server refused ("Failed to resolve posting
@@ -560,6 +564,17 @@ capture_settings_with_stale_category() {
     fi
 }
 
+capture_settings_with_mode() {
+    local xml="$1" mode="$2"
+    if printf '%s' "$xml" | grep -q 'name="mode"'; then
+        printf '%s' "$xml" | sed -E \
+            "s|<string name=\"mode\">[^<]*</string>|<string name=\"mode\">$mode</string>|"
+    else
+        printf '%s' "$xml" | sed -E \
+            "s|</map>|<string name=\"mode\">$mode</string></map>|"
+    fi
+}
+
 # A capture settings mirror the server cannot resolve (restored database, or the
 # app pointed at another server) used to be an invisible data-loss path: the
 # server rejected every import and the worker deleted the operation, so the
@@ -576,12 +591,18 @@ verify_stale_capture_reference() {
     # SharedPreferences are cached in memory, so patch the file while stopped.
     "$ADB" -s "$DEVICE_SERIAL" shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1 || true
     sleep 1
-    capture_settings_write "$(capture_settings_with_stale_category "$original")"
+    capture_settings_write "$(capture_settings_with_mode "$(capture_settings_with_stale_category "$original")" auto)"
     if ! capture_settings_read | grep -q "$STALE_CAPTURE_CATEGORY"; then
         log_error "Could not seed the stale category id into the native capture settings."
+        capture_settings_write "$original"
         return 1
     fi
-    log_info "Seeded category $STALE_CAPTURE_CATEGORY (absent here); the capture must still be stored."
+    if ! capture_settings_read | grep -q '<string name="mode">auto</string>'; then
+        log_error "Could not switch the native capture mode to auto for the stale-category check."
+        capture_settings_write "$original"
+        return 1
+    fi
+    log_info "Seeded category $STALE_CAPTURE_CATEGORY (absent here) with mode=auto; the capture must still be stored."
 
     # The listener restarts for the synthetic notification with the app stopped,
     # which is exactly the closed-app import path that failed in the field.
@@ -589,11 +610,15 @@ verify_stale_capture_reference() {
         capture_settings_write "$original"
         return 1
     fi
-    local status=0
-    verify_capture_action credit || status=1
 
-    if "$ADB" -s "$DEVICE_SERIAL" logcat -d \
-        -s PudimSyncWorker:I '*:S' 2>/dev/null | grep -q 'stored with a warning'; then
+    local status=0
+    local worker_log
+    worker_log="$("$ADB" -s "$DEVICE_SERIAL" logcat -d -s PudimSyncWorker:I '*:S' 2>/dev/null || true)"
+    if printf '%s' "$worker_log" | grep -qE 'rejected|failed permanently|Failed to resolve posting account'; then
+        log_error "The server rejected the stale-category capture instead of storing it uncategorized."
+        printf '%s' "$worker_log" | grep -E 'rejected|failed permanently|Failed to resolve posting account' | tail -5 >&2
+        status=1
+    elif printf '%s' "$worker_log" | grep -q 'stored with a warning'; then
         log_ok "The server stored the capture without the missing category and said so."
     else
         log_warn "No 'stored with a warning' line in the worker log; the downgrade was not reported."
@@ -626,11 +651,11 @@ Useful commands:
   $ADB -s $DEVICE_SERIAL shell dumpsys notification --noredact
   $ADB -s $DEVICE_SERIAL shell "cmd notification post -S bigtext -t Nubank test-1 'Compra aprovada de R\$ 23,50 em PADARIA DO ZE'"
 
-Verifying the prompt actions (Income / Debit / Credit):
-  1. automated: re-run with --verify-action=credit (or income/debit); --smoke
-     implies it. The runner posts the synthetic notification, taps the real
-     button through uiautomator, then asserts the tap was not lost.
-  2. manual: post the synthetic notification above and tap Credit yourself
+Verifying the prompt actions (Discard / Later):
+  1. automated: re-run with --verify-action=discard (or later); --smoke implies
+     it. The runner posts the synthetic notification, taps the real button
+     through uiautomator, then asserts the tap was not lost.
+  2. manual: post the synthetic notification above and tap Discard yourself
   3. watch the worker, the capture decisions, and any crash:
        $ADB -s $DEVICE_SERIAL logcat -s PudimCapture:I PudimSyncWorker:I AndroidRuntime:E
   4. inspect what the tap journaled (debug builds only):
@@ -641,8 +666,8 @@ Verifying the prompt actions (Income / Debit / Credit):
   5. in the app, Settings -> Logs (or the Server screen shortcut) shows the same
      trail merged with the WebView/API/sync entries; this also works on release
      builds, where logcat and `run-as` are unavailable.
-  The tap must always either create the transaction or keep the capture on the
-  Pending review screen; if neither happens, the run is a regression.
+  Discard must drop the capture and Later must leave it on the Pending review
+  screen; a tap that reaches neither is a regression.
 
 The app must be signed in and notification capture enabled before the
 synthetic notification can create a transaction.

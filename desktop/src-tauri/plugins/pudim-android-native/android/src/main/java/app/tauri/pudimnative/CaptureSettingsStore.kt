@@ -9,7 +9,7 @@ import org.json.JSONArray
  *
  * The webview pushes a snapshot whenever settings change (`setCaptureSettings`)
  * so [NotificationListenerService] can honor them while the app process is
- * dead — in particular to decide whether to post an import prompt right away
+ * dead — in particular to decide whether to post a capture prompt right away
  * instead of waiting for the next launch.
  */
 internal object CaptureSettingsStore {
@@ -20,7 +20,6 @@ internal object CaptureSettingsStore {
     private const val KEY_MODE = "mode"
     private const val KEY_DEFAULT_CATEGORY = "default_category_id"
     private const val KEY_DEBIT_ACCOUNT = "debit_account_id"
-    private const val KEY_CREDIT_ACCOUNT = "credit_account_id"
 
     data class Snapshot(
         val enabled: Boolean,
@@ -30,7 +29,6 @@ internal object CaptureSettingsStore {
         val mode: String,
         val defaultCategoryId: String?,
         val debitAccountId: String?,
-        val creditAccountId: String?,
     )
 
     fun save(
@@ -41,7 +39,6 @@ internal object CaptureSettingsStore {
         mode: String,
         defaultCategoryId: String?,
         debitAccountId: String?,
-        creditAccountId: String?,
     ) {
         prefs(context).edit()
             .putBoolean(KEY_ENABLED, enabled)
@@ -50,7 +47,6 @@ internal object CaptureSettingsStore {
             .putString(KEY_MODE, mode)
             .putString(KEY_DEFAULT_CATEGORY, defaultCategoryId)
             .putString(KEY_DEBIT_ACCOUNT, debitAccountId)
-            .putString(KEY_CREDIT_ACCOUNT, creditAccountId)
             // The notification listener may be the next process to read this
             // snapshot, so do not leave the write in the app process queue.
             .commit()
@@ -65,7 +61,6 @@ internal object CaptureSettingsStore {
             mode = prefs.getString(KEY_MODE, "ask") ?: "ask",
             defaultCategoryId = prefs.getString(KEY_DEFAULT_CATEGORY, null),
             debitAccountId = prefs.getString(KEY_DEBIT_ACCOUNT, null),
-            creditAccountId = prefs.getString(KEY_CREDIT_ACCOUNT, null),
         )
     }
 

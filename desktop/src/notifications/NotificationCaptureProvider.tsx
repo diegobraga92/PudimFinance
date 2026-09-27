@@ -4,11 +4,8 @@ import { useToast } from '@/components/ui/toaster';
 import { useI18n } from '@/app/i18n';
 import {
   addPendingCapture,
-  accountIdForAction,
   appLabelFor,
   captureDefaultAccountId,
-  captureFromAction,
-  categoryIdForCapture,
   dedupKeyOf,
   FALLBACK_CAPTURE_DESCRIPTION,
   getNotificationSettings,
@@ -26,7 +23,6 @@ import {
   removePendingCaptureByDedupKey,
   saveNotificationSettings,
   toPendingCapture,
-  transactionTypeForAction,
   type NotificationSettings,
   type ParsedTransaction,
   type PendingCapture,
@@ -121,18 +117,13 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     [],
   );
 
-  /** Posts the OS import prompt for a freshly queued capture (Android). */
+  /** Posts the OS capture prompt (Discard / Later) for a freshly queued capture. */
   const promptCapture = React.useCallback(async (item: PendingCapture): Promise<boolean> => {
     if (!(await notificationPostingAllowed())) return false;
     const appLabel = appLabelFor(item.appName);
     await showCapturePrompt({
       id: item.id,
       appLabel,
-      appName: item.appName,
-      description: item.description,
-      amount: item.amount,
-      date: item.date,
-      categoryId: item.categoryId,
       title: tRef.current('notifications.promptTitle', { app: appLabel }),
       body: tRef.current('notifications.promptBody', {
         description: item.description,
@@ -178,8 +169,8 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
           .catch(() => {});
       } else {
         // In ask mode, queue for review and (Android) post a system notification
-        // with Income / Debit / Credit import actions. Each capture prompts at
-        // most once, even if its (drained) notification is re-processed later.
+        // with Discard / Later actions. Each capture prompts at most once, even
+        // if its (drained) notification is re-processed later.
         const appName = sourceLabel(notification);
         logEvent(
           'info',
@@ -324,123 +315,24 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
   }, [reportNativeSyncIssues]);
 
   /**
-   * Imports a queued capture from a prompt action (income/debit/credit).
-   *
-   * Resolves whether the action is settled: `false` keeps it in the native
-   * journal so the next drain retries instead of losing the tap.
+   * Applies a capture event the native side journaled (or pushed live).
    */
-  const importFromAction = React.useCallback(async (action: CaptureAction): Promise<boolean> => {
-    // Settings may change while this provider remains mounted. Reload them so
-    // push actions use the current account and default-category selections.
-    const settings = await getNotificationSettings();
-    settingsRef.current = settings;
+  const applyCaptureAction = React.useCallback(async (action: CaptureAction): Promise<boolean> => {
     if (action.native_import && action.client_id) {
       setPendingItems(await adoptNativeImport(action));
       return true;
     }
-    const kind = action.action;
-    if (!isCaptureActionKind(kind)) {
-      // Nothing to import and nothing to retry: drop it instead of replaying it.
-      logEvent('warn', 'capture', `capture ${action.capture_id} carried no import action`);
+    if (isCaptureActionKind(action.action)) {
+      void cancelCapturePrompt(action.capture_id);
+      logEvent('info', 'capture', `discarded capture ${action.capture_id}`);
+      setPendingItems(await removePendingCapture(action.capture_id));
       return true;
     }
-    logEvent('info', 'capture', `action ${kind} for capture ${action.capture_id}`);
-    let item = (await getPendingCaptures()).find((c) => c.id === action.capture_id);
-    if (!item) {
-      // The listener posted the prompt while the app was dead, so the inbox
-      // entry may not exist yet (or carries a different id). Rebuild it from the
-      // raw notification text or the parsed fields that travelled with the tap.
-      const rebuilt = captureFromAction(
-        {
-          action: kind,
-          amount: action.amount,
-          description: action.description,
-          date: action.date,
-          categoryId: action.category_id,
-          title: action.title,
-          text: action.text,
-          app_name: action.app_name,
-          app_label: action.app_label,
-        },
-        settings,
-      );
-      if (rebuilt) {
-        item = toPendingCapture(rebuilt.parsed, rebuilt.appName, { id: action.capture_id });
-      }
-    }
-    if (!item) {
-      // Never swallow a tap: keep an editable placeholder so the capture still
-      // reaches the review inbox instead of vanishing with the prompt.
-      setPendingItems(
-        await addPendingCapture(
-          toPendingCapture(
-            {
-              type: transactionTypeForAction(kind),
-              amount: '0.00',
-              description: action.description?.trim() || FALLBACK_CAPTURE_DESCRIPTION,
-              date: isoDateOrToday(action.date),
-              categoryId: settings.defaultCategoryId,
-            },
-            action.app_label ?? action.app_name ?? '',
-            { id: action.capture_id },
-          ),
-        ),
-      );
-      toastRef.current({ title: tRef.current('notifications.failedCreate'), variant: 'error' });
-      logEvent(
-        'warn',
-        'capture',
-        `action ${kind} for capture ${action.capture_id} could not be rebuilt; kept for review`,
-      );
-      return true;
-    }
-    const { dedupKey } = item;
-    // The dedup journal is only written after a successful import, by this path,
-    // by approve(), or by adoptNativeImport(), so a hit here is a genuine
-    // duplicate notification rather than an unimported capture.
-    if (hasImportedCapture(dedupKey)) {
-      setPendingItems(await removePendingCaptureByDedupKey(dedupKey));
-      logEvent('info', 'capture', `action ${kind} skipped: ${item.description} was already imported`);
-      return true;
-    }
-    const accountId = accountIdForAction(kind, settings, getDefaultAccountId());
-    const categoryId = categoryIdForCapture(item, settings);
-    try {
-      await createTransaction({
-        description: item.description,
-        amount: item.amount,
-        type: transactionTypeForAction(kind),
-        category_id: categoryId,
-        date: item.date,
-        account_id: accountId,
-        notes: tRef.current('notifications.notes'),
-      });
-      await removePendingCapture(item.id);
-      const next = await removePendingCaptureByDedupKey(dedupKey);
-      await markCaptureImported(dedupKey);
-      setPendingItems(next);
-      requestSync();
-      const online = await isOnline();
-      logEvent('info', 'capture', `imported ${kind} ${item.amount} "${item.description}"`);
-      toastRef.current({
-        title: online
-          ? tRef.current('notifications.created', { amount: item.amount })
-          : tRef.current('notifications.createdOffline', { amount: item.amount }),
-        variant: 'success',
-      });
-      return true;
-    } catch (err) {
-      logError('capture', err, `action ${kind} for capture ${action.capture_id}`);
-      toastRef.current({
-        title: err instanceof Error ? err.message : tRef.current('notifications.failedCreate'),
-        variant: 'error',
-      });
-      // Leave the tap journaled so the next drain retries the import.
-      return false;
-    }
+    logEvent('warn', 'capture', `capture ${action.capture_id} carried no action`);
+    return true;
   }, [adoptNativeImport]);
-  const importFromActionRef = React.useRef(importFromAction);
-  importFromActionRef.current = importFromAction;
+  const applyCaptureActionRef = React.useRef(applyCaptureAction);
+  applyCaptureActionRef.current = applyCaptureAction;
 
   const subscribeLive = React.useCallback(async () => {
     if (!nativeUnsubscribeRef.current) {
@@ -460,7 +352,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
     }
     if (!actionUnsubscribeRef.current) {
       actionUnsubscribeRef.current = await subscribeCaptureActions((action) => {
-        void importFromActionRef.current(action);
+        void applyCaptureActionRef.current(action);
       });
     }
   }, []);
@@ -508,7 +400,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       for (const action of actions) {
         let applied = false;
         try {
-          applied = await importFromActionRef.current(action);
+          applied = await applyCaptureActionRef.current(action);
         } catch (err) {
           logError('capture', err, `draining capture ${action.capture_id}`);
         }

@@ -9,9 +9,6 @@ internal object NativeCaptureImporter {
 
     private const val TAG = "PudimCapture"
 
-    /** `YYYY-MM-DD` check for dates that travelled from the WebView. */
-    private val isoDate = Regex("\\d{4}-\\d{2}-\\d{2}")
-
     fun importAuto(context: Context, payload: Map<String, Any?>): Boolean {
         val settings = CaptureSettingsStore.read(context)
         if (!settings.enabled || settings.mode != "auto") return false
@@ -33,50 +30,6 @@ internal object NativeCaptureImporter {
         // import for it to mirror the transaction locally on the next drain.
         PendingCaptureActions.enqueue(context, importPayload(payload, captureId, clientId, plan, notes))
         return true
-    }
-
-    /**
-     * Imports a tapped prompt action into the encrypted outbox.
-     *
-     * Returns null when settings or the notification prevent an import, so the
-     * caller keeps the raw action journaled for the WebView instead of
-     * consuming the capture. Callers are expected to have filtered captures
-     * that were already imported ([NativeCaptureJournal.contains]).
-     */
-    fun importAction(context: Context, payload: Map<String, Any?>): NativeCaptureImport? {
-        val captureId = payload["capture_id"] as? String ?: return null
-        val action = payload["action"] as? String ?: return null
-        val settings = CaptureSettingsStore.read(context)
-        val parsed = parsePayload(payload, settings.defaultCategoryId)
-        if (parsed == null) {
-            PudimNativeLogs.info(
-                TAG,
-                "capture=$captureId not imported: no amount found in the notification or action",
-            )
-            return null
-        }
-        val plan = CaptureImportPlanner.planForAction(
-            action,
-            parsed,
-            settings.defaultCategoryId,
-            settings.debitAccountId,
-            settings.creditAccountId,
-        )
-        if (plan == null) {
-            PudimNativeLogs.info(TAG, "capture=$captureId not imported: unknown action '$action'")
-            return null
-        }
-        val notes = context.getString(R.string.capture_notes)
-        val clientId = UUID.randomUUID().toString()
-        enqueue(context, clientId, plan, notes)
-        NativeCaptureJournal.add(context, captureId)
-        NotificationCaptureQueue.removeByCaptureId(context, captureId)
-        PudimNativeLogs.info(
-            TAG,
-            "capture=$captureId imported natively: type=${plan.type} amount=${plan.amount} " +
-                "account=${plan.accountId ?: "-"} category=${plan.categoryId ?: "-"}",
-        )
-        return NativeCaptureImport(clientId, plan)
     }
 
     /**
@@ -103,37 +56,12 @@ internal object NativeCaptureImporter {
         "notes" to notes,
     )
 
-
-    /** Prefers fields the WebView already parsed, then falls back to the text. */
+    /** Parses the amount/merchant out of the captured notification text. */
     private fun parsePayload(payload: Map<String, Any?>, fallbackCategoryId: String?): ParsedCapture? {
-        providedCapture(payload, fallbackCategoryId)?.let { return it }
         val text = listOfNotNull(payload["title"] as? String, payload["text"] as? String)
             .filter(String::isNotBlank)
             .joinToString(" ")
         return CaptureParser.parse(text, fallbackCategoryId)
-    }
-
-    /**
-     * Rebuilds a capture from the fields attached to a prompt action. An in-app
-     * prompt does not carry the original notification text, so without this the
-     * native fallback could not import it while the app was asleep.
-     */
-    private fun providedCapture(payload: Map<String, Any?>, fallbackCategoryId: String?): ParsedCapture? {
-        val rawAmount = payload["amount"] as? String ?: return null
-        val amount = CaptureParser.normalizeAmount(rawAmount)
-        if ((amount.toDoubleOrNull() ?: 0.0) <= 0.0) return null
-        val type = (payload["type"] as? String)?.takeIf { it == "income" || it == "expense" } ?: "expense"
-        val date = (payload["date"] as? String)?.takeIf(isoDate::matches) ?: CaptureParser.todayIso()
-        val categoryId = (payload["category_id"] as? String)?.takeIf(String::isNotBlank)
-            ?: fallbackCategoryId
-        val description = (payload["description"] as? String)?.trim().orEmpty()
-        return ParsedCapture(
-            type = type,
-            amount = amount,
-            description = description.ifBlank { CaptureImportPlanner.FALLBACK_DESCRIPTION },
-            date = date,
-            categoryId = categoryId,
-        )
     }
 
     private fun enqueue(context: Context, clientId: String, plan: CaptureImportPlan, notes: String) {

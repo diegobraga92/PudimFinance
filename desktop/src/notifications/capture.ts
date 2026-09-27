@@ -13,12 +13,10 @@ export interface NotificationSettings {
   mode: CaptureMode;
   /** Default category id used when the parser can't guess one. */
   defaultCategoryId: string | null;
-  /** In `ask` mode, also post a system notification with import actions. */
+  /** In `ask` mode, also post a system notification with Discard / Later buttons. */
   pushPrompt: boolean;
   /** Account used when a capture is imported as a debit (checking) expense. */
   debitAccountId: string | null;
-  /** Account (credit card) used when a capture is imported as a credit expense. */
-  creditAccountId: string | null;
 }
 
 const SETTINGS_KEY = 'pudim_notification_settings';
@@ -33,38 +31,16 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   defaultCategoryId: null,
   pushPrompt: true,
   debitAccountId: null,
-  creditAccountId: null,
 };
 
-/** Import actions; debit and credit both create expenses. */
-export type CaptureActionKind = 'income' | 'debit' | 'credit';
+/**
+ * Capture-prompt actions the app has to apply itself.
+ */
+export type CaptureActionKind = 'discard';
 
 /** Narrows an untrusted (native) value to a [CaptureActionKind]. */
 export function isCaptureActionKind(value: unknown): value is CaptureActionKind {
-  return value === 'income' || value === 'debit' || value === 'credit';
-}
-
-/** Maps a prompt action to the transaction type it creates. */
-export function transactionTypeForAction(action: CaptureActionKind): 'income' | 'expense' {
-  return action === 'income' ? 'income' : 'expense';
-}
-
-/** Returns the configured source account for a prompt action. */
-/**
- * Resolves the account a prompt action must post to.
- *
- * Debit and credit use the accounts configured for those payment methods.
- * Income has no dedicated setting, so it falls back to the account the user set
- * as default on this device before letting the server pick "Cash".
- */
-export function accountIdForAction(
-  action: CaptureActionKind,
-  settings: Pick<NotificationSettings, 'debitAccountId' | 'creditAccountId'>,
-  fallbackAccountId: string | null = null,
-): string | null {
-  if (action === 'debit') return settings.debitAccountId;
-  if (action === 'credit') return settings.creditAccountId;
-  return fallbackAccountId;
+  return value === 'discard';
 }
 
 /**
@@ -72,14 +48,10 @@ export function accountIdForAction(
  */
 export function captureDefaultAccountId(
   type: 'income' | 'expense',
-  settings: Pick<NotificationSettings, 'debitAccountId' | 'creditAccountId'>,
+  settings: Pick<NotificationSettings, 'debitAccountId'>,
   fallbackAccountId: string | null = null,
 ): string | null {
-  return accountIdForAction(
-    type === 'expense' ? 'debit' : 'income',
-    settings,
-    fallbackAccountId,
-  );
+  return type === 'expense' ? settings.debitAccountId : fallbackAccountId;
 }
 
 /** Bank/payment apps matched by notification app name. */
@@ -131,10 +103,10 @@ export interface CaptureSettingRefs {
 /**
  * Clears capture settings that reference ids missing from the current server.
  *
- * Debit/credit accounts and the default category are stored as UUIDs, so
- * pointing the app at another server (or restoring a different database) leaves
- * ids no transaction can use: every capture import is then rejected by the
- * server while the app shows nothing.
+ * The debit account and the default category are stored as UUIDs, so pointing
+ * the app at another server (or restoring a different database) leaves ids no
+ * transaction can use: every capture import is then rejected by the server
+ * while the app shows nothing.
  */
 export function pruneStaleCaptureSettings(
   settings: NotificationSettings,
@@ -146,10 +118,6 @@ export function pruneStaleCaptureSettings(
   let changed = false;
   if (refs.accounts && !isKnown(refs.accounts, next.debitAccountId)) {
     next.debitAccountId = null;
-    changed = true;
-  }
-  if (refs.accounts && !isKnown(refs.accounts, next.creditAccountId)) {
-    next.creditAccountId = null;
     changed = true;
   }
   if (refs.categories && !isKnown(refs.categories, next.defaultCategoryId)) {
@@ -318,52 +286,6 @@ export function isoDateOrToday(value?: string): string {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : toIsoDate(new Date());
 }
 
-/** Prompt action fields used to rebuild the capture it refers to. */
-export interface ActionCaptureSource {
-  action: CaptureActionKind;
-  /** Parsed fields the native prompt carried (in-app prompts). */
-  amount?: string;
-  description?: string;
-  date?: string;
-  categoryId?: string | null;
-  /** Raw notification (listener-posted prompts). */
-  title?: string;
-  text?: string;
-  app_name?: string;
-  app_label?: string;
-}
-
-/**
- * Rebuilds the capture a prompt action refers to.
- *
- * Parsed fields win over the raw text: an in-app prompt carries its own
- * localized body as `text`, and using those exact values keeps the dedup key
- * identical to the review-inbox entry.
- */
-export function captureFromAction(
-  source: ActionCaptureSource,
-  settings: Pick<NotificationSettings, 'defaultCategoryId'>,
-): { parsed: ParsedTransaction; appName: string } | null {
-  const appName = source.app_label?.trim() || source.app_name?.trim() || '';
-  const amount = source.amount ? normalizeAmount(source.amount) : '';
-  if (Number.parseFloat(amount) > 0) {
-    return {
-      parsed: {
-        type: transactionTypeForAction(source.action),
-        amount,
-        description: source.description?.trim() || FALLBACK_CAPTURE_DESCRIPTION,
-        date: isoDateOrToday(source.date),
-        categoryId: source.categoryId ?? settings.defaultCategoryId,
-      },
-      appName,
-    };
-  }
-
-  const text = [source.title, source.text].filter(Boolean).join(' ').trim();
-  const fromText = text ? parseNotification(text, [], settings.defaultCategoryId) : null;
-  return fromText ? { parsed: fromText, appName } : null;
-}
-
 /**
  * Transaction fields of a capture the native side already imported, or null
  * when the entry carries no usable amount.
@@ -396,7 +318,7 @@ export interface PendingCapture {
   categoryId: string | null;
   dedupKey: string;
   postTime: number;
-  /** Whether the OS import prompt was already posted for this capture. */
+  /** Whether the OS capture prompt was already posted for this capture. */
   prompted?: boolean;
 }
 
