@@ -3897,7 +3897,7 @@
               "null"
             ],
             "format": "date",
-            "description": "Pin the purchase to a credit-card bill (the closing date of its cycle).\nOmit or send `null` to derive the bill from `date`."
+            "description": "Pin the purchase to a credit-card bill (the closing date of its cycle)."
           },
           "category_id": {
             "type": [
@@ -4001,7 +4001,7 @@
               "null"
             ],
             "format": "date",
-            "description": "Pin the first installment to a credit-card bill (the closing date of its\ncycle). Omit or send `null` to derive it from `start_date`."
+            "description": "Pin the first installment to a credit-card bill"
           },
           "category_id": {
             "type": [
@@ -4118,7 +4118,7 @@
               "null"
             ],
             "format": "date",
-            "description": "Pin the expense to a credit-card bill (the closing date of its cycle).\n\nOmit or send `null` to derive the bill from `date`. Setting it moves the\npurchase to the next (or previous) bill without changing the date."
+            "description": "Pin the expense to a credit-card bill (the closing date of its cycle)."
           },
           "category_id": {
             "type": [
@@ -6381,7 +6381,7 @@
               "null"
             ],
             "format": "date",
-            "description": "Closing date of the credit-card bill this purchase belongs to.\n\nNULL derives the cycle from `date`. Set it to move a purchase to the\nnext (or previous) bill without changing the expense date."
+            "description": "Closing date of the credit-card bill this purchase belongs to."
           },
           "card_due_date": {
             "type": [
@@ -6424,7 +6424,7 @@
               "null"
             ],
             "format": "int32",
-            "description": "1-based position of this row inside its installment plan (NULL for\ntransactions that are not part of a plan)."
+            "description": "1-based position of this row inside its installment plan"
           },
           "installment_plan_id": {
             "type": [
@@ -6803,7 +6803,7 @@
               "null"
             ],
             "format": "date",
-            "description": "Pin the expense to a credit-card bill (the closing date of its cycle).\n\nOmit or send `null` to keep the derived bill. On a plan-linked row this\nmust be set on the first installment, and it moves the whole plan."
+            "description": "Pin the expense to a credit-card bill (the closing date of its cycle)."
           },
           "category_id": {
             "type": [
