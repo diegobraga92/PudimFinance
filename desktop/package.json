@@ -20,7 +20,8 @@
     "test:category-icons": "tsx --tsconfig=tsconfig.app.json scripts/category-icons-smoke.ts",
     "test:default-account": "tsx --tsconfig=tsconfig.app.json scripts/default-account-smoke.ts",
     "test:installments": "tsx --tsconfig=tsconfig.app.json scripts/installments-smoke.ts",
-    "test:category-mirror": "tsx --tsconfig=tsconfig.app.json scripts/category-mirror-smoke.ts"
+    "test:category-mirror": "tsx --tsconfig=tsconfig.app.json scripts/category-mirror-smoke.ts",
+    "test:card-cycle": "tsx --tsconfig=tsconfig.app.json scripts/card-cycle-smoke.ts"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",

@@ -543,7 +543,7 @@ pub async fn budget_summary(
                        SELECT node_id FROM category_tree WHERE root_id = b.category_id
                    )
                    AND t.date >= make_date(b.year, b.month, 1) - INTERVAL '3 months'
-                   AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3))
+                   AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end))
                        = make_date(b.year, b.month, 1)) AS actual_spent
          FROM budgets b
          LEFT JOIN categories c ON c.id = b.category_id
@@ -612,7 +612,7 @@ pub async fn budget_summary(
                  FROM transactions t
                  WHERE t.type = 'expense'
                    AND t.date >= make_date(b.year, b.month, 1) - INTERVAL '3 months'
-                   AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3))
+                   AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end))
                        = make_date(b.year, b.month, 1)) AS actual_spent
          FROM budgets b
          WHERE b.category_id IS NULL AND b.year = $1 AND b.month = $2",

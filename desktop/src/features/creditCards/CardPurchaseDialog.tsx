@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/toaster';
 import { DateField } from '@/components/DateField';
 import { toIsoDate } from '@/lib/date-input';
 import { createCardPurchase, type AccountWithBalance, type Category, type CreateCardPurchaseRequest } from '@/lib/api';
+import { billOptions } from '@/lib/card-cycle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,16 +28,19 @@ interface Props {
 
 /** Dialog for recording a purchase directly on a credit-card account. */
 export function CardPurchaseDialog({ open, onOpenChange, card, categories, onSaved }: Props) {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const { toast } = useToast();
   const [description, setDescription] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [category, setCategory] = React.useState('');
   const [date, setDate] = React.useState(() => toIsoDate(new Date()));
+  const [billPeriodEnd, setBillPeriodEnd] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const expenseCategories = React.useMemo(() => categories.filter((item) => item.type === 'expense'), [categories]);
+  const billChoices = React.useMemo(() => billOptions(card ?? undefined, date), [card, date]);
+  const derivedBill = billChoices.find((choice) => choice.isDerived);
 
   React.useEffect(() => {
     if (!open) return;
@@ -44,6 +48,7 @@ export function CardPurchaseDialog({ open, onOpenChange, card, categories, onSav
     setAmount('');
     setCategory('');
     setDate(toIsoDate(new Date()));
+    setBillPeriodEnd('');
     setError(null);
   }, [open]);
 
@@ -66,6 +71,7 @@ export function CardPurchaseDialog({ open, onOpenChange, card, categories, onSav
       amount: amount.replace(',', '.'),
       category_id: category || null,
       date,
+      card_bill_period_end: billPeriodEnd || null,
     };
     try {
       await createCardPurchase(card.id, payload);
@@ -134,6 +140,36 @@ export function CardPurchaseDialog({ open, onOpenChange, card, categories, onSav
               ))}
             </select>
           </div>
+          {billChoices.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="cc-bill">{t('transactions.form.bill')}</Label>
+              <select
+                id="cc-bill"
+                className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]"
+                value={billPeriodEnd}
+                onChange={(event) => setBillPeriodEnd(event.target.value)}
+              >
+                <option value="">
+                  {t('transactions.form.billAuto', {
+                    date: formatDate(derivedBill?.dueDate ?? date),
+                  })}
+                </option>
+                {billChoices
+                  .filter((choice) => !choice.isDerived)
+                  .map((choice) => (
+                    <option key={choice.periodEnd} value={choice.periodEnd}>
+                      {t(
+                        choice.periodEnd < (derivedBill?.periodEnd ?? '')
+                          ? 'transactions.form.billPrevious'
+                          : 'transactions.form.billNext',
+                        { date: formatDate(choice.dueDate) },
+                      )}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-dim">{t('transactions.form.billHint')}</p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

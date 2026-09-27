@@ -179,14 +179,14 @@ pub async fn cash_flow(
         // The effective date applies the configured credit-card dating rule.
         // The raw transaction-date pre-filter keeps the date index useful while
         // allowing a card purchase to move into a later billing period.
-        "SELECT date_trunc($1, effective_transaction_date(t.date, t.account_id, $4))::date AS period_start,
+        "SELECT date_trunc($1, effective_transaction_date(t.date, t.account_id, $4, t.card_bill_period_end))::date AS period_start,
                 COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::numeric AS income_total,
                 COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS expense_total
          FROM transactions t
          WHERE t.date >= $2 - INTERVAL '3 months'
            AND t.date <= $3
-           AND effective_transaction_date(t.date, t.account_id, $4) >= $2
-           AND effective_transaction_date(t.date, t.account_id, $4) <= $3
+           AND effective_transaction_date(t.date, t.account_id, $4, t.card_bill_period_end) >= $2
+           AND effective_transaction_date(t.date, t.account_id, $4, t.card_bill_period_end) <= $3
          GROUP BY 1
          ORDER BY 1",
     )
@@ -305,15 +305,15 @@ pub async fn monthly_report(
         // card-expense dating preference applies here too; the `t.date` bounds
         // keep the scan narrow without changing the result (an effective date
         // is never earlier than its transaction, nor more than a cycle later).
-        "SELECT EXTRACT(YEAR FROM effective_transaction_date(t.date, t.account_id, $4))::int AS year,
-                EXTRACT(MONTH FROM effective_transaction_date(t.date, t.account_id, $4))::int AS month,
+        "SELECT EXTRACT(YEAR FROM effective_transaction_date(t.date, t.account_id, $4, t.card_bill_period_end))::int AS year,
+                EXTRACT(MONTH FROM effective_transaction_date(t.date, t.account_id, $4, t.card_bill_period_end))::int AS month,
                 COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::numeric AS income_total,
                 COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS expense_total
          FROM transactions t
          WHERE t.date >= $1 - INTERVAL '3 months'
            AND t.date < $2
-           AND effective_transaction_date(t.date, t.account_id, $4) >= $1
-           AND effective_transaction_date(t.date, t.account_id, $4) < $2
+           AND effective_transaction_date(t.date, t.account_id, $4, t.card_bill_period_end) >= $1
+           AND effective_transaction_date(t.date, t.account_id, $4, t.card_bill_period_end) < $2
            AND ($3::uuid IS NULL OR t.account_id = $3)
          GROUP BY 1, 2
          ORDER BY 1, 2",
@@ -408,8 +408,8 @@ pub async fn category_breakdown(
          LEFT JOIN categories c ON c.id = t.category_id
          WHERE t.type = 'expense'
            AND t.date >= $1 - INTERVAL '3 months'
-           AND effective_transaction_date(t.date, t.account_id, $3) >= $1
-           AND effective_transaction_date(t.date, t.account_id, $3) <= $2
+           AND effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end) >= $1
+           AND effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end) <= $2
          GROUP BY t.category_id, c.name, c.color, c.icon
          ORDER BY total DESC",
     )
@@ -487,15 +487,15 @@ pub async fn trends(
     }
 
     let rows: Vec<TrendRow> = sqlx::query_as(
-        "SELECT EXTRACT(YEAR FROM effective_transaction_date(t.date, t.account_id, $3))::int AS year,
-                EXTRACT(MONTH FROM effective_transaction_date(t.date, t.account_id, $3))::int AS month,
+        "SELECT EXTRACT(YEAR FROM effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end))::int AS year,
+                EXTRACT(MONTH FROM effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end))::int AS month,
                 COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0)::numeric AS income_total,
                 COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS expense_total
          FROM transactions t
          WHERE t.date >= $1 - INTERVAL '3 months'
            AND t.date < $2
-           AND effective_transaction_date(t.date, t.account_id, $3) >= $1
-           AND effective_transaction_date(t.date, t.account_id, $3) < $2
+           AND effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end) >= $1
+           AND effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end) < $2
          GROUP BY 1, 2
          ORDER BY 1, 2",
     )

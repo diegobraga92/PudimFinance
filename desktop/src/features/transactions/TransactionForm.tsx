@@ -30,6 +30,7 @@ import {
   type TransactionWriteRequest,
 } from '@/lib/api';
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { billDueDate, billOptions, cardCycle } from '@/lib/card-cycle';
 import { findPreviousTransaction } from '@/offline/autocomplete';
 import { paymentAccountsOf, resolveDefaultAccount } from '@/lib/default-account';
 import {
@@ -99,7 +100,7 @@ export function TransactionForm({
   initialType = 'expense',
   onSaved,
 }: Props) {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const isEditing = editing !== null;
 
   const [description, setDescription] = React.useState('');
@@ -110,6 +111,7 @@ export function TransactionForm({
   const [notes, setNotes] = React.useState('');
   const [accountId, setAccountId] = React.useState('');
   const [installments, setInstallments] = React.useState('1');
+  const [billPeriodEnd, setBillPeriodEnd] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [filledHint, setFilledHint] = React.useState<string | null>(null);
@@ -153,6 +155,7 @@ export function TransactionForm({
           })?.id ?? '',
     );
     setInstallments('1');
+    setBillPeriodEnd(editing?.card_bill_period_end ?? '');
     setError(null);
     setSaving(false);
     setFilledHint(null);
@@ -188,6 +191,24 @@ export function TransactionForm({
   // A row that already belongs to an installment plan cannot be re-split here.
   const planLocked = Boolean(editing?.installment_plan_id);
 
+  const selectedAccount = accounts.find((a) => a.id === accountId);
+  const cycle = cardCycle(selectedAccount);
+  const installmentsAvailable = cycle !== null;
+
+  const billChoices = React.useMemo(
+    () => (type === 'expense' ? billOptions(selectedAccount, date) : []),
+    [type, selectedAccount, date],
+  );
+
+  const derivedBill = billChoices.find((choice) => choice.isDerived);
+  const pinnedOutsideWindow =
+    !!billPeriodEnd && !billChoices.some((choice) => choice.periodEnd === billPeriodEnd);
+
+  const canMovePlanBill =
+    !editing?.installment_plan_id || editing?.installment_number === 1;
+  const showBillPicker =
+    billChoices.length > 0 && (billPeriodEnd !== '' || !editing?.installment_plan_id) && canMovePlanBill;
+
   const installmentsNum = parseInt(installments, 10);
   const amountNum = parseFloat(amount.replace(',', '.'));
   const showInstallments = !planLocked && installmentsNum > 1 && amountNum > 0;
@@ -213,8 +234,10 @@ export function TransactionForm({
       notes: notes.trim() || null,
       account_id: accountId || null,
       installment_plan_id: editing?.installment_plan_id ?? null,
+      card_bill_period_end: billPeriodEnd || null,
       // Only a standalone row can be split (the API rejects a plan-linked one).
-      installments: !planLocked && installmentsNum > 1 ? installmentsNum : undefined,
+      installments:
+        installmentsAvailable && !planLocked && installmentsNum > 1 ? installmentsNum : undefined,
     };
     try {
       if (isEditing && editing) {
@@ -349,30 +372,74 @@ export function TransactionForm({
                 ))}
               </select>
             </div>
+            {installmentsAvailable && (
+              <div className="space-y-1.5">
+                <Label htmlFor="tx-installments">{t('transactions.form.installments')}</Label>
+                <Input
+                  id="tx-installments"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={installments}
+                  onChange={(e) => setInstallments(e.target.value)}
+                  disabled={planLocked}
+                  aria-describedby="tx-installments-hint"
+                />
+                <p id="tx-installments-hint" className="text-xs text-dim">
+                  {planLocked
+                    ? t('transactions.form.installmentsPlanLocked')
+                    : showInstallments
+                      ? t('transactions.form.perInstallment', {
+                          installments: String(installmentsNum),
+                          amount: `R$ ${(amountNum / installmentsNum).toFixed(2)}`,
+                        })
+                      : t('transactions.form.installmentsHint')}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {showBillPicker && (
             <div className="space-y-1.5">
-              <Label htmlFor="tx-installments">{t('transactions.form.installments')}</Label>
-              <Input
-                id="tx-installments"
-                type="number"
-                min={1}
-                max={60}
-                value={installments}
-                onChange={(e) => setInstallments(e.target.value)}
-                disabled={planLocked}
-                aria-describedby="tx-installments-hint"
-              />
-              <p id="tx-installments-hint" className="text-xs text-dim">
-                {planLocked
-                  ? t('transactions.form.installmentsPlanLocked')
-                  : showInstallments
-                    ? t('transactions.form.perInstallment', {
-                        installments: String(installmentsNum),
-                        amount: `R$ ${(amountNum / installmentsNum).toFixed(2)}`,
-                      })
-                    : t('transactions.form.installmentsHint')}
+              <Label htmlFor="tx-bill">{t('transactions.form.bill')}</Label>
+              <select
+                id="tx-bill"
+                className="flex h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:[color-scheme:dark]"
+                value={billPeriodEnd}
+                onChange={(e) => setBillPeriodEnd(e.target.value)}
+              >
+                <option value="">
+                  {t('transactions.form.billAuto', { date: formatDate(derivedBill?.dueDate ?? date) })}
+                </option>
+                {billChoices
+                  .filter((choice) => !choice.isDerived)
+                  .map((choice) => (
+                    <option key={choice.periodEnd} value={choice.periodEnd}>
+                      {t(
+                        choice.periodEnd < (derivedBill?.periodEnd ?? '')
+                          ? 'transactions.form.billPrevious'
+                          : 'transactions.form.billNext',
+                        { date: formatDate(choice.dueDate) },
+                      )}
+                    </option>
+                  ))}
+                {pinnedOutsideWindow && (
+                  <option value={billPeriodEnd}>
+                    {t('transactions.form.billPinned', {
+                      date: formatDate(
+                        billDueDate(selectedAccount, billPeriodEnd) ?? billPeriodEnd,
+                      ),
+                    })}
+                  </option>
+                )}
+              </select>
+              <p className="text-xs text-dim">
+                {editing?.installment_plan_id
+                  ? t('transactions.form.billPlanHint')
+                  : t('transactions.form.billHint')}
               </p>
             </div>
-          </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="tx-notes">{t('common.notes')}</Label>

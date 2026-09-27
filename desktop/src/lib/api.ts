@@ -121,6 +121,7 @@ function localTxToTransaction(t: LocalTransaction): Transaction {
     notes: t.notes,
     installment_plan_id: t.installment_plan_id,
     account_id: t.account_id,
+    card_bill_period_end: t.card_bill_period_end,
     created_at: t.updated_at,
     updated_at: t.updated_at,
   };
@@ -442,6 +443,7 @@ export async function createTransaction(payload: TransactionWriteRequest): Promi
       notes: payload.notes ?? null,
       installment_plan_id: payload.installment_plan_id ?? null,
       account_id: payload.account_id ?? null,
+      card_bill_period_end: payload.card_bill_period_end ?? null,
       synced: 0,
       updated_at: new Date().toISOString(),
     });
@@ -457,6 +459,7 @@ export async function createTransaction(payload: TransactionWriteRequest): Promi
       notes: payload.notes ?? null,
       installment_plan_id: payload.installment_plan_id ?? null,
       account_id: payload.account_id ?? null,
+      card_bill_period_end: payload.card_bill_period_end ?? null,
       synced: 0,
       updated_at: new Date().toISOString(),
     });
@@ -479,6 +482,7 @@ export async function createTransaction(payload: TransactionWriteRequest): Promi
       notes: created.notes ?? null,
       installment_plan_id: created.installment_plan_id ?? null,
       account_id: created.account_id ?? null,
+      card_bill_period_end: created.card_bill_period_end ?? null,
       synced: 1,
       updated_at: created.updated_at,
     });
@@ -507,6 +511,7 @@ export async function updateTransaction(
       date: payload.date,
       notes: payload.notes ?? null,
       account_id: payload.account_id ?? null,
+      card_bill_period_end: payload.card_bill_period_end ?? null,
     });
     const local = await getLocalTransactionByAnyId(id);
     notifyTransactionsChanged();
@@ -529,6 +534,7 @@ export async function updateTransaction(
       notes: updated.notes ?? null,
       installment_plan_id: updated.installment_plan_id ?? null,
       account_id: updated.account_id ?? null,
+      card_bill_period_end: updated.card_bill_period_end ?? null,
       synced: 1,
       updated_at: updated.updated_at,
     });

@@ -122,6 +122,10 @@ jobs:
         working-directory: desktop
         run: npm run test:category-mirror
 
+      - name: Card billing cycle smoke
+        working-directory: desktop
+        run: npm run test:card-cycle
+
       - name: Generated API types are up to date
         working-directory: desktop
         run: |

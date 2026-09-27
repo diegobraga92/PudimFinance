@@ -4,6 +4,7 @@ import { Check, Edit3, Inbox, Loader2, X } from 'lucide-react';
 
 import { useI18n } from '@/app/i18n';
 import { fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
+import { cardCycle } from '@/lib/card-cycle';
 import { paymentAccountsOf } from '@/lib/default-account';
 import { getDefaultAccountId } from '@/lib/preferences';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,8 @@ export function PendingCapturesPage() {
     : null;
   const defaultAccountName =
     accounts.find((a) => a.id === defaultAccountId)?.name ?? t('common.none');
+  const editAccount = accounts.find((a) => a.id === (editAccountId || defaultAccountId));
+  const installmentsAvailable = cardCycle(editAccount) !== null;
   const installmentsNum = parseInt(editInstallments, 10);
   const editAmountNum = parseFloat(editAmount.replace(',', '.'));
 
@@ -95,7 +98,7 @@ export function PendingCapturesPage() {
         amount,
         categoryId: editCategoryId,
         accountId: editAccountId || undefined,
-        installments: installments > 1 ? installments : undefined,
+        installments: installmentsAvailable && installments > 1 ? installments : undefined,
       });
       setEditing(null);
     } catch {
@@ -272,8 +275,8 @@ export function PendingCapturesPage() {
                   ))}
                 </select>
               </div>
-              {/* Installments split an expense into dated monthly charges. */}
-              {editing.type === 'expense' && (
+              {/* Installments split an expense across card bills. */}
+              {editing.type === 'expense' && installmentsAvailable && (
                 <div className="space-y-1.5">
                   <Label htmlFor="nc-installments">{t('transactions.form.installments')}</Label>
                   <Input

@@ -5,6 +5,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde_json::json;
 use sqlx::AssertSqlSafe;
@@ -15,7 +16,7 @@ use crate::models::{
     CreateTransactionRequest, Transaction, TransactionListParams, TransactionListResponse,
     UpdateTransactionRequest,
 };
-use crate::routes::settings;
+use crate::routes::{credit_cards, settings};
 use crate::state::AppState;
 use crate::transaction_ledger;
 use sqlx::{PgConnection, PgPool};
@@ -137,8 +138,8 @@ pub async fn list_transactions(
            AND ($3::date IS NULL OR t.date >= $3 - INTERVAL '3 months')
            AND ($4::date IS NULL OR t.date <= $4)
            AND ($5::uuid IS NULL OR t.account_id = $5)
-           AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6) >= $3)
-           AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6) <= $4)",
+           AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6, t.card_bill_period_end) >= $3)
+           AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $6, t.card_bill_period_end) <= $4)",
     )
     .bind(&category_ids)
     .bind(&params.r#type)
@@ -161,7 +162,7 @@ pub async fn list_transactions(
         "amount" => "t.amount",
         "category" => "COALESCE(c.name, '')",
         "account" => "COALESCE(a.name, '')",
-        _ => "effective_transaction_date(t.date, t.account_id, $8)",
+        _ => "effective_transaction_date(t.date, t.account_id, $8, t.card_bill_period_end)",
     };
     let sort_direction = if order == "asc" { "ASC" } else { "DESC" };
     let order_sql = format!(
@@ -170,8 +171,16 @@ pub async fn list_transactions(
     );
     let query = format!(
         "SELECT t.id, t.description, t.amount, t.type, t.category_id, t.date, t.notes,
-                t.installment_plan_id, t.account_id, t.created_at, t.updated_at,
-                card_bill_due_date(t.account_id, t.date) AS card_due_date
+                t.installment_plan_id, t.account_id, t.card_bill_period_end,
+                t.created_at, t.updated_at,
+                (SELECT it.installment_number FROM installment_transactions it
+                  WHERE it.transaction_id = t.id
+                  ORDER BY it.installment_number
+                  LIMIT 1) AS installment_number,
+                COALESCE(
+                    bill_due_date_for_period(t.account_id, t.card_bill_period_end),
+                    card_bill_due_date(t.account_id, t.date)
+                ) AS card_due_date
          FROM transactions t
          LEFT JOIN categories c ON c.id = t.category_id
          LEFT JOIN accounts a ON a.id = t.account_id
@@ -180,8 +189,8 @@ pub async fn list_transactions(
            AND ($3::date IS NULL OR t.date >= $3 - INTERVAL '3 months')
            AND ($4::date IS NULL OR t.date <= $4)
            AND ($5::uuid IS NULL OR t.account_id = $5)
-           AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8) >= $3)
-           AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8) <= $4)
+           AND ($3::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8, t.card_bill_period_end) >= $3)
+           AND ($4::date IS NULL OR effective_transaction_date(t.date, t.account_id, $8, t.card_bill_period_end) <= $4)
          ORDER BY {order_sql}
          LIMIT $6 OFFSET $7"
     );
@@ -278,7 +287,7 @@ async fn resolve_ledger_accounts(
 }
 
 /// Splits `total` into `count` monthly installments.
-fn installment_split(total: Decimal, count: i32) -> (Decimal, Decimal) {
+pub(crate) fn installment_split(total: Decimal, count: i32) -> (Decimal, Decimal) {
     let per = (total / Decimal::from(count)).round_dp(2);
     let last = total - per * Decimal::from(count - 1);
     // Every installment but the last holds `per`, and the
@@ -287,10 +296,19 @@ fn installment_split(total: Decimal, count: i32) -> (Decimal, Decimal) {
     (per, last)
 }
 
+/// Card-billing anchor of a plan: the cycle its first installment lands on.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct PlanBilling {
+    /// `(closing_day, due_day)` of the card the plan is charged to.
+    pub card: Option<(i16, i16)>,
+    /// Closing date of the bill the first installment belongs to.
+    pub start_period_end: Option<NaiveDate>,
+}
+
 /// Creates the installment plan for `first` and materializes the remaining
 /// installments as real, dated transactions.
 #[allow(clippy::too_many_arguments)]
-async fn create_installment_plan(
+pub(crate) async fn create_installment_plan(
     db: &mut PgConnection,
     first: &Transaction,
     count: i32,
@@ -302,12 +320,26 @@ async fn create_installment_plan(
     posting_account: Uuid,
     posting_name: &str,
     source_name: &str,
+    billing: PlanBilling,
 ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let cycle = match (billing.card, billing.start_period_end) {
+        (Some(card), Some(start)) => {
+            let derived = credit_cards::cycle_for_date(card.0, card.1, first.date).1;
+            Some((
+                card,
+                start,
+                credit_cards::months_between_cycles(derived, start),
+            ))
+        }
+        _ => None,
+    };
+
     // The plan row (account_id is the resolved payment account).
     let plan_id: Uuid = sqlx::query_scalar(
         "INSERT INTO installment_plans
-            (description, total_amount, installments, installment_amount, category_id, start_date, account_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+            (description, total_amount, installments, installment_amount, category_id, start_date,
+             account_id, card_bill_period_end)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id",
     )
     .bind(&first.description)
@@ -317,6 +349,7 @@ async fn create_installment_plan(
     .bind(category_id)
     .bind(first.date)
     .bind(account_id)
+    .bind(billing.start_period_end)
     .fetch_one(&mut *db)
     .await
     .map_err(|e| {
@@ -340,12 +373,16 @@ async fn create_installment_plan(
                 Json(json!({ "error": "Failed to create installment plan" })),
             )
         })?;
+    let first_due = match cycle {
+        Some((_, _, months)) => transaction_ledger::add_months(first.date, months),
+        None => first.date,
+    };
     sqlx::query(
         "INSERT INTO installment_transactions (plan_id, installment_number, due_date, transaction_id, status)
          VALUES ($1, 1, $2, $3, 'generated')",
     )
     .bind(plan_id)
-    .bind(first.date)
+    .bind(first_due)
     .bind(first.id)
     .execute(&mut *db)
     .await
@@ -359,14 +396,19 @@ async fn create_installment_plan(
 
     // Remaining installments are dated monthly, and each is a real expense.
     for i in 2..=count {
-        let due = transaction_ledger::add_months(first.date, i - 1);
+        // A pinned first bill shifts both the expense month and the bill cycle.
+        let shift = cycle.map(|(_, _, months)| months).unwrap_or(0);
+        let due = transaction_ledger::add_months(first.date, i - 1 + shift);
+        let period_end =
+            cycle.map(|(card, start, _)| credit_cards::shift_period_end(start, card.0, i - 1));
         let amount_i = if i == count { last } else { per };
         let desc_i = format!("Parcela {}/{} — {}", i, count, first.description);
         let t: Transaction = sqlx::query_as(
-            "INSERT INTO transactions (description, amount, type, category_id, date, notes, installment_plan_id, account_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            "INSERT INTO transactions (description, amount, type, category_id, date, notes,
+                                       installment_plan_id, account_id, card_bill_period_end)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING id, description, amount, type, category_id, date, notes,
-                       installment_plan_id, account_id, created_at, updated_at",
+                       installment_plan_id, account_id, card_bill_period_end, created_at, updated_at",
         )
         .bind(&desc_i)
         .bind(amount_i)
@@ -376,6 +418,7 @@ async fn create_installment_plan(
         .bind(None::<String>)
         .bind(plan_id)
         .bind(account_id)
+        .bind(period_end)
         .fetch_one(&mut *db)
         .await
         .map_err(|e| {
@@ -418,6 +461,19 @@ async fn create_installment_plan(
                 )
             })?;
 
+        // Materialize the bill this installment is pinned to.
+        if let (Some((card, _, _)), Some(period_end)) = (cycle, period_end) {
+            credit_cards::ensure_bill_for_period(&mut *db, account_id, card.0, card.1, period_end)
+                .await
+                .map_err(|e| {
+                    error!("Failed to upsert installment bill: {e}");
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "error": "Failed to create installment plan" })),
+                    )
+                })?;
+        }
+
         sqlx::query(
             "INSERT INTO installment_transactions (plan_id, installment_number, due_date, transaction_id, status)
              VALUES ($1, $2, $3, $4, 'generated')",
@@ -436,6 +492,187 @@ async fn create_installment_plan(
             )
         })?;
     }
+
+    Ok(())
+}
+
+/// Billing anchor of an existing plan.
+pub(crate) async fn plan_billing_of(
+    pool: &PgPool,
+    plan_id: Uuid,
+) -> Result<PlanBilling, (StatusCode, Json<serde_json::Value>)> {
+    #[derive(sqlx::FromRow)]
+    struct PlanRow {
+        start_date: NaiveDate,
+        account_id: Option<Uuid>,
+        card_bill_period_end: Option<NaiveDate>,
+    }
+
+    let row: Option<PlanRow> = sqlx::query_as(
+        "SELECT start_date, account_id, card_bill_period_end
+           FROM installment_plans WHERE id = $1",
+    )
+    .bind(plan_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        error!("Failed to load installment plan {}: {e}", plan_id);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to load installment plan" })),
+        )
+    })?;
+
+    let row = match row {
+        Some(row) => row,
+        None => return Ok(PlanBilling::default()),
+    };
+
+    let card = credit_cards::card_cycle(pool, row.account_id)
+        .await
+        .map_err(|e| {
+            error!("Failed to load plan card cycle: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to load card cycle" })),
+            )
+        })?;
+    let start_period_end = row.card_bill_period_end.or_else(|| {
+        card.map(|(closing, due)| credit_cards::cycle_for_date(closing, due, row.start_date).1)
+    });
+
+    Ok(PlanBilling {
+        card,
+        start_period_end,
+    })
+}
+
+/// 1-based installment position of a transaction inside its plan.
+pub(crate) async fn installment_number_of(
+    pool: &PgPool,
+    transaction_id: Uuid,
+) -> Result<Option<i32>, (StatusCode, Json<serde_json::Value>)> {
+    sqlx::query_scalar(
+        "SELECT installment_number FROM installment_transactions
+          WHERE transaction_id = $1
+          ORDER BY installment_number
+          LIMIT 1",
+    )
+    .bind(transaction_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        error!("Failed to load installment number: {e}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to load installment" })),
+        )
+    })
+}
+
+/// Re-stamps the whole plan after its first bill moved.
+pub(crate) async fn shift_plan_bills(
+    conn: &mut PgConnection,
+    plan_id: Uuid,
+    card_id: Uuid,
+    closing_day: i16,
+    due_day: i16,
+    old_start: NaiveDate,
+    new_start: NaiveDate,
+) -> Result<(), String> {
+    let blocked: Option<i32> = sqlx::query_scalar(
+        "SELECT installment_number FROM installment_transactions
+          WHERE plan_id = $1 AND (status = 'paid' OR anticipated_at IS NOT NULL)
+          ORDER BY installment_number
+          LIMIT 1",
+    )
+    .bind(plan_id)
+    .fetch_optional(&mut *conn)
+    .await
+    .map_err(|e| e.to_string())?;
+    if let Some(number) = blocked {
+        return Err(format!(
+            "installment {number} is already paid or anticipated; undo it before moving the plan"
+        ));
+    }
+
+    let months = credit_cards::months_between_cycles(old_start, new_start);
+
+    #[derive(sqlx::FromRow)]
+    struct InstallmentRow {
+        installment_number: i32,
+        due_date: NaiveDate,
+        transaction_id: Option<Uuid>,
+        card_bill_period_end: Option<NaiveDate>,
+    }
+
+    let rows: Vec<InstallmentRow> = sqlx::query_as(
+        "SELECT it.installment_number, it.due_date, it.transaction_id,
+                t.card_bill_period_end
+           FROM installment_transactions it
+           LEFT JOIN transactions t ON t.id = it.transaction_id
+          WHERE it.plan_id = $1
+          ORDER BY it.installment_number",
+    )
+    .bind(plan_id)
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    for row in rows {
+        let period_end =
+            credit_cards::shift_period_end(new_start, closing_day, row.installment_number - 1);
+
+        if let Some(current) = row.card_bill_period_end {
+            if current != period_end
+                && credit_cards::period_is_paid(&mut *conn, card_id, current)
+                    .await
+                    .map_err(|e| e.to_string())?
+            {
+                return Err(format!("the bill closing {current} is already paid"));
+            }
+        }
+        if credit_cards::period_is_paid(&mut *conn, card_id, period_end)
+            .await
+            .map_err(|e| e.to_string())?
+        {
+            return Err(format!("the bill closing {period_end} is already paid"));
+        }
+
+        credit_cards::ensure_bill_for_period(&mut *conn, card_id, closing_day, due_day, period_end)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if let Some(transaction_id) = row.transaction_id {
+            sqlx::query(
+                "UPDATE transactions SET card_bill_period_end = $1, updated_at = NOW() WHERE id = $2",
+            )
+            .bind(period_end)
+            .bind(transaction_id)
+            .execute(&mut *conn)
+            .await
+            .map_err(|e| e.to_string())?;
+        }
+
+        let shifted_due = transaction_ledger::add_months(row.due_date, months);
+        sqlx::query(
+            "UPDATE installment_transactions SET due_date = $1
+              WHERE plan_id = $2 AND installment_number = $3",
+        )
+        .bind(shifted_due)
+        .bind(plan_id)
+        .bind(row.installment_number)
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+
+    sqlx::query("UPDATE installment_plans SET card_bill_period_end = $1 WHERE id = $2")
+        .bind(new_start)
+        .bind(plan_id)
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -508,6 +745,32 @@ pub async fn create_transaction(
     )
     .await?;
 
+    let card = credit_cards::card_cycle(&state.pg_pool, payload.account_id)
+        .await
+        .map_err(|e| {
+            error!("Failed to load card cycle: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to load card cycle" })),
+            )
+        })?;
+    let bill_period_end = credit_cards::resolve_bill_period_end(
+        &state.pg_pool,
+        payload.account_id,
+        payload.date,
+        payload.card_bill_period_end,
+        None,
+    )
+    .await
+    .map_err(|e| (e.status(), Json(json!({ "error": e.message() }))))?;
+    // A plan always anchors on a cycle: the pinned one, or the derived cycle.
+    let plan_billing = PlanBilling {
+        card,
+        start_period_end: bill_period_end.or_else(|| {
+            card.map(|(closing, due)| credit_cards::cycle_for_date(closing, due, payload.date).1)
+        }),
+    };
+
     let mut db = state.pg_pool.begin().await.map_err(|e| {
         error!("Failed to begin DB transaction: {e}");
         (
@@ -517,10 +780,11 @@ pub async fn create_transaction(
     })?;
 
     let transaction = sqlx::query_as::<_, Transaction>(
-        "INSERT INTO transactions (description, amount, type, category_id, date, notes, installment_plan_id, account_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        "INSERT INTO transactions (description, amount, type, category_id, date, notes,
+                                   installment_plan_id, account_id, card_bill_period_end)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id, description, amount, type, category_id, date, notes,
-                   installment_plan_id, account_id, created_at, updated_at",
+                   installment_plan_id, account_id, card_bill_period_end, created_at, updated_at",
     )
     .bind(payload.description.trim())
     .bind(first_amount)
@@ -530,6 +794,7 @@ pub async fn create_transaction(
     .bind(&payload.notes)
     .bind(payload.installment_plan_id)
     .bind(source_account)
+    .bind(bill_period_end)
     .fetch_one(&mut *db)
     .await
     .map_err(|e| {
@@ -574,6 +839,19 @@ pub async fn create_transaction(
             )
         })?;
 
+    // Materialize the pinned bill so the card pages can list it right away.
+    if let (Some(period_end), Some((closing, due))) = (bill_period_end, card) {
+        credit_cards::ensure_bill_for_period(&mut db, source_account, closing, due, period_end)
+            .await
+            .map_err(|e| {
+                error!("Failed to upsert card bill: {e}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to attach transaction to bill" })),
+                )
+            })?;
+    }
+
     // When splitting into installments, create the plan and materialize every
     // installment as a dated expense. On a cash basis each counts in its due month.
     if let Some((count, per, last)) = installment_spec {
@@ -589,6 +867,7 @@ pub async fn create_transaction(
             posting_account,
             &posting_name,
             &source_name,
+            plan_billing,
         )
         .await?;
     }
@@ -596,9 +875,14 @@ pub async fn create_transaction(
     // Reload the first transaction so the response reflects the linked plan.
     let transaction = if installment_spec.is_some() {
         sqlx::query_as::<_, Transaction>(
-            "SELECT id, description, amount, type, category_id, date, notes,
-                    installment_plan_id, account_id, created_at, updated_at
-             FROM transactions WHERE id = $1",
+            "SELECT t.id, t.description, t.amount, t.type, t.category_id, t.date, t.notes,
+                    t.installment_plan_id, t.account_id, t.card_bill_period_end,
+                    t.created_at, t.updated_at,
+                    COALESCE(
+                        bill_due_date_for_period(t.account_id, t.card_bill_period_end),
+                        card_bill_due_date(t.account_id, t.date)
+                    ) AS card_due_date
+             FROM transactions t WHERE t.id = $1",
         )
         .bind(transaction.id)
         .fetch_one(&mut *db)
@@ -643,9 +927,19 @@ pub async fn get_transaction(
     Path(id): Path<Uuid>,
 ) -> Result<Json<Transaction>, (StatusCode, Json<serde_json::Value>)> {
     let transaction = sqlx::query_as::<_, Transaction>(
-        "SELECT id, description, amount, type, category_id, date, notes,
-                installment_plan_id, account_id, created_at, updated_at
-         FROM transactions WHERE id = $1",
+        "SELECT t.id, t.description, t.amount, t.type, t.category_id, t.date, t.notes,
+                t.installment_plan_id, t.account_id, t.card_bill_period_end,
+                t.created_at, t.updated_at,
+                (SELECT it.installment_number FROM installment_transactions it
+                  WHERE it.transaction_id = t.id
+                  ORDER BY it.installment_number
+                  LIMIT 1) AS installment_number,
+                COALESCE(
+                    bill_due_date_for_period(t.account_id, t.card_bill_period_end),
+                    card_bill_due_date(t.account_id, t.date)
+                ) AS card_due_date
+         FROM transactions t
+         WHERE t.id = $1",
     )
     .bind(id)
     .fetch_optional(&state.pg_pool)
@@ -745,10 +1039,14 @@ pub async fn update_transaction(
     struct Existing {
         ledger_transaction_id: Option<Uuid>,
         installment_plan_id: Option<Uuid>,
+        account_id: Option<Uuid>,
+        date: NaiveDate,
+        card_bill_period_end: Option<NaiveDate>,
     }
 
     let existing: Option<Existing> = sqlx::query_as(
-        "SELECT ledger_transaction_id, installment_plan_id FROM transactions WHERE id = $1",
+        "SELECT ledger_transaction_id, installment_plan_id, account_id, date, card_bill_period_end
+         FROM transactions WHERE id = $1",
     )
     .bind(id)
     .fetch_optional(&state.pg_pool)
@@ -779,6 +1077,77 @@ pub async fn update_transaction(
         ));
     }
 
+    // Card billing: an explicit cycle from the payload, or nothing.
+    let card = credit_cards::card_cycle(&state.pg_pool, payload.account_id)
+        .await
+        .map_err(|e| {
+            error!("Failed to load card cycle: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to load card cycle" })),
+            )
+        })?;
+
+    let current_cycle = match existing.installment_plan_id {
+        Some(plan_id) => {
+            plan_billing_of(&state.pg_pool, plan_id)
+                .await?
+                .start_period_end
+        }
+        None => match existing.card_bill_period_end {
+            Some(period_end) => Some(period_end),
+            None => {
+                credit_cards::derived_period_end(&state.pg_pool, existing.account_id, existing.date)
+                    .await
+                    .map_err(|e| {
+                        error!("Failed to derive bill cycle: {e}");
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(json!({ "error": "Failed to derive bill cycle" })),
+                        )
+                    })?
+            }
+        },
+    };
+
+    if payload.card_bill_period_end.is_some()
+        && payload.card_bill_period_end != existing.card_bill_period_end
+        && existing.installment_plan_id.is_some()
+        && installment_number_of(&state.pg_pool, id).await? != Some(1)
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "move the first installment to change the bill of an installment plan"
+            })),
+        ));
+    }
+
+    let requested_period_end = credit_cards::resolve_bill_period_end(
+        &state.pg_pool,
+        payload.account_id,
+        payload.date,
+        payload.card_bill_period_end,
+        current_cycle,
+    )
+    .await
+    .map_err(|e| (e.status(), Json(json!({ "error": e.message() }))))?;
+
+    // A plan keeps its anchor unless the caller proves a plan move: never
+    // silently unpin it by omitting the field.
+    let bill_period_end = match requested_period_end {
+        Some(period_end) => Some(period_end),
+        None if existing.installment_plan_id.is_some() => existing.card_bill_period_end,
+        None => None,
+    };
+
+    // Plan billing: the anchor the plan had before this edit (needed to shift
+    // the remaining installments when the first bill moves).
+    let plan_billing = match existing.installment_plan_id {
+        Some(plan_id) => Some(plan_billing_of(&state.pg_pool, plan_id).await?),
+        None => None,
+    };
+
     let mut db = state.pg_pool.begin().await.map_err(|e| {
         error!("Failed to begin DB transaction: {e}");
         (
@@ -790,10 +1159,11 @@ pub async fn update_transaction(
     let transaction = sqlx::query_as::<_, Transaction>(
         "UPDATE transactions
          SET description = $1, amount = $2, type = $3, category_id = $4,
-             date = $5, notes = $6, installment_plan_id = $7, account_id = $8, updated_at = NOW()
-         WHERE id = $9
+             date = $5, notes = $6, installment_plan_id = $7, account_id = $8,
+             card_bill_period_end = $9, updated_at = NOW()
+         WHERE id = $10
          RETURNING id, description, amount, type, category_id, date, notes,
-                   installment_plan_id, account_id, created_at, updated_at",
+                   installment_plan_id, account_id, card_bill_period_end, created_at, updated_at",
     )
     .bind(payload.description.trim())
     // A split stores the installment amount on this row; otherwise the amount.
@@ -804,6 +1174,7 @@ pub async fn update_transaction(
     .bind(&payload.notes)
     .bind(payload.installment_plan_id)
     .bind(source_account)
+    .bind(bill_period_end)
     .bind(id)
     .fetch_optional(&mut *db)
     .await
@@ -859,6 +1230,38 @@ pub async fn update_transaction(
             )
         })?;
 
+    if let (Some(billing), Some(new_start)) = (plan_billing, bill_period_end) {
+        // Prefer the account's current cycle (the card may have been re-picked).
+        let cycle = card.or(billing.card);
+        if let (Some((closing, due)), Some(old_start)) = (cycle, billing.start_period_end) {
+            if old_start != new_start {
+                shift_plan_bills(
+                    &mut db,
+                    existing
+                        .installment_plan_id
+                        .expect("plan billing implies a plan"),
+                    source_account,
+                    closing,
+                    due,
+                    old_start,
+                    new_start,
+                )
+                .await
+                .map_err(|message| (StatusCode::CONFLICT, Json(json!({ "error": message }))))?;
+            }
+        }
+    } else if let (Some(period_end), Some((closing, due))) = (bill_period_end, card) {
+        credit_cards::ensure_bill_for_period(&mut db, source_account, closing, due, period_end)
+            .await
+            .map_err(|e| {
+                error!("Failed to upsert card bill: {e}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to attach transaction to bill" })),
+                )
+            })?;
+    }
+
     // A split on edit creates the plan now that the row holds `per`.
     if let Some((count, per, last)) = installment_spec {
         create_installment_plan(
@@ -873,6 +1276,14 @@ pub async fn update_transaction(
             posting_account,
             &posting_name,
             &source_name,
+            PlanBilling {
+                card,
+                start_period_end: bill_period_end.or_else(|| {
+                    card.map(|(closing, due)| {
+                        credit_cards::cycle_for_date(closing, due, payload.date).1
+                    })
+                }),
+            },
         )
         .await?;
     }
@@ -880,9 +1291,14 @@ pub async fn update_transaction(
     // Reload so the response reflects the linked plan.
     let transaction = if installment_spec.is_some() {
         sqlx::query_as::<_, Transaction>(
-            "SELECT id, description, amount, type, category_id, date, notes,
-                    installment_plan_id, account_id, created_at, updated_at
-             FROM transactions WHERE id = $1",
+            "SELECT t.id, t.description, t.amount, t.type, t.category_id, t.date, t.notes,
+                    t.installment_plan_id, t.account_id, t.card_bill_period_end,
+                    t.created_at, t.updated_at,
+                    COALESCE(
+                        bill_due_date_for_period(t.account_id, t.card_bill_period_end),
+                        card_bill_due_date(t.account_id, t.date)
+                    ) AS card_due_date
+             FROM transactions t WHERE t.id = $1",
         )
         .bind(transaction.id)
         .fetch_one(&mut *db)

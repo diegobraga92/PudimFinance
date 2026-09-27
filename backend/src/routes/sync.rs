@@ -255,6 +255,17 @@ async fn apply_transaction_create(
         .get("installment_plan_id")
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
+    let card_bill_period_end = op
+        .payload
+        .get("card_bill_period_end")
+        .and_then(|v| v.as_str())
+        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+    let installments = op
+        .payload
+        .get("installments")
+        .and_then(|v| v.as_u64())
+        .filter(|count| (2..=60).contains(count))
+        .map(|count| count as i32);
 
     // A stale category reference (deleted here, or restored from another
     // database) must not fail the write: store the transaction without a
@@ -307,12 +318,39 @@ async fn apply_transaction_create(
         )
     })?;
 
+    let (card, bill_period_end, bill_warning) =
+        match crate::routes::credit_cards::card_cycle(&state.pg_pool, account_id)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to load card cycle: {e}"),
+                )
+            })? {
+            Some(cycle) => {
+                match crate::routes::credit_cards::resolve_bill_period_end(
+                    &state.pg_pool,
+                    account_id,
+                    date,
+                    card_bill_period_end,
+                    None,
+                )
+                .await
+                {
+                    Ok(period_end) => (Some(cycle), period_end, None),
+                    Err(err) => (Some(cycle), None, Some(err.message())),
+                }
+            }
+            None => (None, None, None),
+        };
+
     let tx: Transaction = sqlx::query_as(
         "INSERT INTO transactions
-            (id, description, amount, type, category_id, date, notes, account_id, installment_plan_id, idempotency_key)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            (id, description, amount, type, category_id, date, notes, account_id, installment_plan_id,
+             idempotency_key, card_bill_period_end)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING id, description, amount, type, category_id, date, notes,
-                   installment_plan_id, account_id, created_at, updated_at",
+                   installment_plan_id, account_id, card_bill_period_end, created_at, updated_at",
     )
     .bind(Uuid::parse_str(&op.client_id).unwrap_or_else(|_| Uuid::new_v4()))
     .bind(&description)
@@ -324,6 +362,7 @@ async fn apply_transaction_create(
     .bind(source_account)
     .bind(installment_plan_id)
     .bind(&op.client_id)
+    .bind(bill_period_end)
     .fetch_one(&mut *db)
     .await
     .map_err(|e| {
@@ -364,6 +403,55 @@ async fn apply_transaction_create(
             )
         })?;
 
+    // A queued split becomes a real plan (the HTTP path does the same).
+    if let Some(count) = installments {
+        let (per, last) = crate::routes::transactions::installment_split(amount, count);
+        let billing = crate::routes::transactions::PlanBilling {
+            card,
+            start_period_end: bill_period_end.or_else(|| {
+                card.map(|(closing, due)| {
+                    crate::routes::credit_cards::cycle_for_date(closing, due, date).1
+                })
+            }),
+        };
+        crate::routes::transactions::create_installment_plan(
+            &mut db,
+            &tx,
+            count,
+            per,
+            last,
+            amount,
+            category_id,
+            source_account,
+            posting_account,
+            &posting_name,
+            &source_name,
+            billing,
+        )
+        .await
+        .map_err(|(code, message)| {
+            (
+                code,
+                message.0["error"].as_str().unwrap_or("plan").to_string(),
+            )
+        })?;
+    } else if let (Some(period_end), Some((closing, due))) = (bill_period_end, card) {
+        crate::routes::credit_cards::ensure_bill_for_period(
+            &mut db,
+            source_account,
+            closing,
+            due,
+            period_end,
+        )
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to attach transaction to bill: {e}"),
+            )
+        })?;
+    }
+
     db.commit().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -373,7 +461,7 @@ async fn apply_transaction_create(
 
     Ok(AppliedOp {
         server_id: Some(tx.id),
-        warning: category_warning,
+        warning: category_warning.or(bill_warning),
     })
 }
 
@@ -432,6 +520,11 @@ async fn apply_transaction_update(
         .get("installment_plan_id")
         .and_then(|v| v.as_str())
         .and_then(|s| Uuid::parse_str(s).ok());
+    let card_bill_period_end = op
+        .payload
+        .get("card_bill_period_end")
+        .and_then(|v| v.as_str())
+        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
 
     // A stale category reference (deleted here, or restored from another
     // database) must not fail the write: store the transaction without a
@@ -477,6 +570,95 @@ async fn apply_transaction_update(
             )
         })?;
 
+    #[derive(sqlx::FromRow)]
+    struct CurrentRow {
+        account_id: Option<Uuid>,
+        date: chrono::NaiveDate,
+        installment_plan_id: Option<Uuid>,
+        card_bill_period_end: Option<chrono::NaiveDate>,
+    }
+
+    let current: Option<CurrentRow> = sqlx::query_as(
+        "SELECT account_id, date, installment_plan_id, card_bill_period_end
+               FROM transactions WHERE id = $1",
+    )
+    .bind(server_id)
+    .fetch_optional(&state.pg_pool)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to fetch transaction: {e}"),
+        )
+    })?;
+    let current = match current {
+        Some(row) => row,
+        None => return Err((StatusCode::NOT_FOUND, "Transaction not found".to_string())),
+    };
+    let current_cycle = crate::routes::credit_cards::derived_period_end(
+        &state.pg_pool,
+        current.account_id,
+        current.date,
+    )
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to derive bill cycle: {e}"),
+        )
+    })?;
+
+    let (card, bill_period_end, bill_warning) =
+        match crate::routes::credit_cards::card_cycle(&state.pg_pool, account_id)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to load card cycle: {e}"),
+                )
+            })? {
+            Some(cycle) => {
+                match crate::routes::credit_cards::resolve_bill_period_end(
+                    &state.pg_pool,
+                    account_id,
+                    date,
+                    card_bill_period_end,
+                    current_cycle,
+                )
+                .await
+                {
+                    Ok(period_end) => (Some(cycle), period_end, None),
+                    Err(err) => (Some(cycle), None, Some(err.message())),
+                }
+            }
+            None => (None, None, None),
+        };
+
+    let (stored_period_end, plan_warning) = match bill_period_end {
+        Some(period_end) if current.installment_plan_id.is_some() => {
+            let first =
+                crate::routes::transactions::installment_number_of(&state.pg_pool, server_id)
+                    .await
+                    .map_err(|(code, message)| {
+                        (
+                            code,
+                            message.0["error"].as_str().unwrap_or("plan").to_string(),
+                        )
+                    })?;
+            if first == Some(1) {
+                (Some(period_end), None)
+            } else {
+                (
+                    current.card_bill_period_end,
+                    Some("bill change ignored: move the first installment instead".to_string()),
+                )
+            }
+        }
+        Some(period_end) => (Some(period_end), None),
+        None if current.installment_plan_id.is_some() => (current.card_bill_period_end, None),
+        None => (None, None),
+    };
+
     let old_ledger_id: Option<Option<Uuid>> =
         sqlx::query_scalar("SELECT ledger_transaction_id FROM transactions WHERE id = $1")
             .bind(server_id)
@@ -503,8 +685,9 @@ async fn apply_transaction_update(
     let result = sqlx::query(
         "UPDATE transactions
          SET description = $1, amount = $2, type = $3, category_id = $4,
-             date = $5, notes = $6, account_id = $7, installment_plan_id = $8, updated_at = NOW()
-         WHERE id = $9",
+             date = $5, notes = $6, account_id = $7, installment_plan_id = $8,
+             card_bill_period_end = $9, updated_at = NOW()
+         WHERE id = $10",
     )
     .bind(&description)
     .bind(amount)
@@ -514,6 +697,7 @@ async fn apply_transaction_update(
     .bind(notes)
     .bind(source_account)
     .bind(installment_plan_id)
+    .bind(stored_period_end)
     .bind(server_id)
     .execute(&mut *db)
     .await
@@ -560,6 +744,50 @@ async fn apply_transaction_update(
             )
         })?;
 
+    // A pinned bill on the first installment of a plan moves the whole plan.
+    if let Some(plan_id) = current.installment_plan_id {
+        let billing = crate::routes::transactions::plan_billing_of(&state.pg_pool, plan_id)
+            .await
+            .map_err(|(code, message)| {
+                (
+                    code,
+                    message.0["error"].as_str().unwrap_or("plan").to_string(),
+                )
+            })?;
+        if let (Some((closing, due)), Some(old_start), Some(new_start)) =
+            (billing.card, billing.start_period_end, stored_period_end)
+        {
+            if old_start != new_start {
+                crate::routes::transactions::shift_plan_bills(
+                    &mut db,
+                    plan_id,
+                    source_account,
+                    closing,
+                    due,
+                    old_start,
+                    new_start,
+                )
+                .await
+                .map_err(|message| (StatusCode::CONFLICT, message))?;
+            }
+        }
+    } else if let (Some(period_end), Some((closing, due))) = (stored_period_end, card) {
+        crate::routes::credit_cards::ensure_bill_for_period(
+            &mut db,
+            source_account,
+            closing,
+            due,
+            period_end,
+        )
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to attach transaction to bill: {e}"),
+            )
+        })?;
+    }
+
     db.commit().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -569,7 +797,7 @@ async fn apply_transaction_update(
 
     Ok(AppliedOp {
         server_id: Some(server_id),
-        warning: category_warning,
+        warning: category_warning.or(bill_warning).or(plan_warning),
     })
 }
 

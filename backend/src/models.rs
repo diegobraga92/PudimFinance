@@ -82,6 +82,12 @@ pub struct Transaction {
     /// Source account (payment method, e.g. a credit card) used for this
     /// transaction (NULL when unlinked).
     pub account_id: Option<Uuid>,
+    /// Closing date of the credit-card bill this purchase belongs to.
+    #[sqlx(default)]
+    pub card_bill_period_end: Option<NaiveDate>,
+    /// 1-based position of this row inside its installment plan
+    #[sqlx(default)]
+    pub installment_number: Option<i32>,
     /// Due date ("vencimento") of the credit-card bill that contains this
     /// purchase (NULL for non-card transactions or cards without a billing
     /// cycle).
@@ -118,6 +124,9 @@ pub struct CreateTransactionRequest {
     pub installment_plan_id: Option<Uuid>,
     /// Source account (payment method) for this transaction (optional).
     pub account_id: Option<Uuid>,
+    /// Pin the expense to a credit-card bill (the closing date of its cycle).
+    #[schema(value_type = Option<String>, format = Date)]
+    pub card_bill_period_end: Option<NaiveDate>,
     /// Split this transaction into N monthly installments (2-60).
     /// When set, a plan is created and every installment is materialized as a
     /// dated expense, starting on `date`.
@@ -147,6 +156,9 @@ pub struct UpdateTransactionRequest {
     pub installment_plan_id: Option<Uuid>,
     /// Source account (payment method) for this transaction (optional).
     pub account_id: Option<Uuid>,
+    /// Pin the expense to a credit-card bill (the closing date of its cycle).
+    #[schema(value_type = Option<String>, format = Date)]
+    pub card_bill_period_end: Option<NaiveDate>,
     /// Split this transaction into N monthly installments (2-60) on save.
     #[schema(minimum = 2, maximum = 60)]
     pub installments: Option<u8>,
@@ -462,6 +474,9 @@ pub struct CreateInstallmentPlanRequest {
     pub start_date: NaiveDate,
     /// Source account (payment method, e.g. a credit card) for this plan (optional).
     pub account_id: Option<Uuid>,
+    /// Pin the first installment to a credit-card bill
+    #[schema(value_type = Option<String>, format = Date)]
+    pub card_bill_period_end: Option<NaiveDate>,
 }
 
 /// A single installment row within a plan.
@@ -581,6 +596,9 @@ pub struct CreateCardPurchaseRequest {
     pub notes: Option<String>,
     /// Installment plan this purchase belongs to (optional).
     pub installment_plan_id: Option<Uuid>,
+    /// Pin the purchase to a credit-card bill (the closing date of its cycle).
+    #[schema(value_type = Option<String>, format = Date)]
+    pub card_bill_period_end: Option<NaiveDate>,
 }
 
 /// Payload for paying a credit-card bill.

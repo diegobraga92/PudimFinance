@@ -138,10 +138,20 @@ as `connected` or `connecting` and never fails the check on its own.
   used for audit and manual replay, while RabbitMQ is only a side channel.
 - Money is `NUMERIC(12,2)` and dates are `DATE`. Reports use half-open ranges
   (`>= start AND < end`) so the indexes still apply.
-- Card dating is configurable. The SQL functions `card_bill_due_date` and
-  `effective_transaction_date` implement the billing cycle and the
-  `app_settings.card_expense_dating` choice between `purchase_date` and
-  `due_date`.
+- Card dating is configurable. The SQL functions `card_bill_due_date`,
+  `bill_due_date_for_period` and `effective_transaction_date` implement the
+  billing cycle and the `app_settings.card_expense_dating` choice between
+  `purchase_date` and `due_date`.
+- A card purchase can be pinned to a specific bill via
+  `transactions.card_bill_period_end` (the cycle's closing date): the default is
+  the cycle its date falls into, and the form offers the previous and next cycle
+  so a purchase made close to the closing date can be moved to the next invoice
+  without changing its date. `card_bill_total` then counts the row in that bill,
+  and `effective_transaction_date` reports it in the bill's month when the
+  dating preference is `due_date`. Installment plans anchor on the same field
+  (`installment_plans.card_bill_period_end`): moving the first installment
+  shifts every upcoming installment's cycle and schedule row. Bills that are
+  already paid (or installments already paid/anticipated) refuse the move.
 - Budgets are upserted per `(category_id, month, year)`. The overall monthly
   budget is a row with `category_id IS NULL`, protected by its own partial unique
   index. Parent budgets include spending from their descendants, and overlapping

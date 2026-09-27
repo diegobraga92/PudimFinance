@@ -140,6 +140,7 @@ export async function adoptNativeTransaction(entry: NativeImportEntry): Promise<
     notes: entry.notes ?? null,
     installment_plan_id: null,
     account_id: entry.account_id ?? null,
+    card_bill_period_end: null,
     synced: 0,
     updated_at: new Date().toISOString(),
   });

@@ -257,6 +257,7 @@ async function pullChanges(): Promise<{
       notes: t.notes ?? null,
       installment_plan_id: t.installment_plan_id ?? null,
       account_id: t.account_id ?? null,
+      card_bill_period_end: t.card_bill_period_end ?? null,
       synced: 1,
       updated_at: t.updated_at,
     });

@@ -84,7 +84,7 @@ pub async fn get_summary(
          FROM transactions t
          LEFT JOIN categories c ON c.id = t.category_id
          WHERE t.date >= make_date($1, $2, 1) - INTERVAL '3 months'
-           AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3))
+           AND date_trunc('month', effective_transaction_date(t.date, t.account_id, $3, t.card_bill_period_end))
                = make_date($1, $2, 1)
          GROUP BY t.category_id, c.name, c.color, c.icon, t.type
          ORDER BY total DESC",

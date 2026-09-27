@@ -1599,6 +1599,12 @@ export interface components {
              */
             amount: string;
             /**
+             * Format: date
+             * @description Pin the purchase to a credit-card bill (the closing date of its cycle).
+             *     Omit or send `null` to derive the bill from `date`.
+             */
+            card_bill_period_end?: string | null;
+            /**
              * Format: uuid
              * @description Expense category (defaults to Miscellaneous when omitted).
              */
@@ -1644,6 +1650,12 @@ export interface components {
              * @description Source account (payment method, e.g. a credit card) for this plan (optional).
              */
             account_id?: string | null;
+            /**
+             * Format: date
+             * @description Pin the first installment to a credit-card bill (the closing date of its
+             *     cycle). Omit or send `null` to derive it from `start_date`.
+             */
+            card_bill_period_end?: string | null;
             /**
              * Format: uuid
              * @description Optional expense category.
@@ -1704,6 +1716,14 @@ export interface components {
              * @example 150.00
              */
             amount: string;
+            /**
+             * Format: date
+             * @description Pin the expense to a credit-card bill (the closing date of its cycle).
+             *
+             *     Omit or send `null` to derive the bill from `date`. Setting it moves the
+             *     purchase to the next (or previous) bill without changing the date.
+             */
+            card_bill_period_end?: string | null;
             /**
              * Format: uuid
              * @description Category this transaction belongs to.
@@ -2830,6 +2850,14 @@ export interface components {
             amount: string;
             /**
              * Format: date
+             * @description Closing date of the credit-card bill this purchase belongs to.
+             *
+             *     NULL derives the cycle from `date`. Set it to move a purchase to the
+             *     next (or previous) bill without changing the expense date.
+             */
+            card_bill_period_end?: string | null;
+            /**
+             * Format: date
              * @description Due date ("vencimento") of the credit-card bill that contains this
              *     purchase (NULL for non-card transactions or cards without a billing
              *     cycle).
@@ -2860,6 +2888,12 @@ export interface components {
              * @description Transaction ID.
              */
             id: string;
+            /**
+             * Format: int32
+             * @description 1-based position of this row inside its installment plan (NULL for
+             *     transactions that are not part of a plan).
+             */
+            installment_number?: number | null;
             /**
              * Format: uuid
              * @description Installment plan this transaction belongs to (NULL for regular transactions).
@@ -3049,6 +3083,14 @@ export interface components {
              * @example 150.00
              */
             amount: string;
+            /**
+             * Format: date
+             * @description Pin the expense to a credit-card bill (the closing date of its cycle).
+             *
+             *     Omit or send `null` to keep the derived bill. On a plan-linked row this
+             *     must be set on the first installment, and it moves the whole plan.
+             */
+            card_bill_period_end?: string | null;
             /**
              * Format: uuid
              * @description Category this transaction belongs to.

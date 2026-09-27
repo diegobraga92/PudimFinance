@@ -254,6 +254,15 @@ export const ptBR = {
   'transactions.form.installmentsPlanLocked':
     'Esta transação faz parte de um parcelamento, então o número de parcelas não pode ser alterado aqui.',
   'transactions.form.perInstallment': '{installments}x de {amount} cada',
+  'transactions.form.bill': 'Fatura',
+  'transactions.form.billAuto': 'Ciclo atual — vence {date}',
+  'transactions.form.billPrevious': 'Ciclo anterior — vence {date}',
+  'transactions.form.billNext': 'Próximo ciclo — vence {date}',
+  'transactions.form.billPinned': 'Fixa — vence {date}',
+  'transactions.form.billHint':
+    'Move a compra para outra fatura sem alterar a data da compra.',
+  'transactions.form.billPlanHint':
+    'Primeira parcela: as parcelas restantes seguem esta fatura.',
   'transactions.form.validationDesc': 'A descrição é obrigatória',
   'transactions.form.validationAmount': 'O valor deve ser maior que zero',
   'transactions.form.openDate': 'Alterar data',

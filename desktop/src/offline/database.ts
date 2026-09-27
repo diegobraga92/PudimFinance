@@ -16,6 +16,8 @@ export interface LocalTransaction {
   notes: string | null;
   installment_plan_id: string | null;
   account_id: string | null;
+  /** Closing date of a pinned credit-card bill (`null` derives it from `date`). */
+  card_bill_period_end: string | null;
   /** 0 = local-only (pending push), 1 = synced to server. */
   synced: number;
   updated_at: string;

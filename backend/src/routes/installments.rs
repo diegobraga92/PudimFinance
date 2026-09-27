@@ -207,10 +207,42 @@ pub async fn create_installment_plan(
         id: Uuid,
         created_at: chrono::DateTime<Utc>,
     }
+
+    // Which bill the plan starts on.
+    let card = crate::routes::credit_cards::card_cycle(&state.pg_pool, payload.account_id)
+        .await
+        .map_err(|e| {
+            error!("Failed to load card cycle: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Failed to load card cycle" })),
+            )
+        })?;
+    let derived_start = card.map(|(closing, due)| {
+        crate::routes::credit_cards::cycle_for_date(closing, due, payload.start_date).1
+    });
+    let pinned_start = crate::routes::credit_cards::resolve_bill_period_end(
+        &state.pg_pool,
+        payload.account_id,
+        payload.start_date,
+        payload.card_bill_period_end,
+        None,
+    )
+    .await
+    .map_err(|e| (e.status(), Json(json!({ "error": e.message() }))))?;
+    let start_period_end = pinned_start.or(derived_start);
+    let shift_months = match (derived_start, pinned_start) {
+        (Some(derived), Some(pinned)) => {
+            crate::routes::credit_cards::months_between_cycles(derived, pinned)
+        }
+        _ => 0,
+    };
+
     let inserted: Inserted = sqlx::query_as(
         "INSERT INTO installment_plans
-            (description, total_amount, installments, installment_amount, category_id, start_date, account_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+            (description, total_amount, installments, installment_amount, category_id, start_date,
+             account_id, card_bill_period_end)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id, created_at",
     )
     .bind(payload.description.trim())
@@ -220,6 +252,7 @@ pub async fn create_installment_plan(
     .bind(payload.category_id)
     .bind(payload.start_date)
     .bind(payload.account_id)
+    .bind(start_period_end)
     .fetch_one(&state.pg_pool)
     .await
     .map_err(|e| {
@@ -231,7 +264,8 @@ pub async fn create_installment_plan(
     })?;
 
     for n in 1..=payload.installments {
-        let due = add_months(payload.start_date, n - 1);
+        // A pinned first bill shifts the installment months with it.
+        let due = add_months(payload.start_date, n - 1 + shift_months);
         let _ = sqlx::query(
             "INSERT INTO installment_transactions (plan_id, installment_number, due_date)
              VALUES ($1, $2, $3)",
@@ -460,6 +494,9 @@ pub async fn generate_installments(
         installment_amount: Decimal,
         category_id: Option<Uuid>,
         account_id: Option<Uuid>,
+        card_bill_period_end: Option<NaiveDate>,
+        closing_day: Option<i16>,
+        due_day: Option<i16>,
     }
 
     let today = Utc::now().date_naive();
@@ -467,9 +504,11 @@ pub async fn generate_installments(
     let pending: Vec<PendingRow> = sqlx::query_as(
         "SELECT it.id, it.installment_number, it.due_date,
                 ip.description AS plan_description, ip.installments AS installments_total,
-                ip.installment_amount, ip.category_id, ip.account_id
+                ip.installment_amount, ip.category_id, ip.account_id,
+                ip.card_bill_period_end, a.closing_day, a.due_day
          FROM installment_transactions it
          JOIN installment_plans ip ON ip.id = it.plan_id
+         LEFT JOIN accounts a ON a.id = ip.account_id
          WHERE it.plan_id = $1
            AND it.status = 'pending'
            AND it.anticipated_at IS NULL
@@ -561,12 +600,23 @@ pub async fn generate_installments(
             )
         })?;
 
+        // The bill this installment belongs to, when the plan is on a card.
+        let period_end = match (row.closing_day, row.due_day, row.card_bill_period_end) {
+            (Some(closing), _, Some(start)) => Some(crate::routes::credit_cards::shift_period_end(
+                start,
+                closing,
+                row.installment_number - 1,
+            )),
+            _ => None,
+        };
+
         let tx: Transaction = sqlx::query_as(
             "INSERT INTO transactions
-                (description, amount, type, category_id, date, installment_plan_id, account_id)
-             VALUES ($1, $2, 'expense', $3, $4, $5, $6)
+                (description, amount, type, category_id, date, installment_plan_id, account_id,
+                 card_bill_period_end)
+             VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)
              RETURNING id, description, amount, type, category_id, date, notes,
-                       installment_plan_id, account_id, created_at, updated_at",
+                       installment_plan_id, account_id, card_bill_period_end, created_at, updated_at",
         )
         .bind(&description)
         .bind(row.installment_amount)
@@ -574,6 +624,7 @@ pub async fn generate_installments(
         .bind(row.due_date)
         .bind(id)
         .bind(source_account)
+        .bind(period_end)
         .fetch_one(&mut *db)
         .await
         .map_err(|e| {
@@ -616,6 +667,27 @@ pub async fn generate_installments(
                     Json(json!({ "error": "Failed to create installment transaction" })),
                 )
             })?;
+
+        // Materialize the bill the installment is pinned to.
+        if let (Some(period_end), Some(closing), Some(due)) =
+            (period_end, row.closing_day, row.due_day)
+        {
+            crate::routes::credit_cards::ensure_bill_for_period(
+                &mut db,
+                source_account,
+                closing,
+                due,
+                period_end,
+            )
+            .await
+            .map_err(|e| {
+                error!("Failed to upsert installment bill: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "Failed to create installment transaction" })),
+                )
+            })?;
+        }
 
         // Link the transaction and mark the installment as generated.
         sqlx::query(

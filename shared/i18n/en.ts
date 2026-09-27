@@ -252,6 +252,15 @@ export const en = {
   'transactions.form.installmentsPlanLocked':
     "This transaction is part of an installment plan, so its number of installments can't be changed here.",
   'transactions.form.perInstallment': '{installments}x of {amount} each',
+  'transactions.form.bill': 'Bill',
+  'transactions.form.billAuto': 'Current cycle — due {date}',
+  'transactions.form.billPrevious': 'Previous cycle — due {date}',
+  'transactions.form.billNext': 'Next cycle — due {date}',
+  'transactions.form.billPinned': 'Pinned — due {date}',
+  'transactions.form.billHint':
+    'Moves the purchase to another invoice without changing its date.',
+  'transactions.form.billPlanHint':
+    'First installment: the remaining installments follow this bill.',
   'transactions.form.validationDesc': 'Description is required',
   'transactions.form.validationAmount': 'Amount must be greater than zero',
   'transactions.form.openDate': 'Change date',

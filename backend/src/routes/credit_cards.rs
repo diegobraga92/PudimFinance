@@ -7,7 +7,7 @@ use axum::{Json, Router};
 use chrono::{Datelike, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use tracing::{error, warn};
 use uuid::Uuid;
 
@@ -69,7 +69,7 @@ fn date_with_day(year: i32, month: u32, day: u32) -> NaiveDate {
 }
 
 /// Returns the billing cycle and due date containing `d`.
-fn cycle_for_date(
+pub(crate) fn cycle_for_date(
     closing_day: i16,
     due_day: i16,
     d: NaiveDate,
@@ -100,6 +100,41 @@ fn cycle_for_date(
     };
 
     (period_start, period_end, due_date)
+}
+
+/// Moves a cycle closing date by `months`, keeping the card's closing day.
+pub(crate) fn shift_period_end(period_end: NaiveDate, closing_day: i16, months: i32) -> NaiveDate {
+    let (year, month) = add_months_ym(period_end.year(), period_end.month(), months);
+    date_with_day(year, month, closing_day as u32)
+}
+
+/// Due date of the cycle that closes on `period_end`.
+pub(crate) fn due_date_for_period(period_end: NaiveDate, due_day: i16) -> NaiveDate {
+    let candidate = date_with_day(period_end.year(), period_end.month(), due_day as u32);
+    if candidate >= period_end {
+        candidate
+    } else {
+        let (year, month) = add_months_ym(period_end.year(), period_end.month(), 1);
+        date_with_day(year, month, due_day as u32)
+    }
+}
+
+/// First day of the cycle that closes on `period_end`.
+pub(crate) fn period_start_for(period_end: NaiveDate, closing_day: i16) -> NaiveDate {
+    let (year, month) = add_months_ym(period_end.year(), period_end.month(), -1);
+    date_with_day(year, month, closing_day as u32)
+        .succ_opt()
+        .expect("day after a date is always valid")
+}
+
+/// `true` when `period_end` is a real closing date for `closing_day`.
+fn is_cycle_closing_date(period_end: NaiveDate, closing_day: i16) -> bool {
+    date_with_day(period_end.year(), period_end.month(), closing_day as u32) == period_end
+}
+
+/// Whole months between two cycle closing dates.
+pub(crate) fn months_between_cycles(from: NaiveDate, to: NaiveDate) -> i32 {
+    (to.year() * 12 + to.month() as i32) - (from.year() * 12 + from.month() as i32)
 }
 
 #[cfg(test)]
@@ -152,13 +187,249 @@ mod cycle_tests {
         assert_eq!(end, NaiveDate::from_ymd_opt(2026, 1, 25).unwrap());
         assert_eq!(due, NaiveDate::from_ymd_opt(2026, 2, 10).unwrap());
     }
+
+    #[test]
+    fn shifting_a_cycle_keeps_the_closing_day() {
+        let january = NaiveDate::from_ymd_opt(2026, 1, 5).unwrap();
+        assert_eq!(
+            shift_period_end(january, 5, 1),
+            NaiveDate::from_ymd_opt(2026, 2, 5).unwrap()
+        );
+        assert_eq!(
+            shift_period_end(january, 5, -1),
+            NaiveDate::from_ymd_opt(2025, 12, 5).unwrap()
+        );
+    }
+
+    #[test]
+    fn shifting_a_cycle_clamps_short_months() {
+        let january = NaiveDate::from_ymd_opt(2026, 1, 31).unwrap();
+        assert_eq!(
+            shift_period_end(january, 31, 1),
+            NaiveDate::from_ymd_opt(2026, 2, 28).unwrap()
+        );
+    }
+
+    #[test]
+    fn period_dates_match_the_cycle() {
+        let period_end = NaiveDate::from_ymd_opt(2026, 2, 5).unwrap();
+        assert_eq!(
+            period_start_for(period_end, 5),
+            NaiveDate::from_ymd_opt(2026, 1, 6).unwrap()
+        );
+        assert_eq!(
+            due_date_for_period(period_end, 15),
+            NaiveDate::from_ymd_opt(2026, 2, 15).unwrap()
+        );
+        // A due day before the closing rolls into the next month.
+        assert_eq!(
+            due_date_for_period(period_end, 1),
+            NaiveDate::from_ymd_opt(2026, 3, 1).unwrap()
+        );
+    }
+
+    #[test]
+    fn month_delta_counts_whole_cycles() {
+        let january = NaiveDate::from_ymd_opt(2026, 1, 5).unwrap();
+        let march = NaiveDate::from_ymd_opt(2026, 3, 5).unwrap();
+        assert_eq!(months_between_cycles(january, march), 2);
+        assert_eq!(months_between_cycles(march, january), -2);
+        assert_eq!(months_between_cycles(january, january), 0);
+    }
 }
 
 // Shared DB helpers
 
+/// Why a requested card-bill assignment was rejected.
+#[derive(Debug)]
+pub(crate) enum BillError {
+    /// The account has no billing cycle, so it is not a credit card.
+    NotACard,
+    /// The requested closing date is not a cycle of this card.
+    NotACycle(NaiveDate),
+    /// The requested cycle is outside the accepted window.
+    OutOfWindow {
+        requested: NaiveDate,
+        min: NaiveDate,
+        max: NaiveDate,
+    },
+    /// The target bill has already been paid.
+    BillPaid(NaiveDate),
+    /// The bill the transaction currently belongs to has already been paid.
+    CurrentBillPaid(NaiveDate),
+    /// Unexpected database failure.
+    Database(String),
+}
+
+impl BillError {
+    pub(crate) fn status(&self) -> StatusCode {
+        match self {
+            BillError::NotACard | BillError::NotACycle(_) | BillError::OutOfWindow { .. } => {
+                StatusCode::BAD_REQUEST
+            }
+            BillError::BillPaid(_) | BillError::CurrentBillPaid(_) => StatusCode::CONFLICT,
+            BillError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    pub(crate) fn message(&self) -> String {
+        match self {
+            BillError::NotACard => {
+                "card_bill_period_end requires a credit-card account with a billing cycle"
+                    .to_string()
+            }
+            BillError::NotACycle(date) => {
+                format!("{date} is not a closing date of this card's billing cycle")
+            }
+            BillError::OutOfWindow {
+                requested,
+                min,
+                max,
+            } => format!("bill closing {requested} is outside the allowed window {min}..={max}"),
+            BillError::BillPaid(date) => format!("the bill closing {date} is already paid"),
+            BillError::CurrentBillPaid(date) => {
+                format!("the bill this transaction belongs to (closing {date}) is already paid")
+            }
+            BillError::Database(message) => message.clone(),
+        }
+    }
+}
+
+/// `true` when the card's bill for `period_end` exists and is paid.
+async fn bill_is_paid(
+    pool: &PgPool,
+    card_id: Uuid,
+    period_end: NaiveDate,
+) -> Result<bool, BillError> {
+    let status: Option<String> =
+        sqlx::query_scalar("SELECT status FROM card_bills WHERE card_id = $1 AND period_end = $2")
+            .bind(card_id)
+            .bind(period_end)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| BillError::Database(format!("Failed to load bill status: {e}")))?;
+    Ok(status.as_deref() == Some("paid"))
+}
+
+/// `true` when the card's bill for `period_end` exists and is paid.
+pub(crate) async fn period_is_paid(
+    conn: &mut PgConnection,
+    card_id: Uuid,
+    period_end: NaiveDate,
+) -> Result<bool, sqlx::Error> {
+    let status: Option<String> =
+        sqlx::query_scalar("SELECT status FROM card_bills WHERE card_id = $1 AND period_end = $2")
+            .bind(card_id)
+            .bind(period_end)
+            .fetch_optional(conn)
+            .await?;
+    Ok(status.as_deref() == Some("paid"))
+}
+
+/// Resolves the bill cycle a card transaction belongs to.
+pub(crate) async fn resolve_bill_period_end(
+    pool: &PgPool,
+    account_id: Option<Uuid>,
+    date: NaiveDate,
+    requested: Option<NaiveDate>,
+    current: Option<NaiveDate>,
+) -> Result<Option<NaiveDate>, BillError> {
+    let cycle = card_cycle(pool, account_id)
+        .await
+        .map_err(|e| BillError::Database(format!("Failed to load card cycle: {e}")))?;
+
+    let (closing_day, due_day) = match cycle {
+        Some(cycle) => cycle,
+        None => {
+            if requested.is_some() {
+                return Err(BillError::NotACard);
+            }
+            return Ok(None);
+        }
+    };
+
+    let derived = cycle_for_date(closing_day, due_day, date).1;
+    let target = requested.unwrap_or(derived);
+
+    if !is_cycle_closing_date(target, closing_day) {
+        return Err(BillError::NotACycle(target));
+    }
+
+    let min = shift_period_end(derived, closing_day, -1);
+    let max = shift_period_end(derived, closing_day, 1);
+    if target < min || target > max {
+        return Err(BillError::OutOfWindow {
+            requested: target,
+            min,
+            max,
+        });
+    }
+
+    let card_id = account_id.expect("a billing cycle implies an account");
+
+    if Some(target) != current && bill_is_paid(pool, card_id, target).await? {
+        return Err(BillError::BillPaid(target));
+    }
+    if let Some(current) = current {
+        if current != target && bill_is_paid(pool, card_id, current).await? {
+            return Err(BillError::CurrentBillPaid(current));
+        }
+    }
+
+    Ok(Some(target))
+}
+
+/// Cycle (`closing_day`, `due_day`) of a card account, when it has one.
+pub(crate) async fn card_cycle(
+    pool: &PgPool,
+    account_id: Option<Uuid>,
+) -> Result<Option<(i16, i16)>, sqlx::Error> {
+    let account_id = match account_id {
+        Some(id) => id,
+        None => return Ok(None),
+    };
+    sqlx::query_as(
+        "SELECT closing_day, due_day FROM accounts
+         WHERE id = $1 AND closing_day IS NOT NULL AND due_day IS NOT NULL",
+    )
+    .bind(account_id)
+    .fetch_optional(pool)
+    .await
+}
+
+/// Cycle closing date the given `(account, date)` falls into.
+pub(crate) async fn derived_period_end(
+    pool: &PgPool,
+    account_id: Option<Uuid>,
+    date: NaiveDate,
+) -> Result<Option<NaiveDate>, sqlx::Error> {
+    match card_cycle(pool, account_id).await? {
+        Some((closing_day, due_day)) => Ok(Some(cycle_for_date(closing_day, due_day, date).1)),
+        None => Ok(None),
+    }
+}
+
+/// Ensures the `card_bills` row for an explicit cycle exists, returning its id.
+pub(crate) async fn ensure_bill_for_period(
+    conn: &mut PgConnection,
+    card_id: Uuid,
+    closing_day: i16,
+    due_day: i16,
+    period_end: NaiveDate,
+) -> Result<Uuid, sqlx::Error> {
+    upsert_bill_cycle(
+        conn,
+        card_id,
+        period_start_for(period_end, closing_day),
+        period_end,
+        due_date_for_period(period_end, due_day),
+    )
+    .await
+}
+
 /// Fetches a card account (a `liability` account with `due_day` set).
 /// Returns `(name, closing_day, due_day)`.
-async fn fetch_card(
+pub(crate) async fn fetch_card(
     pool: &PgPool,
     id: Uuid,
 ) -> Result<(String, Option<i16>, Option<i16>), (StatusCode, Json<Value>)> {
@@ -222,13 +493,24 @@ async fn expense_account_for(
 
 /// Ensures a `card_bills` row exists for the cycle containing `date`, returning its id.
 async fn upsert_bill(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    conn: &mut PgConnection,
     card_id: Uuid,
     closing_day: i16,
     due_day: i16,
     date: NaiveDate,
 ) -> Result<Uuid, sqlx::Error> {
     let (period_start, period_end, due_date) = cycle_for_date(closing_day, due_day, date);
+    upsert_bill_cycle(conn, card_id, period_start, period_end, due_date).await
+}
+
+/// Inserts (or refreshes) the `card_bills` row for an explicit cycle.
+pub(crate) async fn upsert_bill_cycle(
+    conn: &mut PgConnection,
+    card_id: Uuid,
+    period_start: NaiveDate,
+    period_end: NaiveDate,
+    due_date: NaiveDate,
+) -> Result<Uuid, sqlx::Error> {
     let bill_id: Uuid = sqlx::query_scalar(
         "INSERT INTO card_bills (card_id, period_start, period_end, due_date)
          VALUES ($1, $2, $3, $4)
@@ -240,7 +522,7 @@ async fn upsert_bill(
     .bind(period_start)
     .bind(period_end)
     .bind(due_date)
-    .fetch_one(&mut **tx)
+    .fetch_one(conn)
     .await?;
     Ok(bill_id)
 }
@@ -272,20 +554,10 @@ async fn fetch_bill_by_id(
     let bill: Option<CardBill> = sqlx::query_as::<_, CardBill>(
         "SELECT b.id, b.card_id, b.period_start, b.period_end, b.due_date, b.status,
                 b.paid_amount, b.paid_at,
-                COALESCE((
-                    SELECT SUM(t.amount) FROM transactions t
-                    WHERE t.account_id = b.card_id
-                      AND t.type = 'expense'
-                      AND t.date >= b.period_start
-                      AND t.date <= b.period_end
-                ), 0)::numeric AS total_amount,
-                COALESCE((
-                    SELECT SUM(t.amount) FROM transactions t
-                    WHERE t.account_id = b.card_id
-                      AND t.type = 'expense'
-                      AND t.date >= b.period_start
-                      AND t.date <= b.period_end
-                ), 0)::numeric - b.paid_amount AS remaining_amount
+                COALESCE(card_bill_total(b.card_id, b.period_start, b.period_end), 0)::numeric
+                    AS total_amount,
+                COALESCE(card_bill_total(b.card_id, b.period_start, b.period_end), 0)::numeric
+                    - b.paid_amount AS remaining_amount
          FROM card_bills b
          WHERE b.id = $1",
     )
@@ -311,20 +583,10 @@ async fn fetch_current_bill(
     let bill: Option<CardBill> = sqlx::query_as::<_, CardBill>(
         "SELECT b.id, b.card_id, b.period_start, b.period_end, b.due_date, b.status,
                 b.paid_amount, b.paid_at,
-                COALESCE((
-                    SELECT SUM(t.amount) FROM transactions t
-                    WHERE t.account_id = b.card_id
-                      AND t.type = 'expense'
-                      AND t.date >= b.period_start
-                      AND t.date <= b.period_end
-                ), 0)::numeric AS total_amount,
-                COALESCE((
-                    SELECT SUM(t.amount) FROM transactions t
-                    WHERE t.account_id = b.card_id
-                      AND t.type = 'expense'
-                      AND t.date >= b.period_start
-                      AND t.date <= b.period_end
-                ), 0)::numeric - b.paid_amount AS remaining_amount
+                COALESCE(card_bill_total(b.card_id, b.period_start, b.period_end), 0)::numeric
+                    AS total_amount,
+                COALESCE(card_bill_total(b.card_id, b.period_start, b.period_end), 0)::numeric
+                    - b.paid_amount AS remaining_amount
          FROM card_bills b
          WHERE b.card_id = $1 AND b.status = 'open' AND b.period_start <= $2
          ORDER BY b.period_end DESC
@@ -490,20 +752,10 @@ pub async fn list_card_bills(
     let bills: Vec<CardBill> = sqlx::query_as::<_, CardBill>(
         "SELECT b.id, b.card_id, b.period_start, b.period_end, b.due_date, b.status,
                 b.paid_amount, b.paid_at,
-                COALESCE((
-                    SELECT SUM(t.amount) FROM transactions t
-                    WHERE t.account_id = b.card_id
-                      AND t.type = 'expense'
-                      AND t.date >= b.period_start
-                      AND t.date <= b.period_end
-                ), 0)::numeric AS total_amount,
-                COALESCE((
-                    SELECT SUM(t.amount) FROM transactions t
-                    WHERE t.account_id = b.card_id
-                      AND t.type = 'expense'
-                      AND t.date >= b.period_start
-                      AND t.date <= b.period_end
-                ), 0)::numeric - b.paid_amount AS remaining_amount
+                COALESCE(card_bill_total(b.card_id, b.period_start, b.period_end), 0)::numeric
+                    AS total_amount,
+                COALESCE(card_bill_total(b.card_id, b.period_start, b.period_end), 0)::numeric
+                    - b.paid_amount AS remaining_amount
          FROM card_bills b
          WHERE b.card_id = $1
          ORDER BY b.period_end DESC",
@@ -603,6 +855,17 @@ pub async fn create_card_purchase(
     let expense_account =
         expense_account_for(&state.pg_pool, &account_map, payload.category_id).await?;
 
+    // A purchase can be pinned to a specific bill.
+    let bill_period_end = resolve_bill_period_end(
+        &state.pg_pool,
+        Some(id),
+        purchase_date,
+        payload.card_bill_period_end,
+        None,
+    )
+    .await
+    .map_err(|e| (e.status(), Json(json!({ "error": e.message() }))))?;
+
     let mut tx = state.pg_pool.begin().await.map_err(|e| {
         error!("Failed to begin DB transaction: {e}");
         (
@@ -613,10 +876,11 @@ pub async fn create_card_purchase(
 
     // 1. Simple transaction that drives monthly expense totals.
     let transaction: Transaction = sqlx::query_as(
-        "INSERT INTO transactions (description, amount, type, category_id, date, notes, installment_plan_id, account_id)
-         VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)
+        "INSERT INTO transactions (description, amount, type, category_id, date, notes,
+                                   installment_plan_id, account_id, card_bill_period_end)
+         VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7, $8)
          RETURNING id, description, amount, type, category_id, date, notes,
-                   installment_plan_id, account_id, created_at, updated_at",
+                   installment_plan_id, account_id, card_bill_period_end, created_at, updated_at",
     )
     .bind(&description)
     .bind(payload.amount)
@@ -625,6 +889,7 @@ pub async fn create_card_purchase(
     .bind(&payload.notes)
     .bind(payload.installment_plan_id)
     .bind(id)
+    .bind(bill_period_end)
     .fetch_one(&mut *tx)
     .await
     .map_err(|e| {
@@ -679,7 +944,9 @@ pub async fn create_card_purchase(
         })?;
 
     // 3. Attach to the matching billing cycle.
-    let bill_id = upsert_bill(&mut tx, id, closing_day, due_day, purchase_date)
+    let bill_period_end =
+        bill_period_end.unwrap_or_else(|| cycle_for_date(closing_day, due_day, purchase_date).1);
+    let bill_id = ensure_bill_for_period(&mut tx, id, closing_day, due_day, bill_period_end)
         .await
         .map_err(|e| {
             error!("Failed to upsert card bill: {e}");
