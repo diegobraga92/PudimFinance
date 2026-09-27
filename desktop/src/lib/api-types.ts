@@ -1601,7 +1601,6 @@ export interface components {
             /**
              * Format: date
              * @description Pin the purchase to a credit-card bill (the closing date of its cycle).
-             *     Omit or send `null` to derive the bill from `date`.
              */
             card_bill_period_end?: string | null;
             /**
@@ -1652,8 +1651,7 @@ export interface components {
             account_id?: string | null;
             /**
              * Format: date
-             * @description Pin the first installment to a credit-card bill (the closing date of its
-             *     cycle). Omit or send `null` to derive it from `start_date`.
+             * @description Pin the first installment to a credit-card bill
              */
             card_bill_period_end?: string | null;
             /**
@@ -1719,9 +1717,6 @@ export interface components {
             /**
              * Format: date
              * @description Pin the expense to a credit-card bill (the closing date of its cycle).
-             *
-             *     Omit or send `null` to derive the bill from `date`. Setting it moves the
-             *     purchase to the next (or previous) bill without changing the date.
              */
             card_bill_period_end?: string | null;
             /**
@@ -2851,9 +2846,6 @@ export interface components {
             /**
              * Format: date
              * @description Closing date of the credit-card bill this purchase belongs to.
-             *
-             *     NULL derives the cycle from `date`. Set it to move a purchase to the
-             *     next (or previous) bill without changing the expense date.
              */
             card_bill_period_end?: string | null;
             /**
@@ -2890,8 +2882,7 @@ export interface components {
             id: string;
             /**
              * Format: int32
-             * @description 1-based position of this row inside its installment plan (NULL for
-             *     transactions that are not part of a plan).
+             * @description 1-based position of this row inside its installment plan
              */
             installment_number?: number | null;
             /**
@@ -3086,9 +3077,6 @@ export interface components {
             /**
              * Format: date
              * @description Pin the expense to a credit-card bill (the closing date of its cycle).
-             *
-             *     Omit or send `null` to keep the derived bill. On a plan-linked row this
-             *     must be set on the first installment, and it moves the whole plan.
              */
             card_bill_period_end?: string | null;
             /**
