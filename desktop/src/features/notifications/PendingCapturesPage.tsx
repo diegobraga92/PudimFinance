@@ -33,6 +33,44 @@ import {
   type PendingCapture,
 } from '@/notifications/capture';
 
+/** Segmented income/expense toggle for the review dialog. */
+function CaptureTypeToggle({
+  value,
+  onChange,
+}: {
+  value: 'income' | 'expense';
+  onChange: (v: 'income' | 'expense') => void;
+}) {
+  const { t } = useI18n();
+  const options: { key: 'income' | 'expense'; label: string }[] = [
+    { key: 'expense', label: t('common.expense') },
+    { key: 'income', label: t('common.income') },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="tablist">
+      {options.map((opt) => (
+        <button
+          key={opt.key}
+          type="button"
+          role="tab"
+          aria-selected={value === opt.key}
+          onClick={() => onChange(opt.key)}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            value === opt.key
+              ? opt.key === 'income'
+                ? 'bg-income text-white shadow-sm'
+                : 'bg-expense text-white shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Review inbox for captured transactions awaiting confirmation. */
 export function PendingCapturesPage() {
   const { t, formatMoney } = useI18n();
@@ -46,6 +84,7 @@ export function PendingCapturesPage() {
 
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<PendingCapture | null>(null);
+  const [editType, setEditType] = React.useState<'income' | 'expense'>('expense');
   const [editDescription, setEditDescription] = React.useState('');
   const [editAmount, setEditAmount] = React.useState('');
   const [editCategoryId, setEditCategoryId] = React.useState<string | null>(null);
@@ -58,7 +97,7 @@ export function PendingCapturesPage() {
   );
 
   const defaultAccountId = editing
-    ? captureDefaultAccountId(editing.type, settings, getDefaultAccountId())
+    ? captureDefaultAccountId(editType, settings, getDefaultAccountId())
     : null;
   const defaultAccountName =
     accounts.find((a) => a.id === defaultAccountId)?.name ?? t('common.none');
@@ -81,9 +120,17 @@ export function PendingCapturesPage() {
 
   const openEdit = React.useCallback((item: PendingCapture) => {
     setEditing(item);
+    setEditType(item.type);
     setEditDescription(item.description);
     setEditAmount(item.amount);
     setEditCategoryId(item.categoryId);
+    setEditAccountId('');
+    setEditInstallments('1');
+  }, []);
+
+  const changeEditType = React.useCallback((next: 'income' | 'expense') => {
+    setEditType(next);
+    setEditCategoryId(null);
     setEditAccountId('');
     setEditInstallments('1');
   }, []);
@@ -108,6 +155,7 @@ export function PendingCapturesPage() {
       await approve(editing.id, {
         description: editDescription.trim() || editing.description,
         amount,
+        type: editType,
         categoryId: editCategoryId,
         accountId: editAccountId || undefined,
         installments: installmentsAvailable && installments > 1 ? installments : undefined,
@@ -249,6 +297,10 @@ export function PendingCapturesPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
+                <Label>{t('common.type')}</Label>
+                <CaptureTypeToggle value={editType} onChange={changeEditType} />
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor="nc-description">{t('notifications.description')}</Label>
                 <Input
                   id="nc-description"
@@ -288,7 +340,7 @@ export function PendingCapturesPage() {
                 </select>
               </div>
               {/* Installments split an expense across card bills. */}
-              {editing.type === 'expense' && installmentsAvailable && (
+              {editType === 'expense' && installmentsAvailable && (
                 <div className="space-y-1.5">
                   <Label htmlFor="nc-installments">{t('transactions.form.installments')}</Label>
                   <Input
@@ -326,7 +378,7 @@ export function PendingCapturesPage() {
                     {t('common.none')}
                   </button>
                   {categories
-                    .filter((c) => c.type === editing.type)
+                    .filter((c) => c.type === editType)
                     .map((c) => (
                       <button
                         key={c.id}

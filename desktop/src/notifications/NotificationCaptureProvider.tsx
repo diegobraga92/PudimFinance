@@ -67,6 +67,7 @@ interface NotificationCaptureContextValue {
     overrides?: {
       description?: string;
       amount?: string;
+      type?: 'income' | 'expense';
       categoryId?: string | null;
       accountId?: string | null;
       installments?: number;
@@ -475,6 +476,7 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       overrides?: {
         description?: string;
         amount?: string;
+        type?: 'income' | 'expense';
         categoryId?: string | null;
         accountId?: string | null;
         installments?: number;
@@ -484,14 +486,24 @@ export function NotificationCaptureProvider({ children }: { children: React.Reac
       if (!item) return;
       void cancelCapturePrompt(id);
       const settings = settingsRef.current ?? getNotificationSettingsSync();
-      const defaultAccountId = captureDefaultAccountId(item.type, settings, getDefaultAccountId());
+      const effectiveType = overrides?.type ?? item.type;
+      const typeChanged = effectiveType !== item.type;
+      const defaultAccountId = captureDefaultAccountId(
+        effectiveType,
+        settings,
+        getDefaultAccountId(),
+      );
       try {
         await createTransaction({
           description: overrides?.description ?? item.description,
           amount: overrides?.amount ?? item.amount,
-          type: item.type,
+          type: effectiveType,
           category_id:
-            overrides && overrides.categoryId !== undefined ? overrides.categoryId : item.categoryId,
+            overrides && overrides.categoryId !== undefined
+              ? overrides.categoryId
+              : typeChanged
+                ? null
+                : item.categoryId,
           account_id:
             overrides && overrides.accountId !== undefined
               ? overrides.accountId
