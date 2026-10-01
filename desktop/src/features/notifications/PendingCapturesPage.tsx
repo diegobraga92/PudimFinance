@@ -306,6 +306,7 @@ export function PendingCapturesPage() {
                   id="nc-description"
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
+                  onFocus={(e) => e.currentTarget.select()}
                   placeholder={t('notifications.descriptionPlaceholder')}
                 />
               </div>
