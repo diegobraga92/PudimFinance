@@ -112,7 +112,6 @@ jobs:
         working-directory: backend
 
     steps:
-      # Check the latest at https://github.com/actions/checkout/releases
       - uses: actions/checkout@v7
 
       - name: Install cargo-audit

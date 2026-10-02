@@ -30,7 +30,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  NODE_VERSION: '22'
+  NODE_VERSION: '26'
 
 jobs:
   desktop:
@@ -38,9 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      # Check the latest at https://github.com/actions/checkout/releases
       - uses: actions/checkout@v7
 
       - name: Install Node
+        # Check the latest at https://github.com/actions/setup-node/releases
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -53,6 +55,7 @@ jobs:
           components: clippy, rustfmt
 
       - name: Cache Rust crates
+        # Check the latest at https://github.com/actions/cache/releases
         uses: actions/cache@v6
         with:
           path: |
@@ -179,6 +182,7 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
 
       - name: Set up JDK 17 (Android build)
+        # Check the latest at https://github.com/actions/setup-java/releases
         uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -272,6 +276,7 @@ jobs:
       RUST_LOG: backend=info
     services:
       postgres:
+        # Check the latest at https://hub.docker.com/_/postgres/tags
         image: postgres:18.6-alpine
         env:
           POSTGRES_USER: pudim
@@ -285,6 +290,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       rabbitmq:
+        # Check the latest at https://hub.docker.com/_/rabbitmq/tags
         image: rabbitmq:4.3.5-management-alpine
         env:
           RABBITMQ_DEFAULT_USER: pudim
