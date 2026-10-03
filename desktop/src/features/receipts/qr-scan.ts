@@ -4,7 +4,7 @@ export type CaptureIntent = 'qr' | 'photo';
 export type CaptureTarget = 'qr-camera' | 'qr-picture' | 'photo-camera' | 'photo-picture';
 
 /** Maximum width used when decoding a live camera frame. */
-export const SCAN_CANVAS_MAX_WIDTH = 800;
+export const SCAN_CANVAS_MAX_WIDTH = 1280;
 /** Minimum delay between live camera decode attempts. */
 export const SCAN_INTERVAL_MS = 120;
 /** Time after which a live scan gives up and lets the user try again. */
