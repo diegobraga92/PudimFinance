@@ -5,6 +5,8 @@ use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+// TODO: Look into partitioning and summary tables (or similar) for the ledger for the future
+
 /// Validates that a set of ledger entries is balanced (sum(debits) == sum(credits))
 /// and that each entry has exactly one non-zero side.
 pub fn validate_balance(debits: &[Decimal], credits: &[Decimal]) -> Result<()> {
