@@ -49,3 +49,10 @@ path = "src/main.rs"
 [[bin]]
 name = "gen-openapi"
 path = "src/bin/gen-openapi.rs"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.release]
+debug = false
+strip = "symbols"

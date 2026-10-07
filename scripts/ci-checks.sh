@@ -10,7 +10,7 @@ NC='\033[0m' # No Color
 PASS="${GREEN}✅${NC}"
 FAIL="${RED}❌${NC}"
 
-DOCKER_RUN="docker run --rm -v $ROOT_DIR/backend:/app -w /app rust:slim-bookworm"
+DOCKER_RUN="docker run --rm -e CARGO_TARGET_DIR=/cargo-target -v pudim-backend-ci-target:/cargo-target -v $ROOT_DIR/backend:/app -w /app rust:slim-bookworm"
 DEPS_CMD="apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev curl > /dev/null 2>&1"
 
 # Build a derived image with the GTK/WebKit headers Tauri needs, then run Clippy
