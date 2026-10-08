@@ -6,6 +6,8 @@ import { DateField } from '@/components/DateField';
 import { toIsoDate } from '@/lib/date-input';
 import { createCardPurchase, type AccountWithBalance, type Category, type CreateCardPurchaseRequest } from '@/lib/api';
 import { billOptions } from '@/lib/card-cycle';
+import { moneyPlaceholder } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +30,8 @@ interface Props {
 
 /** Dialog for recording a purchase directly on a credit-card account. */
 export function CardPurchaseDialog({ open, onOpenChange, card, categories, onSaved }: Props) {
-  const { t, formatDate } = useI18n();
+  const { t, formatDate, locale } = useI18n();
+  const intl = toIntlLocale(locale);
   const { toast } = useToast();
   const [description, setDescription] = React.useState('');
   const [amount, setAmount] = React.useState('');
@@ -116,7 +119,7 @@ export function CardPurchaseDialog({ open, onOpenChange, card, categories, onSav
                 inputMode="decimal"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                placeholder="0.00"
+                placeholder={moneyPlaceholder(intl)}
               />
             </div>
             <div className="space-y-1.5">

@@ -23,6 +23,8 @@ import {
 } from '@/lib/api';
 import { DateField } from '@/components/DateField';
 import { toIsoDate } from '@/lib/date-input';
+import { moneyPlaceholder } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -73,7 +75,8 @@ function sides(transaction: LedgerTransaction): { debit?: LedgerEntry; credit?: 
 
 /** Double-entry records behind the money screens. */
 export function LedgerPage() {
-  const { t, formatMoney, formatDate } = useI18n();
+  const { t, formatMoney, formatDate, locale } = useI18n();
+  const intl = toIntlLocale(locale);
   const { toast } = useToast();
 
   const [search, setSearch] = React.useState('');
@@ -593,7 +596,7 @@ export function LedgerPage() {
                   inputMode="decimal"
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
-                  placeholder="0.00"
+                  placeholder={moneyPlaceholder(intl)}
                 />
               </div>
             </div>

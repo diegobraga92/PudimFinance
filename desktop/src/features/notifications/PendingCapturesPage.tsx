@@ -8,6 +8,8 @@ import { fetchAccountsWithBalance, fetchCategories } from '@/lib/api';
 import { cardCycle } from '@/lib/card-cycle';
 import { paymentAccountsOf } from '@/lib/default-account';
 import { getDefaultAccountId } from '@/lib/preferences';
+import { moneyPlaceholder, toAmountInput } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/EmptyState';
@@ -73,7 +75,8 @@ function CaptureTypeToggle({
 
 /** Review inbox for captured transactions awaiting confirmation. */
 export function PendingCapturesPage() {
-  const { t, formatMoney } = useI18n();
+  const { t, formatMoney, locale } = useI18n();
+  const intl = toIntlLocale(locale);
   const { pendingItems, approve, approveAll, skip } = useNotificationCapture();
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: () => fetchCategories() });
   const categories = React.useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
@@ -122,11 +125,11 @@ export function PendingCapturesPage() {
     setEditing(item);
     setEditType(item.type);
     setEditDescription(item.description);
-    setEditAmount(item.amount);
+    setEditAmount(toAmountInput(item.amount, intl));
     setEditCategoryId(item.categoryId);
     setEditAccountId('');
     setEditInstallments('1');
-  }, []);
+  }, [intl]);
 
   const changeEditType = React.useCallback((next: 'income' | 'expense') => {
     setEditType(next);
@@ -316,7 +319,7 @@ export function PendingCapturesPage() {
                   id="nc-amount"
                   value={editAmount}
                   onChange={(e) => setEditAmount(e.target.value)}
-                  placeholder="0.00"
+                  placeholder={moneyPlaceholder(intl)}
                   inputMode="decimal"
                 />
               </div>

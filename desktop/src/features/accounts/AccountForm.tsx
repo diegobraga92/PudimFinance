@@ -18,11 +18,13 @@ import {
   type CreateAccountRequest,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { moneyPlaceholder, toAmountInput } from '@/lib/money-input';
 import {
   ACCOUNT_ICON_GROUPS,
   DEFAULT_ACCOUNT_ICON,
   suggestAccountIcon,
 } from '@shared/account-icons';
+import { toIntlLocale } from '@shared/i18n';
 import { AccountIcon } from '@/components/AccountIcon';
 
 /** User-facing account kinds (backend `account_kind`). */
@@ -61,7 +63,8 @@ interface Props {
 }
 
 export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const intl = toIntlLocale(locale);
   const isEditing = editing !== null;
 
   const [name, setName] = React.useState('');
@@ -86,10 +89,10 @@ export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved 
     setInitialBalance('');
     setClosingDay(editing?.closing_day ? String(editing.closing_day) : '');
     setDueDay(editing?.due_day ? String(editing.due_day) : '');
-    setCreditLimit(editing?.credit_limit ?? '');
+    setCreditLimit(toAmountInput(editing?.credit_limit ?? '', intl));
     setError(null);
     setSaving(false);
-  }, [open, editing, initialKind]);
+  }, [open, editing, initialKind, intl]);
 
   const isCard = kind === 'card';
 
@@ -137,7 +140,7 @@ export function AccountForm({ open, onOpenChange, editing, initialKind, onSaved 
         ...payload,
         closing_day: closing,
         due_day: due,
-        credit_limit: creditLimit.trim() ? creditLimit.trim() : null,
+        credit_limit: creditLimit.trim() ? creditLimit.trim().replace(',', '.') : null,
       };
     }
 
@@ -264,7 +267,7 @@ function dayValue(value: string): number | null {
                 inputMode="decimal"
                 value={initialBalance}
                 onChange={(event) => setInitialBalance(event.target.value)}
-                placeholder="0.00"
+                placeholder={moneyPlaceholder(intl)}
               />
               <p className="text-xs text-dim">{t('accounts.form.initialBalanceHint')}</p>
             </div>
@@ -305,7 +308,7 @@ function dayValue(value: string): number | null {
                     inputMode="decimal"
                     value={creditLimit}
                     onChange={(e) => setCreditLimit(e.target.value)}
-                    placeholder="0.00"
+                    placeholder={moneyPlaceholder(intl)}
                   />
                 </div>
               </div>

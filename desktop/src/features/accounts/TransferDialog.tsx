@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { createLedgerTransaction, type AccountWithBalance } from '@/lib/api';
 import { toIsoDate } from '@/lib/date-input';
+import { moneyPlaceholder } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 
 interface Props {
   open: boolean;
@@ -26,7 +28,8 @@ interface Props {
 
 /** Transfers money between balance-sheet accounts without affecting totals. */
 export function TransferDialog({ open, onOpenChange, accounts, onSaved }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const intl = toIntlLocale(locale);
 
   const [fromId, setFromId] = React.useState('');
   const [toId, setToId] = React.useState('');
@@ -172,7 +175,7 @@ export function TransferDialog({ open, onOpenChange, accounts, onSaved }: Props)
                 inputMode="decimal"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                placeholder="0.00"
+                placeholder={moneyPlaceholder(intl)}
                 autoFocus
                 disabled={!enoughAccounts}
               />

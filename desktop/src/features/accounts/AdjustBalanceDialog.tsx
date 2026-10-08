@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { adjustAccount, type AccountWithBalance } from '@/lib/api';
 import { toIsoDate } from '@/lib/date-input';
+import { toAmountInput } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 import { isOnline } from '@/offline/net';
 
 interface Props {
@@ -26,7 +28,8 @@ interface Props {
 
 /** Online-only reconciliation flow backed by the equity adjustment account. */
 export function AdjustBalanceDialog({ open, account, onOpenChange, onSaved }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const intl = toIntlLocale(locale);
   const [target, setTarget] = React.useState('');
   const [date, setDate] = React.useState('');
   const [description, setDescription] = React.useState('');
@@ -35,12 +38,12 @@ export function AdjustBalanceDialog({ open, account, onOpenChange, onSaved }: Pr
 
   React.useEffect(() => {
     if (!open || !account) return;
-    setTarget(Math.abs(Number.parseFloat(account.balance) || 0).toFixed(2));
+    setTarget(toAmountInput(Math.abs(Number.parseFloat(account.balance) || 0).toFixed(2), intl));
     setDate(toIsoDate(new Date()));
     setDescription('');
     setError(null);
     setSaving(false);
-  }, [open, account]);
+  }, [open, account, intl]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

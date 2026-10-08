@@ -3,6 +3,8 @@ import * as React from 'react';
 import { useI18n } from '@/app/i18n';
 import { useToast } from '@/components/ui/toaster';
 import { payCardBill, type AccountWithBalance, type CardBill, type PayCardBillRequest } from '@/lib/api';
+import { toAmountInput } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +28,8 @@ interface Props {
 
 /** Dialog for applying a full or partial payment to a selected card bill. */
 export function PayCardBillDialog({ open, onOpenChange, card, bill, sourceAccounts, onSaved }: Props) {
-  const { t, formatMoney, formatDate } = useI18n();
+  const { t, formatMoney, formatDate, locale } = useI18n();
+  const intl = toIntlLocale(locale);
   const { toast } = useToast();
   const [amount, setAmount] = React.useState('');
   const [sourceAccountId, setSourceAccountId] = React.useState('');
@@ -40,10 +43,10 @@ export function PayCardBillDialog({ open, onOpenChange, card, bill, sourceAccoun
 
   React.useEffect(() => {
     if (!open) return;
-    setAmount(bill?.remaining_amount ?? '');
+    setAmount(toAmountInput(bill?.remaining_amount ?? '', intl));
     setSourceAccountId(defaultSource?.id ?? '');
     setError(null);
-  }, [bill, defaultSource, open]);
+  }, [bill, defaultSource, open, intl]);
 
   const selectedSource = sourceAccounts.find((account) => account.id === sourceAccountId) ?? null;
 

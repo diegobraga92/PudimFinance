@@ -129,6 +129,10 @@ jobs:
         working-directory: desktop
         run: npm run test:card-cycle
 
+      - name: Money input locale smoke
+        working-directory: desktop
+        run: npm run test:money-input
+
       - name: Generated API types are up to date
         working-directory: desktop
         run: |

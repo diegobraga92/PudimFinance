@@ -21,7 +21,8 @@
     "test:default-account": "tsx --tsconfig=tsconfig.app.json scripts/default-account-smoke.ts",
     "test:installments": "tsx --tsconfig=tsconfig.app.json scripts/installments-smoke.ts",
     "test:category-mirror": "tsx --tsconfig=tsconfig.app.json scripts/category-mirror-smoke.ts",
-    "test:card-cycle": "tsx --tsconfig=tsconfig.app.json scripts/card-cycle-smoke.ts"
+    "test:card-cycle": "tsx --tsconfig=tsconfig.app.json scripts/card-cycle-smoke.ts",
+    "test:money-input": "tsx --tsconfig=tsconfig.app.json scripts/money-input-smoke.ts"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",

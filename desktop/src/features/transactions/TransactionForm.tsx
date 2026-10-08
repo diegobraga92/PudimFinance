@@ -40,6 +40,8 @@ import {
   setLastUsedAccountId,
 } from '@/lib/preferences';
 import { cn } from '@/lib/utils';
+import { toAmountInput } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 
 interface Props {
   open: boolean;
@@ -100,7 +102,8 @@ export function TransactionForm({
   initialType = 'expense',
   onSaved,
 }: Props) {
-  const { t, formatDate } = useI18n();
+  const { t, formatDate, locale } = useI18n();
+  const intl = toIntlLocale(locale);
   const isEditing = editing !== null;
 
   const [description, setDescription] = React.useState('');
@@ -139,7 +142,7 @@ export function TransactionForm({
   React.useEffect(() => {
     if (!open) return;
     setDescription(editing?.description ?? '');
-    setAmount(editing?.amount ?? '');
+    setAmount(toAmountInput(editing?.amount ?? '', intl));
     setType(editing?.type === 'income' ? 'income' : initialType);
     setCategoryId(editing?.category_id ?? '');
     setDate(editing?.date ?? toIsoDate(new Date()));
@@ -159,7 +162,7 @@ export function TransactionForm({
     setError(null);
     setSaving(false);
     setFilledHint(null);
-  }, [open, editing, initialType]);
+  }, [open, editing, initialType, intl]);
 
   // Description-based autocomplete. Prefill amount, type, and category from the
   // last matching transaction in the local mirror (offline-friendly).

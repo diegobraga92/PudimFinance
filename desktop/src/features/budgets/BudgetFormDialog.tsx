@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createBudget, type BudgetSummaryItem, type Category } from '@/lib/api';
+import { moneyPlaceholder, toAmountInput } from '@/lib/money-input';
+import { toIntlLocale } from '@shared/i18n';
 
 interface Props {
   open: boolean;
@@ -53,7 +55,8 @@ export function BudgetFormDialog({
   editing,
   onSaved,
 }: Props) {
-  const { t, monthNames } = useI18n();
+  const { t, monthNames, locale } = useI18n();
+  const intl = toIntlLocale(locale);
 
   const [categoryId, setCategoryId] = React.useState('');
   const [limit, setLimit] = React.useState('');
@@ -71,10 +74,10 @@ export function BudgetFormDialog({
   React.useEffect(() => {
     if (!open) return;
     setCategoryId(editing?.budget.category_id ?? selectable[0]?.id ?? '');
-    setLimit(editing ? editing.budget.amount_limit : '');
+    setLimit(editing ? toAmountInput(editing.budget.amount_limit, intl) : '');
     setError(null);
     setSaving(false);
-  }, [open, editing, selectable]);
+  }, [open, editing, selectable, intl]);
 
   const period = `${monthNames[month - 1]} ${year}`;
   const nothingToPick = mode === 'category' && selectable.length === 0;
@@ -171,7 +174,7 @@ export function BudgetFormDialog({
               inputMode="decimal"
               value={limit}
               onChange={(event) => setLimit(event.target.value)}
-              placeholder="500.00"
+              placeholder={moneyPlaceholder(intl, '500')}
               autoFocus
             />
           </div>
