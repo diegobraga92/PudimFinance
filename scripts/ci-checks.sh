@@ -106,6 +106,11 @@ check_desktop_tests() {
         && ok "Widget aggregation smoke passed" \
         || fail "Widget aggregation smoke failed"
 
+    step "Desktop: native QR scanner smoke"
+    npm run test:native-scanner \
+        && ok "Native QR scanner smoke passed" \
+        || fail "Native QR scanner smoke failed"
+
     if [ -x "$ROOT_DIR/desktop/src-tauri/gen/android/gradlew" ] && \
         [ -f "$ROOT_DIR/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
         step "Android plugin: Kotlin unit tests"
@@ -204,7 +209,7 @@ usage() {
     echo "  check-backend        Backend only: fmt, clippy, audit, build"
     echo "  check-openapi        OpenAPI spec only: validation"
     echo "  check-desktop        Desktop client only: lint, typecheck"
-    echo "  check-desktop-tests  Desktop smoke tests (Android composition + Kotlin)"
+    echo "  check-desktop-tests  Desktop smoke tests (Android composition + native QR scanner + Kotlin)"
     echo "  check-desktop-offline Desktop offline sync smoke (requires Docker)"
     echo "  check-desktop-rust   Desktop Rust only: fmt, clippy (Tauri core + plugin)"
     echo ""

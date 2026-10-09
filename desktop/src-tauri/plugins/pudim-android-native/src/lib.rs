@@ -10,7 +10,9 @@ pub mod commands;
 #[cfg(mobile)]
 mod mobile;
 
-pub use commands::{CaptureAction, CaptureHandle, CapturedNotification, NativeLogEntry};
+pub use commands::{
+    CaptureAction, CaptureHandle, CapturedNotification, NativeLogEntry, NativeScanOutcome,
+};
 
 #[cfg(mobile)]
 pub use commands::{mobile_secure_delete, mobile_secure_get, mobile_secure_set};
@@ -45,6 +47,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::set_widget_theme,
             commands::take_deep_link,
             commands::take_auth_redirect,
+            commands::scan_nfc_qr,
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

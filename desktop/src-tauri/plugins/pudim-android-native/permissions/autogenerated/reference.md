@@ -33,6 +33,7 @@ Default permissions for the PudimFinance native plugin (capture, secure storage,
 - `allow-set-widget-theme`
 - `allow-take-deep-link`
 - `allow-take-auth-redirect`
+- `allow-scan-nfc-qr`
 - `allow-register-listener`
 - `allow-remove-listener`
 
@@ -535,6 +536,32 @@ Enables the request_notification_permission command without any pre-configured s
 <td>
 
 Denies the request_notification_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:allow-scan-nfc-qr`
+
+</td>
+<td>
+
+Enables the scan_nfc_qr command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pudim-android-native:deny-scan-nfc-qr`
+
+</td>
+<td>
+
+Denies the scan_nfc_qr command without any pre-configured scope.
 
 </td>
 </tr>

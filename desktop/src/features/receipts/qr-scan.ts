@@ -3,8 +3,20 @@ import type jsQR from 'jsqr';
 export type CaptureIntent = 'qr' | 'photo';
 export type CaptureTarget = 'qr-camera' | 'qr-picture' | 'photo-camera' | 'photo-picture';
 
-/** Maximum width used when decoding a live camera frame. */
-export const SCAN_CANVAS_MAX_WIDTH = 1280;
+/** Fraction of each frame side covered by the on-screen QR guide box. */
+export const SCAN_GUIDE_RATIO = 2 / 3;
+/**
+ * Largest frame handed to the decoder in a single unscaled pass.
+ *
+ * Resampling blurs the modules of a dense QR code, so frames inside this budget
+ * are decoded whole at native resolution.
+ */
+export const SCAN_MAX_DECODE_PIXELS = 4_000_000;
+/**
+ * Pixel budget for a still image, which is decoded once and can be much larger
+ * than a live frame.
+ */
+export const SCAN_MAX_IMAGE_PIXELS = 16_000_000;
 /** Minimum delay between live camera decode attempts. */
 export const SCAN_INTERVAL_MS = 120;
 /** Time after which a live scan gives up and lets the user try again. */
@@ -66,12 +78,60 @@ export async function decodeQrFromRgba(
   return decoder(data, width, height, { inversionAttempts: 'dontInvert' })?.data ?? null;
 }
 
-function scaledDimensions(width: number, height: number, maxWidth: number) {
-  const scale = Math.min(1, maxWidth / width);
+/** One crop of a captured frame handed to the decoder. */
+export interface ScanRegion {
+  /** Crop origin inside the source frame, in source pixels. */
+  x: number;
+  y: number;
+  /** Crop size inside the source frame, in source pixels. */
+  sourceWidth: number;
+  sourceHeight: number;
+  /** Size the crop is sampled into, equal to the source size when unscaled. */
+  width: number;
+  height: number;
+}
+
+/** Largest size that stays inside `maxPixels`, never scaling an image up. */
+function boundedSize(width: number, height: number, maxPixels: number) {
+  const scale = Math.min(1, Math.sqrt(maxPixels / (width * height)));
+  // Flooring keeps `width * height` inside the budget, rounding up does not.
   return {
-    width: Math.max(1, Math.round(width * scale)),
-    height: Math.max(1, Math.round(height * scale)),
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
   };
+}
+
+/**
+ * Decoder passes for one captured frame, in the order they are tried.
+ *
+ * Frames inside the budget are decoded whole and unscaled. Larger frames are
+ * tried through the native-resolution guide-box crop first, then through the
+ * scaled full frame for codes outside the guide box.
+ */
+export function scanRegions(
+  width: number,
+  height: number,
+  maxPixels = SCAN_MAX_DECODE_PIXELS,
+): ScanRegion[] {
+  const full = boundedSize(width, height, maxPixels);
+  if (full.width === width && full.height === height) {
+    return [{ x: 0, y: 0, sourceWidth: width, sourceHeight: height, width, height }];
+  }
+
+  const cropWidth = Math.max(1, Math.round(width * SCAN_GUIDE_RATIO));
+  const cropHeight = Math.max(1, Math.round(height * SCAN_GUIDE_RATIO));
+  const crop = boundedSize(cropWidth, cropHeight, maxPixels);
+  return [
+    {
+      x: Math.round((width - cropWidth) / 2),
+      y: Math.round((height - cropHeight) / 2),
+      sourceWidth: cropWidth,
+      sourceHeight: cropHeight,
+      width: crop.width,
+      height: crop.height,
+    },
+    { x: 0, y: 0, sourceWidth: width, sourceHeight: height, width: full.width, height: full.height },
+  ];
 }
 
 /** Decodes an image data URL, used before falling back to OCR for receipt photos. */
@@ -87,13 +147,31 @@ export async function decodeQrFromImage(imageSource: string): Promise<string | n
   });
 
   if (!image.naturalWidth || !image.naturalHeight) return null;
-  const { width, height } = scaledDimensions(image.naturalWidth, image.naturalHeight, 1600);
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) return null;
 
-  context.drawImage(image, 0, 0, width, height);
-  return decodeQrFromRgba(context.getImageData(0, 0, width, height).data, width, height);
+  for (const region of scanRegions(image.naturalWidth, image.naturalHeight, SCAN_MAX_IMAGE_PIXELS)) {
+    canvas.width = region.width;
+    canvas.height = region.height;
+    context.drawImage(
+      image,
+      region.x,
+      region.y,
+      region.sourceWidth,
+      region.sourceHeight,
+      0,
+      0,
+      region.width,
+      region.height,
+    );
+    const value = await decodeQrFromRgba(
+      context.getImageData(0, 0, region.width, region.height).data,
+      region.width,
+      region.height,
+    );
+    if (value) return value;
+  }
+
+  return null;
 }

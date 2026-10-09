@@ -109,6 +109,10 @@ jobs:
         working-directory: desktop
         run: npm run test:qr-scan
 
+      - name: Native QR scanner smoke
+        working-directory: desktop
+        run: npm run test:native-scanner
+
       - name: Request timeout smoke
         working-directory: desktop
         run: npm run test:request-timeout

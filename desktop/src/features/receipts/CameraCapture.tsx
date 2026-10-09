@@ -8,7 +8,7 @@ import {
   cameraScanSupported,
   decodeQrFromRgba,
   normalizeNfceQrValue,
-  SCAN_CANVAS_MAX_WIDTH,
+  scanRegions,
   SCAN_INTERVAL_MS,
   SCAN_TIMEOUT_MS,
 } from './qr-scan';
@@ -130,22 +130,39 @@ export function CameraCapture({ mode, onDecoded, onCaptured, onClose }: Props) {
 
       lastScanAtRef.current = timestamp;
       decodingRef.current = true;
-      const scale = Math.min(1, SCAN_CANVAS_MAX_WIDTH / videoWidth);
-      const width = Math.max(1, Math.round(videoWidth * scale));
-      const height = Math.max(1, Math.round(videoHeight * scale));
-      canvas.width = width;
-      canvas.height = height;
       const context = canvas.getContext('2d', { willReadFrequently: true });
 
-      if (context) {
-        context.drawImage(video, 0, 0, width, height);
-        try {
-          const rawValue = await decodeQrFromRgba(
-            context.getImageData(0, 0, width, height).data,
-            width,
-            height,
+      if (!context) {
+        decodingRef.current = false;
+        scheduleFrame();
+        return;
+      }
+
+      try {
+        // Regions inside the decode budget are sampled unscaled, so a dense QR
+        // keeps its module geometry.
+        for (const region of scanRegions(videoWidth, videoHeight)) {
+          canvas.width = region.width;
+          canvas.height = region.height;
+          context.drawImage(
+            video,
+            region.x,
+            region.y,
+            region.sourceWidth,
+            region.sourceHeight,
+            0,
+            0,
+            region.width,
+            region.height,
           );
-          const value = rawValue ? normalizeNfceQrValue(rawValue) : null;
+          const rawValue = await decodeQrFromRgba(
+            context.getImageData(0, 0, region.width, region.height).data,
+            region.width,
+            region.height,
+          );
+          if (!rawValue) continue;
+
+          const value = normalizeNfceQrValue(rawValue);
           if (value) {
             activeRef.current = false;
             stopStream();
@@ -153,17 +170,15 @@ export function CameraCapture({ mode, onDecoded, onCaptured, onClose }: Props) {
             void onDecodedRef.current?.(value);
             return;
           }
-          if (rawValue && rejectedValueRef.current !== rawValue) {
+          if (rejectedValueRef.current !== rawValue) {
             rejectedValueRef.current = rawValue;
             setError(t('receipts.cameraNotNfce'));
           }
-        } catch (reason) {
-          fail(reason);
-          return;
-        } finally {
-          decodingRef.current = false;
         }
-      } else {
+      } catch (reason) {
+        fail(reason);
+        return;
+      } finally {
         decodingRef.current = false;
       }
 

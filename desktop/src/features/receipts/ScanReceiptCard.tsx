@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { CameraCapture, type CameraCaptureMode } from './CameraCapture';
-import { cameraScanSupported, captureIntentTarget } from './qr-scan';
+import { nativeScanErrorKey, nativeScannerAvailable, scanNfcQrNative } from './native-scanner';
+import { cameraScanSupported, captureIntentTarget, normalizeNfceQrValue } from './qr-scan';
 import type { ReceiptScanner } from './useReceiptScanner';
 
 interface Props {
@@ -29,22 +30,61 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
   const [lastAction, setLastAction] = React.useState<CaptureAction | null>(null);
   const [dragging, setDragging] = React.useState(false);
   const [cameraMode, setCameraMode] = React.useState<CameraCaptureMode | null>(null);
+  const [nativeScanning, setNativeScanning] = React.useState(false);
+  const nativeScanner = nativeScannerAvailable();
   const cameraSupported = cameraScanSupported();
   const processing = scanner.status === 'processing';
-  const { captureIntent, clearCaptureIntent } = scanner;
-  const captureTarget = captureIntentTarget(captureIntent, cameraSupported);
+  const { captureIntent, clearCaptureIntent, runQr, setError } = scanner;
+  // The native scanner needs no WebView camera stream, so it also enables the
+  // camera-first target.
+  const qrCameraAvailable = cameraSupported || nativeScanner;
+  const captureTarget = captureIntentTarget(captureIntent, qrCameraAvailable);
+
+  /**
+   * Reads the receipt QR code with the native scanner on Android and with the
+   * WebView camera overlay everywhere else. Either payload goes through the same
+   * NFC-e validation.
+   */
+  const startQrScan = React.useCallback(async () => {
+    if (!nativeScanner) {
+      setCameraMode('qr');
+      return;
+    }
+
+    setLastAction('qr-camera');
+    setError(null);
+    setNativeScanning(true);
+    const outcome = await scanNfcQrNative();
+    setNativeScanning(false);
+
+    if (!outcome.value) {
+      const key = nativeScanErrorKey(outcome.error ?? 'SCAN_FAILED');
+      // A cancelled scan stays silent.
+      if (key) setError(t(key));
+      return;
+    }
+
+    const value = normalizeNfceQrValue(outcome.value);
+    if (!value) {
+      setError(t('receipts.cameraNotNfce'));
+      return;
+    }
+    if (await runQr(value)) onParsed?.();
+  }, [nativeScanner, onParsed, runQr, setError, t]);
 
   React.useEffect(() => {
     if (!captureTarget) return;
-    if (captureTarget === 'qr-camera' || captureTarget === 'photo-camera') {
-      setCameraMode(captureTarget === 'qr-camera' ? 'qr' : 'photo');
+    if (captureTarget === 'qr-camera') {
+      void startQrScan();
+    } else if (captureTarget === 'photo-camera') {
+      setCameraMode('photo');
     } else if (captureTarget === 'qr-picture') {
       qrImageInputRef.current?.click();
     } else {
       receiptImageInputRef.current?.click();
     }
     clearCaptureIntent();
-  }, [captureTarget, clearCaptureIntent]);
+  }, [captureTarget, clearCaptureIntent, startQrScan]);
 
   const runQrImage = async (file: File | null) => {
     setLastAction('qr-image');
@@ -73,7 +113,7 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
 
   const retry = async () => {
     if (lastAction === 'qr-camera') {
-      setCameraMode('qr');
+      await startQrScan();
       return;
     }
     if (!scanner.image) return;
@@ -106,9 +146,11 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
             onCaptured={runPhotoCamera}
             onClose={() => setCameraMode(null)}
           />
-        ) : processing ? (
+        ) : processing || nativeScanning ? (
           <div className="space-y-3 py-2" role="status" aria-live="polite">
-            <p className="text-sm font-medium">{scanner.processingLabel}</p>
+            <p className="text-sm font-medium">
+              {nativeScanning ? t('receipts.cameraHint') : scanner.processingLabel}
+            </p>
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />
             <Skeleton className="h-24 w-full rounded-[12px]" />
@@ -123,11 +165,11 @@ export function ScanReceiptCard({ scanner, onParsed }: Props) {
                 </h3>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                {cameraSupported ? (
+                {qrCameraAvailable ? (
                   <Button
                     variant="outline"
                     className="min-h-[48px] justify-start gap-2"
-                    onClick={() => setCameraMode('qr')}
+                    onClick={() => void startQrScan()}
                   >
                     <Camera className="h-4 w-4" />
                     {t('receipts.scanQrWithCamera')}

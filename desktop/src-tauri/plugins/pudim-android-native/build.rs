@@ -28,6 +28,7 @@ const COMMANDS: &[&str] = &[
     "set_widget_theme",
     "take_deep_link",
     "take_auth_redirect",
+    "scan_nfc_qr",
     "register_listener",
     "remove_listener",
 ];

@@ -100,6 +100,33 @@ struct GoogleSignInResult {
     id_token: String,
 }
 
+/// Stable code the native scanner answers with when it cannot run.
+pub const SCAN_UNAVAILABLE: &str = "SCAN_UNAVAILABLE";
+
+/// Outcome of one native QR scan attempt.
+///
+/// The Kotlin scanner fills exactly one field, `value` with the raw payload or
+/// `error` with a stable machine code, so both are optional.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeScanOutcome {
+    /// Raw QR payload, exactly as printed on the receipt.
+    #[serde(default)]
+    pub value: Option<String>,
+    /// Failure code the webview maps onto one of its camera hints.
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+impl NativeScanOutcome {
+    /// A scan this platform cannot run.
+    pub fn unavailable() -> Self {
+        Self {
+            value: None,
+            error: Some(SCAN_UNAVAILABLE.to_string()),
+        }
+    }
+}
+
 /// Handle to the native Android plugin, stored in app state during setup.
 /// On non-mobile targets this is empty and every command degrades to a default.
 pub struct CaptureHandle<R: Runtime> {
@@ -851,6 +878,30 @@ pub fn take_auth_redirect<R: Runtime>(app: AppHandle<R>) -> Result<Option<String
         Ok(None)
     }
 }
+
+/// Opens the native full-screen QR scanner and resolves with what it read.
+///
+/// Only Android has one, so every other build answers `SCAN_UNAVAILABLE` and the
+/// WebView overlay stays the scanner there.
+#[tauri::command]
+pub fn scan_nfc_qr<R: Runtime>(app: AppHandle<R>) -> Result<NativeScanOutcome, String> {
+    let state = app.state::<CaptureHandle<R>>();
+    #[cfg(mobile)]
+    {
+        let Some(handle) = state.plugin() else {
+            return Ok(NativeScanOutcome::unavailable());
+        };
+        handle
+            .run_mobile_plugin::<NativeScanOutcome>("scanNfcQr", ())
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(mobile))]
+    {
+        let _ = &state;
+        Ok(NativeScanOutcome::unavailable())
+    }
+}
+
 #[cfg(mobile)]
 pub fn mobile_secure_get<R: Runtime>(
     app: &AppHandle<R>,

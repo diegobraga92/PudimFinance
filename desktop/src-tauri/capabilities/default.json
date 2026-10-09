@@ -34,6 +34,7 @@
     "pudim-native:allow-set-widget-theme",
     "pudim-native:allow-take-deep-link",
     "pudim-native:allow-take-auth-redirect",
+    "pudim-native:allow-scan-nfc-qr",
     "pudim-native:allow-register-listener",
     "pudim-native:allow-remove-listener"
   ]

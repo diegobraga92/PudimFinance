@@ -27,6 +27,10 @@
     <string name="capture_prompt_discard">Descartar</string>
     <string name="capture_prompt_later">Depois</string>
     <string name="capture_notes">Capturada a partir de notificação</string>
+    <string name="scan_qr_hint">Aponte a câmera para o QR code do cupom</string>
+    <string name="scan_qr_flash_on">Desligar lanterna</string>
+    <string name="scan_qr_flash_off">Ligar lanterna</string>
+    <string name="scan_qr_close">Cancelar</string>
     <string name="biometric_title">Desbloquear PudimFinance</string>
     <string name="biometric_subtitle">Use sua impressão digital ou rosto para continuar</string>
 </resources>

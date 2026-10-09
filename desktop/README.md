@@ -47,10 +47,16 @@ required by Credential Manager.
 The receipt scanner supports four capture paths: NFC-e QR from the Android
 camera, NFC-e QR from a picture, receipt OCR from the Android camera, and
 receipt OCR from a picture. The Scan receipt shortcuts prefer the camera when
-available and fall back to the corresponding picture picker otherwise. The camera permission is declared by the committed
-native plugin manifest and requested by the Android webview when live capture
-starts. Browser builds need a secure origin (HTTPS, or localhost) for live
-camera access.
+available and fall back to the corresponding picture picker otherwise.
+
+On Android the QR camera path runs in the native plugin
+(`NfcQrScanner.kt`), a full-screen CameraX preview with tap-to-focus, pinch zoom
+and the flashlight decoded by ML Kit. It reads dense NFC-e codes more reliably
+than the WebView `getUserMedia` overlay, which desktop and browser builds keep.
+Camera access is declared by the committed native plugin manifest, requested by
+the scanner before it opens, and requested by the Android webview when live
+capture starts. Browser builds need a secure origin (HTTPS, or localhost) for
+live camera access.
 
 CI builds the arm64 APK with the same commands and publishes the
 `pudimfinance-android-apk` artifact for main pushes and manual runs. See the

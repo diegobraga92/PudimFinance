@@ -1,17 +1,18 @@
+//! Environment-based application configuration.
 use std::env;
 
 /// Application configuration loaded from environment variables at startup.
 #[derive(Clone, Debug)]
 pub struct Config {
-    /// Host address the HTTP server binds to (defaults to `0.0.0.0`).
+    /// Host address the HTTP server binds to (e.g. `0.0.0.0`).
     pub server_host: String,
-    /// Port the HTTP server listens on (defaults to `3000`).
+    /// Port the HTTP server listens on (e.g. `3000`).
     pub server_port: u16,
     /// PostgreSQL connection URL for the main database.
     pub database_url: String,
-    /// Maximum number of connections in the PostgreSQL pool (defaults to 10).
+    /// Maximum number of connections in the PostgreSQL pool (e.g. 10).
     pub database_pool_max_connections: u32,
-    /// Number of seconds to wait when acquiring a connection before timing out (defaults to 10).
+    /// Number of seconds to wait when acquiring a connection before timing out (e.g. 10).
     pub database_pool_acquire_timeout_secs: u64,
     /// RabbitMQ connection URL (AMQP).
     pub rabbitmq_url: String,
@@ -21,9 +22,9 @@ pub struct Config {
     pub google_client_ids: Vec<String>,
     /// Optional secret for confidential Google OAuth clients.
     pub google_client_secret: Option<String>,
-    /// Client ID associated with `google_client_secret`.
+    /// Client ID associated with [`Self::google_client_secret`].
     pub google_client_secret_client_id: Option<String>,
-    /// OpenTelemetry OTLP endpoint for exporting traces (defaults to `http://localhost:4317`).
+    /// OpenTelemetry OTLP endpoint for exporting traces (e.g. `http://localhost:4317`).
     pub otel_endpoint: String,
 }
 
@@ -31,7 +32,8 @@ impl Config {
     /// Builds a [`Config`] from environment variables, applying defaults.
     ///
     /// # Panics
-    /// Panics if the required `DATABASE_URL` environment variable is not set.
+    /// 
+    /// Panics if `DATABASE_URL` is not set or is not valid Unicode.
     pub fn from_env() -> Self {
         Self {
             server_host: env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".into()),

@@ -32,6 +32,7 @@ permissions = [
   "allow-set-widget-theme",
   "allow-take-deep-link",
   "allow-take-auth-redirect",
+  "allow-scan-nfc-qr",
   "allow-register-listener",
   "allow-remove-listener",
 ]

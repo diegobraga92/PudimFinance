@@ -1,5 +1,6 @@
 package app.tauri.pudimnative
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.os.Build
@@ -24,8 +25,11 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import app.tauri.PermissionHelper
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
+import app.tauri.annotation.Permission
+import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
@@ -57,22 +61,34 @@ internal object PendingAuthRedirect {
  * Tauri Android plugin bridging the native side and the webview.
  *
  * Command groups are notification capture (`accessGranted`, `openSettings`,
- * `drainPending`), Keystore-backed token storage (`secureGet`, `secureSet`,
- * `secureDelete`), the biometric lock (`biometricAvailable`,
- * `biometricAuthenticate`), and the home-screen Quick Add widget
- * (`setWidgetSpending`/`setWidgetTheme` plus the `deepLink` event). The plugin also emits the
- * `notificationCaptured` event for live bank notifications.
+ * `drainPending`), the NFC-e QR scanner (`scanNfcQr`), Keystore-backed token
+ * storage (`secureGet`, `secureSet`, `secureDelete`), the biometric lock
+ * (`biometricAvailable`, `biometricAuthenticate`), and the home-screen Quick Add
+ * widget (`setWidgetSpending`/`setWidgetTheme` plus the `deepLink` event). The
+ * plugin also emits the `notificationCaptured` event for live bank notifications.
  *
  * Registered from Rust via `register_android_plugin("app.tauri.pudimnative",
  * "PudimNativePlugin")` in `pudim-android-native`.
  */
-@TauriPlugin
+@TauriPlugin(
+    // Alias the QR scanner requests through requestPermissionForAliases().
+    permissions = [Permission(alias = "camera", strings = [Manifest.permission.CAMERA])],
+)
 class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
+
+    /**
+     * QR scanner overlay on screen, touched by the WebView commands and the
+     * lifecycle callbacks.
+     */
+    @Volatile
+    private var activeScanner: NfcQrScanner? = null
 
     companion object {
         private const val NOTIFICATION_CAPTURED_EVENT = "notificationCaptured"
         private const val CAPTURE_ACTION_EVENT = "captureAction"
         private const val DEEP_LINK_EVENT = "deepLink"
+
+        private const val CAMERA_PERMISSION_ALIAS = "camera"
 
         @Volatile
         var instance: PudimNativePlugin? = null
@@ -107,6 +123,9 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
 
     override fun onDestroy(activity: AppCompatActivity) {
         if (instance === this) instance = null
+        // Releases the camera when the app is closed mid-scan.
+        activeScanner?.release()
+        activeScanner = null
         activeBiometricPrompt.getAndSet(null)?.cancelAuthentication()
         biometricInFlight.set(false)
         super.onDestroy(activity)
@@ -153,6 +172,52 @@ class PudimNativePlugin(private val activity: Activity) : Plugin(activity) {
         PendingAuthRedirect.value = null
         invoke.resolveObject(mapOf("value" to value))
     }
+
+    /**
+     * Opens the full-screen QR scanner and resolves with what it read, either
+     * `{ value }` with the raw payload or `{ error }` with one of the
+     * [NfcQrScanCodes]. Camera access is requested here because the scanner binds
+     * CameraX itself instead of using the WebView stream.
+     */
+    @Command
+    fun scanNfcQr(invoke: Invoke) {
+        if (!hasCameraPermission()) {
+            requestPermissionForAliases(arrayOf(CAMERA_PERMISSION_ALIAS), invoke, "scanNfcQrPermissionResult")
+            return
+        }
+        startNfcQrScan(invoke)
+    }
+
+    @PermissionCallback
+    private fun scanNfcQrPermissionResult(invoke: Invoke) {
+        if (!hasCameraPermission()) {
+            invoke.resolveObject(mapOf("error" to NfcQrScanCodes.PERMISSION_DENIED))
+            return
+        }
+        startNfcQrScan(invoke)
+    }
+
+    private fun startNfcQrScan(invoke: Invoke) {
+        // An overlay already on screen owns the camera, so close it instead of
+        // stacking a second preview.
+        activeScanner?.cancel()
+
+        val scanner = NfcQrScanner(activity) { value, error ->
+            activeScanner = null
+            invoke.resolveObject(
+                if (value != null) {
+                    mapOf("value" to value)
+                } else {
+                    mapOf("error" to (error ?: NfcQrScanCodes.FAILED))
+                },
+            )
+        }
+        activeScanner = scanner
+        scanner.start()
+    }
+
+    private fun hasCameraPermission(): Boolean =
+        PermissionHelper.hasPermissions(activity, arrayOf(Manifest.permission.CAMERA))
 
     /** Whether a biometric authenticator (fingerprint/face) is available and enrolled. */
     @Command

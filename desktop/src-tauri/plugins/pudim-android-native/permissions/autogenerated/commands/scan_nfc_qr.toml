@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-scan-nfc-qr"
+description = "Enables the scan_nfc_qr command without any pre-configured scope."
+commands.allow = ["scan_nfc_qr"]
+
+[[permission]]
+identifier = "deny-scan-nfc-qr"
+description = "Denies the scan_nfc_qr command without any pre-configured scope."
+commands.deny = ["scan_nfc_qr"]
