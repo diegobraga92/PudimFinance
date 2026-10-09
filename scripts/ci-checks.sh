@@ -171,6 +171,20 @@ check_openapi() {
     fi
 }
 
+# Rustfmt over every workspace, no Docker required. Covers the three workspaces
+# whose format check their CI workflow runs, so a backend edit cannot reach CI
+# unchecked just because the change looks desktop-only.
+check_format() {
+    local workspace
+
+    for workspace in backend desktop/src-tauri desktop/src-tauri/plugins/pudim-android-native; do
+        step "Rustfmt: $workspace"
+        (cd "$ROOT_DIR/$workspace" && cargo fmt --check) \
+            && ok "Rustfmt passed" \
+            || fail "Rustfmt failed in $workspace"
+    done
+}
+
 check_desktop_rust() {
     step "Desktop Rust: prepare CI image"
     build_desktop_rust_image \
@@ -207,6 +221,7 @@ usage() {
     echo "Commands:"
     echo "  check                Run all CI checks (backend + rust + openapi + desktop)"
     echo "  check-backend        Backend only: fmt, clippy, audit, build"
+    echo "  check-format         Rustfmt only: backend + Tauri core + Android plugin"
     echo "  check-openapi        OpenAPI spec only: validation"
     echo "  check-desktop        Desktop client only: lint, typecheck"
     echo "  check-desktop-tests  Desktop smoke tests (Android composition + native QR scanner + Kotlin)"
@@ -237,6 +252,10 @@ case "${1:-help}" in
     check-openapi)
         check_openapi
         echo -e "\n${GREEN}✅ OpenAPI checks passed${NC}"
+        ;;
+    check-format)
+        check_format
+        echo -e "\n${GREEN}✅ Rustfmt checks passed${NC}"
         ;;
     check-desktop)
         check_desktop

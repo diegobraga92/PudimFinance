@@ -32,7 +32,7 @@ impl Config {
     /// Builds a [`Config`] from environment variables, applying defaults.
     ///
     /// # Panics
-    /// 
+    ///
     /// Panics if `DATABASE_URL` is not set or is not valid Unicode.
     pub fn from_env() -> Self {
         Self {
