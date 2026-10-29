@@ -137,6 +137,10 @@ jobs:
         working-directory: desktop
         run: npm run test:money-input
 
+      - name: Transaction autocomplete smoke
+        working-directory: desktop
+        run: npm run test:autocomplete
+
       - name: Generated API types are up to date
         working-directory: desktop
         run: |

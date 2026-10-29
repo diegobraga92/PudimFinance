@@ -102,7 +102,7 @@ export function TransactionForm({
   initialType = 'expense',
   onSaved,
 }: Props) {
-  const { t, formatDate, locale } = useI18n();
+  const { t, formatDate, formatMoney, locale } = useI18n();
   const intl = toIntlLocale(locale);
   const isEditing = editing !== null;
 
@@ -164,8 +164,10 @@ export function TransactionForm({
     setFilledHint(null);
   }, [open, editing, initialType, intl]);
 
-  // Description-based autocomplete. Prefill amount, type, and category from the
-  // last matching transaction in the local mirror (offline-friendly).
+  const paymentAccounts = paymentAccountsOf(accounts);
+
+  // Description autocomplete. Prefill amount, type, category and account
+  // from the last matching transaction in the local mirror so it works offline.
   const handleDescriptionChange = (value: string) => {
     setDescription(value);
     if (isEditing) return;
@@ -175,21 +177,26 @@ export function TransactionForm({
         setFilledHint(null);
         return;
       }
-      setAmount(prev.amount);
+      setAmount(toAmountInput(prev.amount, intl));
       setType(prev.type);
       setCategoryId(prev.category_id ?? '');
+      // Skip accounts that are no longer in the picker
+      const prevAccount = prev.account_id
+        ? paymentAccounts.find((a) => a.id === prev.account_id) ?? null
+        : null;
+      setAccountId(prevAccount?.id ?? '');
       const cat = categories.find((c) => c.id === prev.category_id);
       setFilledHint(
         t('transactions.form.filledPrevious', {
-          amount: `R$ ${parseFloat(prev.amount).toFixed(2)}`,
+          amount: formatMoney(prev.amount),
           category: cat?.name ?? t('transactions.form.noCategory'),
+          account: prevAccount?.name ?? defaultAccount?.name ?? t('common.none'),
         }),
       );
     })();
   };
 
   const filteredCategories = categories.filter((c) => c.type === type);
-  const paymentAccounts = paymentAccountsOf(accounts);
 
   // A row that already belongs to an installment plan cannot be re-split here.
   const planLocked = Boolean(editing?.installment_plan_id);

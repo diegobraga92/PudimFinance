@@ -242,7 +242,7 @@ export const ptBR = {
   'transactions.form.saveChanges': 'Salvar Alterações',
   'transactions.form.failedSave': 'Falha ao salvar transação',
   'transactions.form.noCategories': 'Nenhuma categoria de {type}. Crie uma na tela de Categorias!',
-  'transactions.form.filledPrevious': '↩ Preenchido do anterior: {amount} · {category}',
+  'transactions.form.filledPrevious': '↩ Preenchido do anterior: {amount} · {category} · {account}',
   'transactions.form.noCategory': 'Sem categoria',
   'transactions.form.account': 'Conta',
   'transactions.form.accountPlaceholder': 'Selecione a conta (forma de pagamento)',

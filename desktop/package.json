@@ -23,7 +23,8 @@
     "test:installments": "tsx --tsconfig=tsconfig.app.json scripts/installments-smoke.ts",
     "test:category-mirror": "tsx --tsconfig=tsconfig.app.json scripts/category-mirror-smoke.ts",
     "test:card-cycle": "tsx --tsconfig=tsconfig.app.json scripts/card-cycle-smoke.ts",
-    "test:money-input": "tsx --tsconfig=tsconfig.app.json scripts/money-input-smoke.ts"
+    "test:money-input": "tsx --tsconfig=tsconfig.app.json scripts/money-input-smoke.ts",
+    "test:autocomplete": "tsx --tsconfig=tsconfig.app.json scripts/autocomplete-smoke.ts"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",

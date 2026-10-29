@@ -240,7 +240,7 @@ export const en = {
   'transactions.form.saveChanges': 'Save Changes',
   'transactions.form.failedSave': 'Failed to save transaction',
   'transactions.form.noCategories': 'No {type} categories. Create one in the Categories screen!',
-  'transactions.form.filledPrevious': '↩ Filled from previous: {amount} · {category}',
+  'transactions.form.filledPrevious': '↩ Filled from previous: {amount} · {category} · {account}',
   'transactions.form.noCategory': 'No category',
   'transactions.form.account': 'Account',
   'transactions.form.accountPlaceholder': 'Select account (payment method)',

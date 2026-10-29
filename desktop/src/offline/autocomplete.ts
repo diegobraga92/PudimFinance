@@ -5,6 +5,7 @@ import { getLocalTransactions, type LocalTransaction } from './database';
 export interface PreviousTransaction {
   amount: string;
   category_id: string | null;
+  account_id: string | null;
   type: 'income' | 'expense';
 }
 
@@ -38,6 +39,7 @@ export async function findPreviousTransaction(
   const pick = (tx: LocalTransaction): PreviousTransaction => ({
     amount: tx.amount,
     category_id: tx.category_id,
+    account_id: tx.account_id,
     type: tx.type,
   });
 
