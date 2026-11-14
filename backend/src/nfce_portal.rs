@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Context, Result};
 use chrono::NaiveDate;
 use regex::Regex;
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE, REFERER, USER_AGENT};
 use reqwest::{redirect, Url};
 use rust_decimal::Decimal;
 use std::sync::LazyLock;
@@ -16,10 +16,12 @@ const MAX_PAGE_BYTES: u64 = 512 * 1024;
 const PORTAL_RETRY_DELAYS_MS: [u64; 4] = [250, 500, 1000, 2000];
 /// One initial attempt plus one per retry delay.
 const PORTAL_ATTEMPTS: usize = PORTAL_RETRY_DELAYS_MS.len() + 1;
-/// The portal's WAF rejects a *spoofed* browser user agent (a Chrome UA over a
-/// non-Chrome TLS stack always gets its "Request Rejected" page), so this keeps
-/// an honest UA and relies on retries for the WAF's random connection resets.
-const PORTAL_USER_AGENT: &str = "PudimFinance NFC-e reader";
+/// The portal's WAF fingerprints the request: an honest bot UA gets connection
+/// resets, and lowercase header names (what hyper writes by default) get its
+/// "Request Rejected" page even with a Chrome UA. A Chrome UA plus title-case
+/// headers over OpenSSL (the combination `curl` uses) is served normally, so the
+/// client mirrors a browser.
+const PORTAL_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
 static RE_TAG: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?is)<[^>]*>").expect("valid HTML tag regex"));
@@ -79,18 +81,25 @@ static RE_NUMBER: LazyLock<Regex> =
 
 /// Default headers sent with every portal request.
 ///
-/// `Accept`/`Accept-Language` match what the consultation page expects, but the
-/// user agent stays honest (see the `PORTAL_USER_AGENT` comment).
+/// These mirror what a browser sends to the consultation page; together with the
+/// title-case header names and OpenSSL TLS stack configured in the client
+/// builder they pass the portal's WAF (see the `PORTAL_USER_AGENT` comment).
 fn portal_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(PORTAL_USER_AGENT));
     headers.insert(
         ACCEPT,
-        HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+        HeaderValue::from_static(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        ),
     );
     headers.insert(
         ACCEPT_LANGUAGE,
         HeaderValue::from_static("pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"),
+    );
+    headers.insert(
+        REFERER,
+        HeaderValue::from_static("https://www.nfce.fazenda.sp.gov.br/"),
     );
     headers
 }
@@ -107,6 +116,9 @@ static PORTAL_CLIENT: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(
             }
         }))
         .default_headers(portal_headers())
+        // The WAF rejects lowercase header names (hyper's default); title-casing
+        // them matches curl/browsers and is what makes the portal serve the page.
+        .http1_title_case_headers()
         // Five attempts × 4 s + 3.75 s of backoff stay inside the scan
         // request budget (25 s) even if the portal hangs completely.
         .connect_timeout(Duration::from_millis(2_500))
@@ -163,10 +175,9 @@ pub fn consultation_url(qr: &str) -> Option<Url> {
 
 /// Sends SP's legacy `/qrcode?p=…` URLs straight to their redirect target.
 ///
-/// The legacy endpoint sits behind a stricter WAF rule that always resets
-/// non-browser clients, while the consultation page it redirects to is the same
-/// page and is reachable (probabilistically) by this client; the retry loop
-/// absorbs the remaining resets.
+/// The legacy endpoint sits behind a stricter WAF rule that resets non-browser
+/// clients, while the consultation page it redirects to is the same page; sending
+/// the request straight there avoids the extra hop and the stricter rule.
 fn rewrite_sp_qrcode_url(url: &mut Url) {
     let is_sp_portal = url.host_str().is_some_and(|host| {
         host == "www.nfce.fazenda.sp.gov.br" || host == "nfce.fazenda.sp.gov.br"
@@ -178,9 +189,9 @@ fn rewrite_sp_qrcode_url(url: &mut Url) {
 
 /// Fetches and parses the public DANFE page for a validated consultation URL.
 ///
-/// The portal's edge rejects requests at random (connection resets and F5
-/// "Request Rejected" pages), so transient failures are retried with a short
-/// backoff before giving up. The first parseable page wins.
+/// The portal's edge still drops individual requests (connection resets and, on
+/// rare misfires, F5 "Request Rejected" pages), so transient failures are retried
+/// with a short backoff before giving up. The first parseable page wins.
 pub async fn fetch_danfe(url: &Url) -> Result<DanfeDetails> {
     let mut last_error = None;
 
