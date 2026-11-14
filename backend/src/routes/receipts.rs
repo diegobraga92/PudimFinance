@@ -240,22 +240,23 @@ pub async fn scan(
         )
     })?;
 
+    let mut details_error: Option<&'static str> = None;
     let portal_details = if payload.fetch_details != Some(false) {
-        nfce_portal::consultation_url(&payload.qr_data).map(|url| async move {
-            match nfce_portal::fetch_danfe(&url).await {
+        match nfce_portal::consultation_url(&payload.qr_data) {
+            Some(url) => match nfce_portal::fetch_danfe(&url).await {
                 Ok(details) => Some(details),
                 Err(error) => {
-                    warn!(error = %error, "NFC-e portal enrichment failed");
+                    // `?error` keeps the anyhow chain (context + underlying
+                    // reqwest error); `%error` would print only the context.
+                    warn!(error = ?error, "NFC-e portal enrichment failed");
+                    details_error = Some(nfce_portal::classify_portal_error(&error));
                     None
                 }
-            }
-        })
+            },
+            None => None,
+        }
     } else {
         None
-    };
-    let portal_details = match portal_details {
-        Some(future) => future.await,
-        None => None,
     };
 
     let store_name = portal_details
@@ -301,6 +302,7 @@ pub async fn scan(
         "environment": parsed.environment,
         "discount": discount,
         "details_source": portal_details.as_ref().map(|_| "portal"),
+        "details_error": details_error,
         "items": items,
     })))
 }

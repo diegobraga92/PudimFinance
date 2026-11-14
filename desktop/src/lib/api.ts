@@ -970,6 +970,9 @@ export async function scanReceipt(qrPayload: string): Promise<Record<string, unk
   return request<Record<string, unknown>>('/api/receipts/scan', {
     method: 'POST',
     body: JSON.stringify({ qr_data: qrPayload } satisfies ScanRequest),
+    // The backend retries the SEFAZ portal (whose WAF drops requests at
+    // random) a few times, so this call needs more than the default 8s.
+    timeoutMs: 25_000,
   });
 }
 

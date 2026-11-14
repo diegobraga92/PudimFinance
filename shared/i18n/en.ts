@@ -938,6 +938,10 @@ export const en = {
   'receipts.reviewTitle': 'Receipt review',
   'receipts.reviewSummary': '{count} items · Total: {total}',
   'receipts.detailsUnavailable': 'The public NFC-e details could not be loaded. Review the store, date, total and items before saving.',
+  'receipts.detailsBlocked':
+    'The SEFAZ portal refused the lookup. Scan the code again in a moment.',
+  'receipts.detailsTimeout':
+    'The SEFAZ portal took too long to respond. Scan the code again in a moment.',
   'receipts.needOneItem': 'Keep at least one item before saving.',
   'receipts.needDate': 'Enter the receipt date before saving.',
   'receipts.date': 'Date',

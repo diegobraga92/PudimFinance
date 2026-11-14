@@ -15,6 +15,18 @@ export interface EditableReceiptItem {
   total_price: string;
 }
 
+/** Why the public portal did not provide DANFE details, when it failed. */
+export type ReceiptDetailsError = 'blocked' | 'timeout' | 'unavailable' | 'too_large';
+
+function isReceiptDetailsError(value: unknown): value is ReceiptDetailsError {
+  return (
+    value === 'blocked' ||
+    value === 'timeout' ||
+    value === 'unavailable' ||
+    value === 'too_large'
+  );
+}
+
 /** A parsed (not yet saved) receipt. */
 export interface ReceiptDraft {
   store_name: string;
@@ -24,6 +36,8 @@ export interface ReceiptDraft {
   items: EditableReceiptItem[];
   /** QR-only scans could not obtain the public DANFE details automatically. */
   detailsUnavailable: boolean;
+  /** Specific portal failure behind `detailsUnavailable`, when known. */
+  detailsError: ReceiptDetailsError | null;
   /** Where the data came from, stored with the receipt. */
   source: 'nfce' | 'ocr';
 }
@@ -80,6 +94,10 @@ export function useReceiptScanner() {
       const items = (result.items as Array<Record<string, unknown>> | undefined) ?? [];
       const detailsUnavailable =
         source === 'nfce' && result.details_source !== 'portal' && items.length === 0;
+      const detailsError =
+        source === 'nfce' && isReceiptDetailsError(result.details_error)
+          ? result.details_error
+          : null;
       setDraft({
         store_name: (result.store_name as string | undefined) ?? t('receipts.unknownStore'),
         cnpj: (result.cnpj as string | null | undefined) ?? null,
@@ -88,6 +106,7 @@ export function useReceiptScanner() {
           (detailsUnavailable ? '' : toIsoDate(new Date())),
         total: (result.total as string | undefined) ?? '0',
         detailsUnavailable,
+        detailsError,
         source,
         items: items.map((item) => ({
           description: (item.description as string | undefined) ?? '',

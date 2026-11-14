@@ -23,6 +23,12 @@ export function ReceiptReviewCard({ scanner, onSaved }: Props) {
   if (!draft) return null;
 
   const itemCount = draft.items.filter((item) => item.description.trim()).length;
+  const detailsMessage =
+    draft.detailsError === 'blocked'
+      ? t('receipts.detailsBlocked')
+      : draft.detailsError === 'timeout'
+        ? t('receipts.detailsTimeout')
+        : t('receipts.detailsUnavailable');
 
   const updateItem = (index: number, field: keyof EditableReceiptItem, value: string) =>
     scanner.updateItem(index, field, value);
@@ -73,7 +79,7 @@ export function ReceiptReviewCard({ scanner, onSaved }: Props) {
 
         {draft.detailsUnavailable && (
           <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            {t('receipts.detailsUnavailable')}
+            {detailsMessage}
           </p>
         )}
 

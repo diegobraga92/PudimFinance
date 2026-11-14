@@ -941,6 +941,10 @@ export const ptBR = {
   'receipts.reviewTitle': 'Revisão da nota',
   'receipts.reviewSummary': '{count} itens · Total: {total}',
   'receipts.detailsUnavailable': 'Os detalhes públicos da NFC-e não puderam ser carregados. Revise a loja, a data, o total e os itens antes de salvar.',
+  'receipts.detailsBlocked':
+    'O portal da SEFAZ recusou a consulta. Escaneie o código novamente em instantes.',
+  'receipts.detailsTimeout':
+    'O portal da SEFAZ demorou demais para responder. Escaneie o código novamente em instantes.',
   'receipts.needOneItem': 'Mantenha ao menos um item antes de salvar.',
   'receipts.needDate': 'Informe a data da nota antes de salvar.',
   'receipts.date': 'Data',

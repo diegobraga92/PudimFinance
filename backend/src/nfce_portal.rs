@@ -3,12 +3,23 @@
 use anyhow::{anyhow, Context, Result};
 use chrono::NaiveDate;
 use regex::Regex;
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE, USER_AGENT};
 use reqwest::{redirect, Url};
 use rust_decimal::Decimal;
 use std::sync::LazyLock;
 use std::time::Duration;
+use tracing::debug;
 
 const MAX_PAGE_BYTES: u64 = 512 * 1024;
+/// Backoff before each retry. The WAF drops individual requests in ~80 ms, so
+/// these delays keep the common failure path short while spreading the burst.
+const PORTAL_RETRY_DELAYS_MS: [u64; 4] = [250, 500, 1000, 2000];
+/// One initial attempt plus one per retry delay.
+const PORTAL_ATTEMPTS: usize = PORTAL_RETRY_DELAYS_MS.len() + 1;
+/// The portal's WAF rejects a *spoofed* browser user agent (a Chrome UA over a
+/// non-Chrome TLS stack always gets its "Request Rejected" page), so this keeps
+/// an honest UA and relies on retries for the WAF's random connection resets.
+const PORTAL_USER_AGENT: &str = "PudimFinance NFC-e reader";
 
 static RE_TAG: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?is)<[^>]*>").expect("valid HTML tag regex"));
@@ -66,6 +77,24 @@ static RE_DISCOUNT: LazyLock<Regex> = LazyLock::new(|| {
 static RE_NUMBER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[-+]?\d[\d.,]*").expect("valid localized number regex"));
 
+/// Default headers sent with every portal request.
+///
+/// `Accept`/`Accept-Language` match what the consultation page expects, but the
+/// user agent stays honest (see the `PORTAL_USER_AGENT` comment).
+fn portal_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(PORTAL_USER_AGENT));
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+    );
+    headers.insert(
+        ACCEPT_LANGUAGE,
+        HeaderValue::from_static("pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"),
+    );
+    headers
+}
+
 static PORTAL_CLIENT: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(|| {
     reqwest::Client::builder()
         .redirect(redirect::Policy::custom(|attempt| {
@@ -77,9 +106,11 @@ static PORTAL_CLIENT: LazyLock<Result<reqwest::Client, String>> = LazyLock::new(
                 attempt.error("NFC-e portal redirect target is not allowed")
             }
         }))
-        .connect_timeout(Duration::from_secs(4))
-        .timeout(Duration::from_secs(8))
-        .user_agent("PudimFinance NFC-e reader")
+        .default_headers(portal_headers())
+        // Five attempts × 4 s + 3.75 s of backoff stay inside the scan
+        // request budget (25 s) even if the portal hangs completely.
+        .connect_timeout(Duration::from_millis(2_500))
+        .timeout(Duration::from_secs(4))
         .build()
         .map_err(|error| error.to_string())
 });
@@ -122,12 +153,66 @@ pub struct DanfeDetails {
 /// are intentionally rejected because they do not identify which state portal
 /// should be consulted.
 pub fn consultation_url(qr: &str) -> Option<Url> {
-    let url = Url::parse(qr.trim()).ok()?;
-    is_allowed_url(&url).then_some(url)
+    let mut url = Url::parse(qr.trim()).ok()?;
+    if !is_allowed_url(&url) {
+        return None;
+    }
+    rewrite_sp_qrcode_url(&mut url);
+    Some(url)
+}
+
+/// Sends SP's legacy `/qrcode?p=…` URLs straight to their redirect target.
+///
+/// The legacy endpoint sits behind a stricter WAF rule that always resets
+/// non-browser clients, while the consultation page it redirects to is the same
+/// page and is reachable (probabilistically) by this client; the retry loop
+/// absorbs the remaining resets.
+fn rewrite_sp_qrcode_url(url: &mut Url) {
+    let is_sp_portal = url.host_str().is_some_and(|host| {
+        host == "www.nfce.fazenda.sp.gov.br" || host == "nfce.fazenda.sp.gov.br"
+    });
+    if is_sp_portal && url.path() == "/qrcode" {
+        url.set_path("/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx");
+    }
 }
 
 /// Fetches and parses the public DANFE page for a validated consultation URL.
+///
+/// The portal's edge rejects requests at random (connection resets and F5
+/// "Request Rejected" pages), so transient failures are retried with a short
+/// backoff before giving up. The first parseable page wins.
 pub async fn fetch_danfe(url: &Url) -> Result<DanfeDetails> {
+    let mut last_error = None;
+
+    for attempt in 0..PORTAL_ATTEMPTS {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_millis(PORTAL_RETRY_DELAYS_MS[attempt - 1])).await;
+        }
+
+        match fetch_danfe_once(url).await {
+            Ok(details) => return Ok(details),
+            Err(error) if !is_retryable(&error) => return Err(error),
+            Err(error) => {
+                debug!(
+                    attempt = attempt + 1,
+                    attempts = PORTAL_ATTEMPTS,
+                    error = ?error,
+                    "NFC-e portal attempt failed"
+                );
+                last_error = Some(error);
+            }
+        }
+    }
+
+    Err(last_error
+        .expect("at least one attempt runs")
+        .context(format!(
+            "NFC-e portal request failed after {PORTAL_ATTEMPTS} attempts"
+        )))
+}
+
+/// Performs one portal request; see [`fetch_danfe`] for the retry policy.
+async fn fetch_danfe_once(url: &Url) -> Result<DanfeDetails> {
     let client = PORTAL_CLIENT
         .as_ref()
         .map_err(|error| anyhow!("could not build NFC-e portal client: {error}"))?;
@@ -159,7 +244,12 @@ pub async fn fetch_danfe(url: &Url) -> Result<DanfeDetails> {
         body.extend_from_slice(&chunk);
     }
 
-    let details = parse_danfe_html(&String::from_utf8_lossy(&body));
+    let page = String::from_utf8_lossy(&body);
+    if is_waf_rejection(&page) {
+        return Err(anyhow!("NFC-e portal rejected the request"));
+    }
+
+    let details = parse_danfe_html(&page);
     if details.store_name.is_none()
         && details.cnpj.is_none()
         && details.date.is_none()
@@ -173,6 +263,60 @@ pub async fn fetch_danfe(url: &Url) -> Result<DanfeDetails> {
     }
 
     Ok(details)
+}
+
+/// True when the failure may succeed on another attempt.
+fn is_retryable(error: &anyhow::Error) -> bool {
+    !error
+        .chain()
+        .any(|cause| cause.to_string().contains("too large"))
+}
+
+/// True when the page is the F5 ASM rejection page rather than a DANFE.
+fn is_waf_rejection(page: &str) -> bool {
+    let lower = page.to_ascii_lowercase();
+    lower.contains("request rejected") || lower.contains("requested url was rejected")
+}
+
+/// Classifies why the portal did not provide details, for `details_error`.
+///
+/// `blocked` covers the WAF refusing or resetting a request (its usual
+/// behaviour), so the client should tell the user to try again; `timeout` means
+/// the portal did not answer in time; `unavailable` covers everything else.
+pub fn classify_portal_error(error: &anyhow::Error) -> &'static str {
+    let mut blocked = false;
+    let mut timed_out = false;
+
+    for cause in error.chain() {
+        let message = cause.to_string();
+        if message.contains("too large") {
+            return "too_large";
+        }
+        if message.contains("rejected") {
+            blocked = true;
+        }
+        if let Some(reqwest_error) = cause.downcast_ref::<reqwest::Error>() {
+            if reqwest_error.is_timeout() {
+                timed_out = true;
+            } else if let Some(status) = reqwest_error.status() {
+                if status.as_u16() == 403 || status.as_u16() == 429 {
+                    blocked = true;
+                }
+            } else {
+                // Resets, closed connections and other transport failures: the
+                // WAF drops individual requests this way, so retrying is right.
+                blocked = true;
+            }
+        }
+    }
+
+    if blocked {
+        "blocked"
+    } else if timed_out {
+        "timeout"
+    } else {
+        "unavailable"
+    }
 }
 
 /// Parses the relevant fields from a public NFC-e DANFE HTML document.
@@ -284,13 +428,17 @@ fn text_content(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{consultation_url, parse_danfe_html};
+    use super::{
+        classify_portal_error, consultation_url, is_retryable, is_waf_rejection, parse_danfe_html,
+    };
     use rust_decimal::Decimal;
 
     const QR_URL: &str =
         "https://www.nfce.fazenda.sp.gov.br/qrcode?p=35260901735029000265650010000183261099751411%7C3%7C1";
     /// QR code v2 URL, whose compact consultation page only lists `Valor a pagar`.
     const QR_V2_URL: &str = "https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx?p=35260903476811107037650060001319331000397737%7C2%7C1%7C1%7C892bff8ee46ee9d3ce7635855e48c83c8473a5aa";
+    /// QR URL from the report whose scan returned no items intermittently.
+    const QR_REPORTED_URL: &str = "https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx?p=35261106057223049855650120000454761121917631%7C3%7C1";
 
     #[test]
     fn accepts_public_https_gov_br_consultation_url() {
@@ -298,6 +446,20 @@ mod tests {
 
         assert_eq!(url.scheme(), "https");
         assert_eq!(url.host_str(), Some("www.nfce.fazenda.sp.gov.br"));
+    }
+
+    #[test]
+    fn rewrites_the_legacy_sp_qrcode_url_to_the_consultation_page() {
+        let url = consultation_url(QR_URL).expect("valid consultation URL");
+
+        assert_eq!(
+            url.path(),
+            "/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx"
+        );
+        assert_eq!(
+            url.query(),
+            Some("p=35260901735029000265650010000183261099751411%7C3%7C1")
+        );
     }
 
     #[test]
@@ -419,6 +581,76 @@ mod tests {
         assert_eq!(parsed, Default::default());
     }
 
+    #[test]
+    fn recognizes_the_f5_request_rejected_page() {
+        let page = r#"<html><head><title>Request Rejected</title></head>
+            <body>The requested URL was rejected. Please consult with your
+            administrator.<br><br>Your support ID is: 1234567890</body></html>"#;
+
+        assert!(is_waf_rejection(page));
+        assert!(!is_waf_rejection(
+            "<html><div id=\"u20\">MERCADO EXEMPLO LTDA</div></html>"
+        ));
+    }
+
+    #[test]
+    fn retries_transient_failures_but_not_oversized_pages() {
+        assert!(is_retryable(&anyhow::anyhow!(
+            "NFC-e portal rejected the request"
+        )));
+        assert!(is_retryable(&anyhow::anyhow!(
+            "NFC-e portal request failed"
+        )));
+        assert!(!is_retryable(&anyhow::anyhow!(
+            "NFC-e portal page is too large"
+        )));
+    }
+
+    #[tokio::test]
+    async fn classifies_a_dropped_connection_as_blocked() {
+        use reqwest::Url;
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind test listener");
+        let address = listener.local_addr().expect("listener address");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept test connection");
+            // Promise a longer body, then drop the connection mid-response: the
+            // portal's WAF does the same when it resets a request.
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 64\r\n\r\npartial")
+                .await;
+            drop(stream);
+        });
+
+        let url = Url::parse(&format!("http://{address}/")).expect("valid test URL");
+        let error = super::fetch_danfe_once(&url)
+            .await
+            .expect_err("the dropped connection must fail");
+
+        assert_eq!(classify_portal_error(&error), "blocked");
+    }
+
+    #[test]
+    fn classifies_terminal_portal_failures_for_the_scan_response() {
+        assert_eq!(
+            classify_portal_error(&anyhow::anyhow!("NFC-e portal rejected the request")),
+            "blocked"
+        );
+        assert_eq!(
+            classify_portal_error(&anyhow::anyhow!("NFC-e portal page is too large")),
+            "too_large"
+        );
+        assert_eq!(
+            classify_portal_error(&anyhow::anyhow!(
+                "NFC-e portal page contained no recognized DANFE details"
+            )),
+            "unavailable"
+        );
+    }
+
     #[tokio::test]
     #[ignore = "requires the live NFC-e portal; run with NFCE_LIVE=1"]
     async fn parses_the_live_sp_portal_page() {
@@ -460,5 +692,26 @@ mod tests {
         assert_eq!(parsed.date.as_deref(), Some("2026-09-25"));
         assert_eq!(parsed.total, Some(Decimal::new(7263, 2)));
         assert_eq!(parsed.items.len(), 9);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires the live NFC-e portal; run with NFCE_LIVE=1"]
+    async fn parses_the_reported_sp_portal_page_through_the_retry_loop() {
+        if std::env::var("NFCE_LIVE").ok().as_deref() != Some("1") {
+            return;
+        }
+
+        let url = consultation_url(QR_REPORTED_URL).expect("valid consultation URL");
+        let parsed = super::fetch_danfe(&url).await.expect("portal response");
+
+        assert_eq!(
+            parsed.store_name.as_deref(),
+            Some("SENDAS DISTRIBUIDORA S/A")
+        );
+        assert_eq!(parsed.cnpj.as_deref(), Some("06.057.223/0498-55"));
+        assert_eq!(parsed.date.as_deref(), Some("2026-11-14"));
+        assert_eq!(parsed.total, Some(Decimal::new(119337, 2)));
+        assert_eq!(parsed.discount, Some(Decimal::new(3020, 2)));
+        assert_eq!(parsed.items.len(), 86);
     }
 }
